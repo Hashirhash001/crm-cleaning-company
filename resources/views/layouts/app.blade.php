@@ -82,12 +82,13 @@
         <div class="startbar-menu">
             <div class="startbar-collapse" id="startbarCollapse" data-simplebar>
                 <div class="d-flex align-items-start flex-column w-100">
-                    <!-- Update the navigation section -->
+                    <!-- Navigation -->
                     <ul class="navbar-nav mb-auto w-100">
                         <li class="menu-label mt-2">
                             <span>Main</span>
                         </li>
 
+                        <!-- Dashboard - All Users -->
                         <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
                                 <i class="iconoir-home menu-icon"></i>
@@ -96,62 +97,144 @@
                         </li>
 
                         @if(auth()->user()->role === 'super_admin')
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
-                                <i class="iconoir-group menu-icon"></i>
-                                <span>Users</span>
-                            </a>
-                        </li><!--end nav-item-->
+                            <!-- Super Admin Menu -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
+                                    <i class="iconoir-group menu-icon"></i>
+                                    <span>Users</span>
+                                </a>
+                            </li>
 
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}">
-                                <i class="iconoir-send menu-icon"></i>
-                                <span>Leads
-                                    @php
-                                        $pendingCount = \App\Models\Lead::where('status', 'pending')->count();
-                                    @endphp
-                                    @if($pendingCount > 0)
-                                        <span class="badge bg-danger ms-2">{{ $pendingCount }}</span>
-                                    @endif
-                                </span>
-                            </a>
-                        </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}">
+                                    <i class="iconoir-send menu-icon"></i>
+                                    <span>Leads
+                                        @php
+                                            $pendingCount = \App\Models\Lead::where('status', 'pending')->count();
+                                        @endphp
+                                        @if($pendingCount > 0)
+                                            <span class="badge bg-danger ms-2">{{ $pendingCount }}</span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
 
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
-                                <i class="iconoir-user menu-icon"></i>
-                                <span>Customers</span>
-                            </a>
-                        </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
+                                    <i class="iconoir-user menu-icon"></i>
+                                    <span>Customers</span>
+                                </a>
+                            </li>
 
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
-                                <i class="iconoir-task-list menu-icon"></i>
-                                <span>Jobs</span>
-                            </a>
-                        </li>
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
+                                    <i class="iconoir-task-list menu-icon"></i>
+                                    <span>Jobs</span>
+                                </a>
+                            </li>
+
+                            <li class="menu-label mt-3">
+                                <span>Settings</span>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+                                    <i class="iconoir-settings menu-icon"></i>
+                                    <span>Settings</span>
+                                </a>
+                            </li>
 
                         @elseif(auth()->user()->role === 'lead_manager')
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}">
-                                <i class="iconoir-send menu-icon"></i>
-                                <span>Leads</span>
-                            </a>
-                        </li>
+                            <!-- Lead Manager Menu -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}">
+                                    <i class="iconoir-send menu-icon"></i>
+                                    <span>My Leads
+                                        @php
+                                            $myLeadsCount = \App\Models\Lead::where('created_by', auth()->id())
+                                                ->where('status', 'pending')
+                                                ->count();
+                                        @endphp
+                                        @if($myLeadsCount > 0)
+                                            <span class="badge bg-warning ms-2">{{ $myLeadsCount }}</span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
+                                    <i class="iconoir-user menu-icon"></i>
+                                    <span>Customers</span>
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
+                                    <i class="iconoir-task-list menu-icon"></i>
+                                    <span>Jobs</span>
+                                </a>
+                            </li>
+
+                        @elseif(auth()->user()->role === 'telecallers')
+                            <!-- Telecaller Menu -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}">
+                                    <i class="iconoir-send menu-icon"></i>
+                                    <span>My Leads
+                                        @php
+                                            $assignedLeadsCount = \App\Models\Lead::where('assigned_to', auth()->id())
+                                                ->where('status', 'pending')
+                                                ->count();
+                                            $todayFollowups = \App\Models\LeadFollowup::where('assigned_to', auth()->id())
+                                                ->where('status', 'pending')
+                                                ->whereDate('followup_date', today())
+                                                ->count();
+                                        @endphp
+                                        @if($assignedLeadsCount > 0 || $todayFollowups > 0)
+                                            <span class="badge bg-info ms-2">
+                                                {{ $assignedLeadsCount }}
+                                                @if($todayFollowups > 0)
+                                                    <i class="las la-bell" title="{{ $todayFollowups }} followups today"></i>
+                                                @endif
+                                            </span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
 
                         @elseif(auth()->user()->role === 'field_staff')
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
-                                <i class="iconoir-task-list menu-icon"></i>
-                                <span>My Jobs</span>
-                            </a>
-                        </li>
+                            <!-- Field Staff Menu -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
+                                    <i class="iconoir-task-list menu-icon"></i>
+                                    <span>My Jobs
+                                        @php
+                                            $myJobsCount = \App\Models\Job::where('assigned_to', auth()->id())
+                                                ->where('status', 'pending')
+                                                ->count();
+                                        @endphp
+                                        @if($myJobsCount > 0)
+                                            <span class="badge bg-primary ms-2">{{ $myJobsCount }}</span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('customers.*') ? 'active' : '' }}" href="{{ route('customers.index') }}">
+                                    <i class="iconoir-user menu-icon"></i>
+                                    <span>Customers</span>
+                                </a>
+                            </li>
                         @endif
+
                     </ul>
 
                 </div>
             </div><!--end startbar-collapse-->
         </div><!--end startbar-menu-->
+
     </div><!--end startbar-->
     <div class="startbar-overlay d-print-none"></div>
     <!-- Sidebar End -->

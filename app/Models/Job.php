@@ -19,6 +19,7 @@ class Job extends Model
         'created_by',
         'title',
         'description',
+        'amount',
         'customer_instructions',
         'status',
         'assigned_at',

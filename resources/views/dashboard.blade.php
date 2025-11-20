@@ -12,21 +12,16 @@
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     }
 
-    /* Custom Toast Styling */
-    .toast {
-        min-width: 300px;
+    .followup-card {
+        border-left: 4px solid #007bff;
     }
 
-    .toast-success {
-        border-left: 4px solid #28a745;
+    .followup-card.overdue {
+        border-left-color: #dc3545;
     }
 
-    .toast-error {
-        border-left: 4px solid #dc3545;
-    }
-
-    .toast-info {
-        border-left: 4px solid #17a2b8;
+    .followup-card.today {
+        border-left-color: #ffc107;
     }
 </style>
 @endsection
@@ -76,9 +71,248 @@
 </div>
 @endif
 
+<!-- Budget Overview - For Super Admin and Lead Managers -->
+@if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="las la-money-bill-wave"></i> Today's Budget Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <p class="text-muted mb-1">Daily Limit</p>
+                            <h4 class="text-primary">₹{{ number_format($dailyBudget, 2) }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <p class="text-muted mb-1">Used Today</p>
+                            <h4 class="text-danger">₹{{ number_format($todayTotal, 2) }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <p class="text-muted mb-1">Remaining</p>
+                            <h4 class="text-success">₹{{ number_format($remaining, 2) }}</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <p class="text-muted mb-1">Usage</p>
+                            <h4 class="{{ $percentage > 90 ? 'text-danger' : ($percentage > 70 ? 'text-warning' : 'text-success') }}">
+                                {{ number_format($percentage, 1) }}%
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="progress mt-3" style="height: 25px;">
+                    <div class="progress-bar {{ $percentage > 90 ? 'bg-danger' : ($percentage > 70 ? 'bg-warning' : 'bg-success') }}"
+                         role="progressbar"
+                         style="width: {{ min($percentage, 100) }}%"
+                         aria-valuenow="{{ $percentage }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                        {{ number_format($percentage, 1) }}%
+                    </div>
+                </div>
+                @if($percentage > 90)
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <i class="las la-exclamation-triangle"></i>
+                        <strong>Warning!</strong> Daily budget is almost exhausted!
+                    </div>
+                @elseif($percentage > 70)
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="las la-info-circle"></i>
+                        Budget usage is high. Monitor approvals carefully.
+                    </div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+<!-- Followup Overview Cards -->
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card stats-card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-white-50">Overdue Followups</h6>
+                        <h2 class="fw-bold">{{ $followupData['overdue'] }}</h2>
+                    </div>
+                    <div class="avatar-md bg-white-subtle rounded">
+                        <i class="las la-exclamation-circle fs-24 text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-dark-50">Today's Followups</h6>
+                        <h2 class="fw-bold">{{ $followupData['today'] }}</h2>
+                    </div>
+                    <div class="avatar-md bg-white-subtle rounded">
+                        <i class="las la-calendar-day fs-24 text-dark"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-white-50">This Week</h6>
+                        <h2 class="fw-bold">{{ $followupData['thisWeek'] }}</h2>
+                    </div>
+                    <div class="avatar-md bg-white-subtle rounded">
+                        <i class="las la-calendar-week fs-24 text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card stats-card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-white-50">This Month</h6>
+                        <h2 class="fw-bold">{{ $followupData['thisMonth'] }}</h2>
+                    </div>
+                    <div class="avatar-md bg-white-subtle rounded">
+                        <i class="las la-calendar-alt fs-24 text-white"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overdue Followups -->
+@if($followupData['overdueFollowups']->count() > 0)
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="card-title mb-0 text-white">
+                    <i class="las la-exclamation-triangle"></i> Overdue Followups
+                </h5>
+            </div>
+            <div class="card-body">
+                @foreach($followupData['overdueFollowups'] as $followup)
+                <div class="followup-card overdue card mb-2">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <h6 class="mb-1">
+                                    <a href="{{ route('leads.show', $followup->lead_id) }}" class="text-decoration-none">
+                                        {{ $followup->lead->name }}
+                                    </a>
+                                    <span class="badge bg-danger ms-2">{{ $followup->priority }}</span>
+                                </h6>
+                                <small class="text-muted">{{ $followup->lead->lead_code }} | {{ $followup->lead->phone }}</small>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Scheduled:</small>
+                                <strong class="text-danger">
+                                    {{ $followup->followup_date->format('d M Y') }}
+                                    @if($followup->followup_time)
+                                        {{ \Carbon\Carbon::parse($followup->followup_time)->format('h:i A') }}
+                                    @endif
+                                </strong>
+                            </div>
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Assigned To:</small>
+                                <strong>{{ $followup->assignedToUser->name }}</strong>
+                            </div>
+                        </div>
+                        @if($followup->notes)
+                        <div class="mt-2">
+                            <small class="text-muted">{{ $followup->notes }}</small>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+<!-- This Week's Followups -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="las la-calendar-week"></i> This Week's Followups</h5>
+            </div>
+            <div class="card-body">
+                @if($followupData['weeklyFollowups']->count() > 0)
+                    @foreach($followupData['weeklyFollowups'] as $followup)
+                    <div class="followup-card {{ $followup->followup_date->isToday() ? 'today' : '' }} card mb-2">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h6 class="mb-1">
+                                        <a href="{{ route('leads.show', $followup->lead_id) }}" class="text-decoration-none">
+                                            {{ $followup->lead->name }}
+                                        </a>
+                                        <span class="badge bg-{{ $followup->priority === 'high' ? 'danger' : ($followup->priority === 'medium' ? 'warning' : 'info') }} ms-2">
+                                            {{ $followup->priority }}
+                                        </span>
+                                    </h6>
+                                    <small class="text-muted">{{ $followup->lead->lead_code }} | {{ $followup->lead->phone }}</small>
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted d-block">Scheduled:</small>
+                                    <strong>
+                                        {{ $followup->followup_date->format('d M Y') }}
+                                        @if($followup->followup_time)
+                                            {{ \Carbon\Carbon::parse($followup->followup_time)->format('h:i A') }}
+                                        @endif
+                                    </strong>
+                                    @if($followup->followup_date->isToday())
+                                        <span class="badge bg-warning ms-2">Today</span>
+                                    @endif
+                                </div>
+                                <div class="col-md-3">
+                                    <small class="text-muted d-block">Assigned To:</small>
+                                    <strong>{{ $followup->assignedToUser->name }}</strong>
+                                </div>
+                            </div>
+                            @if($followup->notes)
+                            <div class="mt-2">
+                                <small class="text-muted">{{ $followup->notes }}</small>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endforeach
+                @else
+                    <p class="text-muted text-center py-3">No followups scheduled for this week</p>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Dashboard Stats Cards -->
 <div class="row">
-    <!-- Total Users - Super Admin Only -->
     @if(auth()->user()->role === 'super_admin')
     <div class="col-md-3">
         <div class="card stats-card">
@@ -96,7 +330,6 @@
         </div>
     </div>
 
-    <!-- Active Users - Super Admin Only -->
     <div class="col-md-3">
         <div class="card stats-card">
             <div class="card-body">
@@ -113,7 +346,6 @@
         </div>
     </div>
 
-    <!-- Your Role - All Users -->
     <div class="col-md-3">
         <div class="card stats-card">
             <div class="card-body">
@@ -130,30 +362,13 @@
         </div>
     </div>
 
-    <!-- Selected Branch - All Users -->
     <div class="col-md-3">
         <div class="card stats-card">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <h6 class="text-muted fw-normal">
-                            @if(auth()->user()->role === 'super_admin')
-                                Selected Branch
-                            @else
-                                Your Branch
-                            @endif
-                        </h6>
-                        <h5 class="fw-bold" id="branchName">
-                            @if(auth()->user()->role === 'super_admin')
-                                @if(request('branch_id'))
-                                    {{ $selectedBranchName ?? 'All Branches' }}
-                                @else
-                                    All Branches
-                                @endif
-                            @else
-                                {{ auth()->user()->branch->name ?? 'N/A' }}
-                            @endif
-                        </h5>
+                        <h6 class="text-muted fw-normal">Selected Branch</h6>
+                        <h5 class="fw-bold" id="branchName">{{ $selectedBranchName }}</h5>
                     </div>
                     <div class="avatar-md bg-warning-subtle rounded">
                         <i class="fas fa-building fs-24 text-warning"></i>
@@ -163,7 +378,6 @@
         </div>
     </div>
     @else
-    <!-- For Non-Super Admin Users - Show only 2 cards in full width -->
     <div class="col-md-6">
         <div class="card stats-card">
             <div class="card-body">
@@ -217,25 +431,19 @@
                                 <th>Super Admins</th>
                                 <th>Lead Managers</th>
                                 <th>Field Staff</th>
-                                <th>Reporting Users</th>
+                                <th>Telecallers</th>
                             </tr>
                         </thead>
                         <tbody id="branchStatsTable">
                             @forelse($branchStatistics as $stat)
                                 <tr class="branch-row" data-branch-id="{{ $stat['branch_id'] }}">
-                                    <td>
-                                        <h6 class="m-0">{{ $stat['branch_name'] }}</h6>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-primary">{{ $stat['total_users'] }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-success">{{ $stat['active_users'] }}</span>
-                                    </td>
+                                    <td><h6 class="m-0">{{ $stat['branch_name'] }}</h6></td>
+                                    <td><span class="badge bg-primary">{{ $stat['total_users'] }}</span></td>
+                                    <td><span class="badge bg-success">{{ $stat['active_users'] }}</span></td>
                                     <td>{{ $stat['super_admin_count'] }}</td>
                                     <td>{{ $stat['lead_manager_count'] }}</td>
                                     <td>{{ $stat['field_staff_count'] }}</td>
-                                    <td>{{ $stat['reporting_user_count'] }}</td>
+                                    <td>{{ $stat['telecallers_count'] }}</td>
                                 </tr>
                             @empty
                                 <tr>
@@ -252,19 +460,6 @@
     </div>
 </div>
 @endif
-
-<!-- Toast Container -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 9999;">
-    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body">
-                <i class="fas fa-check-circle me-2"></i>
-                <span id="toastMessage"></span>
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    </div>
-</div>
 @endsection
 
 @section('extra-scripts')
@@ -272,35 +467,19 @@
 
 <script>
     $(document).ready(function() {
-        // Check for success message and show toast
         @if(session('success'))
-            showToast('{{ session('success') }}');
+            alert('{{ session('success') }}');
         @endif
 
-        // Function to show toast
-        function showToast(message) {
-            $('#toastMessage').text(message);
-            var toastElement = document.getElementById('successToast');
-            var toast = new bootstrap.Toast(toastElement, {
-                autohide: true,
-                delay: 3000
-            });
-            toast.show();
-        }
-
-        // Branch Filter Change
         $('#branchFilter').change(function() {
             let branchId = $(this).val();
             let url = '{{ route("dashboard") }}';
-
             if (branchId) {
                 url += '?branch_id=' + branchId;
             }
-
             window.location.href = url;
         });
 
-        // Reset Filter
         $('#resetFilter').click(function() {
             window.location.href = '{{ route("dashboard") }}';
         });

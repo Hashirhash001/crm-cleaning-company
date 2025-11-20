@@ -7,11 +7,13 @@ use App\Models\Lead;
 use App\Models\User;
 use App\Models\Branch;
 use App\Models\Service;
+use App\Models\Setting;
 use App\Models\Customer;
 use App\Models\LeadCall;
 use App\Models\LeadNote;
 use App\Models\LeadSource;
 use App\Models\LeadApproval;
+use App\Models\LeadFollowup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,14 +29,24 @@ class LeadController extends Controller
     {
         $user = auth()->user();
 
-        $query = Lead::with(['branch', 'service', 'source', 'createdBy']);
+        $query = Lead::with(['branch', 'service', 'source', 'createdBy', 'assignedTo']);
+
+        $telecallers = User::where('role', 'telecallers')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
 
         // Role-based access
         if ($user->role === 'super_admin') {
             // Super admin sees all leads
             $pending_count = Lead::where('status', 'pending')->count();
         } elseif ($user->role === 'lead_manager') {
+            // Lead manager sees their created leads
             $query->where('created_by', $user->id);
+            $pending_count = 0;
+        } elseif ($user->role === 'telecallers') {
+            // Telecallers see only their assigned leads
+            $query->where('assigned_to', $user->id);
             $pending_count = 0;
         } else {
             abort(403, 'Unauthorized');
@@ -49,8 +61,8 @@ class LeadController extends Controller
             $query->where('branch_id', $request->branch_id);
         }
 
-        if ($request->filled('lead_source_id')) {
-            $query->where('lead_source_id', $request->lead_source_id);
+        if ($request->filled('source_id')) {
+            $query->where('lead_source_id', $request->source_id);
         }
 
         if ($request->filled('date_from')) {
@@ -59,6 +71,14 @@ class LeadController extends Controller
 
         if ($request->filled('date_to')) {
             $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        if ($request->filled('assigned_to')) {
+            if ($request->assigned_to === 'unassigned') {
+                $query->whereNull('assigned_to');
+            } else {
+                $query->where('assigned_to', $request->assigned_to);
+            }
         }
 
         if ($request->filled('search')) {
@@ -75,9 +95,9 @@ class LeadController extends Controller
         $leads = $query->orderBy('created_at', 'desc')->paginate(15);
 
         $pending_count = Lead::where('status', 'pending')->count();
-        $branches = \App\Models\Branch::all();
-        $services = \App\Models\Service::all();
-        $lead_sources = \App\Models\LeadSource::all();
+        $branches = Branch::where('is_active', true)->get();
+        $services = Service::where('is_active', true)->get();
+        $lead_sources = LeadSource::where('is_active', true)->get();
 
         // Return JSON for AJAX requests
         if ($request->ajax()) {
@@ -88,7 +108,7 @@ class LeadController extends Controller
             ]);
         }
 
-        return view('leads.index', compact('leads', 'pending_count', 'branches', 'services', 'lead_sources'));
+        return view('leads.index', compact('leads', 'pending_count', 'branches', 'services', 'lead_sources', 'telecallers'));
     }
 
     public function store(Request $request)
@@ -103,30 +123,19 @@ class LeadController extends Controller
                 ], 403);
             }
 
-            // Validate with proper error messages
+            // Validate
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:leads,email',
                 'phone' => 'required|string|max:20|unique:leads,phone',
                 'service_id' => 'required|exists:services,id',
                 'lead_source_id' => 'required|exists:lead_sources,id',
+                'assigned_to' => 'nullable|exists:users,id',
+                'amount' => 'nullable|numeric|min:0',  // Add this - nullable
                 'branch_id' => $user->role === 'super_admin'
                     ? 'required|exists:branches,id'
                     : 'nullable',
                 'description' => 'nullable|string',
-            ], [
-                'email.unique' => 'This email address is already registered as a lead.',
-                'email.required' => 'Email is required.',
-                'email.email' => 'Please enter a valid email address.',
-                'name.required' => 'Lead name is required.',
-                'name.max' => 'Lead name must not exceed 255 characters.',
-                'phone.required' => 'Phone number is required.',
-                'phone.unique' => 'This phone number is already registered as a lead.',
-                'phone.max' => 'Phone number must not exceed 20 characters.',
-                'lead_source_id.required' => 'Please select a lead source.',
-                'lead_source_id.exists' => 'Selected lead source does not exist.',
-                'branch_id.required' => 'Please select a branch.',
-                'branch_id.exists' => 'Selected branch does not exist.',
             ]);
 
             $branchId = $user->role === 'super_admin'
@@ -136,16 +145,7 @@ class LeadController extends Controller
             if (!$branchId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error: Branch not found for your account. Please contact administrator.'
-                ], 422);
-            }
-
-            // Check if branch exists
-            $branch = Branch::find($branchId);
-            if (!$branch) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Selected branch does not exist.'
+                    'message' => 'Error: Branch not found for your account.'
                 ], 422);
             }
 
@@ -155,6 +155,10 @@ class LeadController extends Controller
                 'phone' => $validated['phone'],
                 'service_id' => $validated['service_id'],
                 'lead_source_id' => $validated['lead_source_id'],
+                'assigned_to' => $validated['assigned_to'] ?? null,
+                'amount' => $validated['amount'] ?? null,  // Add this
+                'amount_updated_at' => $validated['amount'] ? now() : null,  // Add this
+                'amount_updated_by' => $validated['amount'] ? $user->id : null,  // Add this
                 'branch_id' => $branchId,
                 'description' => $validated['description'] ?? null,
                 'created_by' => $user->id,
@@ -164,8 +168,7 @@ class LeadController extends Controller
             Log::info('Lead created successfully', [
                 'lead_id' => $lead->id,
                 'created_by' => $user->id,
-                'name' => $lead->name,
-                'email' => $lead->email
+                'amount' => $lead->amount
             ]);
 
             return response()->json([
@@ -173,19 +176,8 @@ class LeadController extends Controller
                 'message' => 'Lead created successfully! Pending approval from admin.'
             ], 201);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $e->errors()
-            ], 422);
         } catch (\Exception $e) {
-            Log::error('Lead creation error: ' . $e->getMessage(), [
-                'exception' => $e,
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-
+            Log::error('Lead creation error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error creating lead: ' . $e->getMessage()
@@ -195,11 +187,24 @@ class LeadController extends Controller
 
     public function show(Lead $lead)
     {
+        $user = auth()->user();
+
+        // Authorization check
+        if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
+            abort(403, 'You can only view leads assigned to you.');
+        }
+
+        if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
+            abort(403, 'You can only view your own leads.');
+        }
+
         $lead->load([
             'branch',
             'source',
             'service',
             'createdBy',
+            'assignedTo',
+            'amountUpdatedBy',
             'calls.user',
             'notes.createdBy',
             'customer',
@@ -218,29 +223,108 @@ class LeadController extends Controller
                 'duration' => 'nullable|integer|min:0',
                 'outcome' => 'required|in:interested,not_interested,callback,no_answer,wrong_number',
                 'notes' => 'nullable|string',
+                // Followup fields
+                'followup_date' => 'nullable|required_if:outcome,callback,interested|date|after_or_equal:today',
+                'followup_time' => 'nullable|date_format:H:i',
+                'followup_priority' => 'nullable|in:low,medium,high',
+                'followup_notes' => 'nullable|string',
             ]);
 
-            $call = LeadCall::create([
-                'lead_id' => $lead->id,
-                'user_id' => auth()->id(),
-                'call_date' => $validated['call_date'],
-                'duration' => $validated['duration'] ?? null,
-                'outcome' => $validated['outcome'],
-                'notes' => $validated['notes'] ?? null,
-            ]);
+            DB::beginTransaction();
 
-            Log::info('Call logged for lead', ['lead_id' => $lead->id, 'call_id' => $call->id]);
+            try {
+                // Create call log
+                $call = LeadCall::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => auth()->id(),
+                    'call_date' => $validated['call_date'],
+                    'duration' => $validated['duration'] ?? null,
+                    'outcome' => $validated['outcome'],
+                    'notes' => $validated['notes'] ?? null,
+                ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Call logged successfully!'
-            ]);
+                $followupCreated = false;
+
+                // Create followup if outcome is callback or interested
+                if (in_array($validated['outcome'], ['callback', 'interested']) && $request->filled('followup_date')) {
+                    LeadFollowup::create([
+                        'lead_id' => $lead->id,
+                        'assigned_to' => $lead->assigned_to ?? auth()->id(),
+                        'followup_date' => $validated['followup_date'],
+                        'followup_time' => $validated['followup_time'] ?? null,
+                        'priority' => $validated['followup_priority'] ?? 'medium',
+                        'status' => 'pending',
+                        'notes' => $validated['followup_notes'] ?? 'Followup from call: ' . ($validated['notes'] ?? ''),
+                        'created_by' => auth()->id(),
+                    ]);
+
+                    $followupCreated = true;
+                }
+
+                DB::commit();
+
+                Log::info('Call logged for lead', [
+                    'lead_id' => $lead->id,
+                    'call_id' => $call->id,
+                    'followup_created' => $followupCreated
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Call logged successfully!',
+                    'followup_created' => $followupCreated
+                ]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
 
         } catch (\Exception $e) {
             Log::error('Add call error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error logging call'
+                'message' => 'Error logging call: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function addFollowup(Request $request, Lead $lead)
+    {
+        try {
+            $validated = $request->validate([
+                'followup_date' => 'required|date|after_or_equal:today',
+                'followup_time' => 'nullable|date_format:H:i',
+                'priority' => 'required|in:low,medium,high',
+                'notes' => 'nullable|string',
+            ]);
+
+            $followup = LeadFollowup::create([
+                'lead_id' => $lead->id,
+                'assigned_to' => $lead->assigned_to ?? auth()->id(),
+                'followup_date' => $validated['followup_date'],
+                'followup_time' => $validated['followup_time'] ?? null,
+                'priority' => $validated['priority'],
+                'status' => 'pending',
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => auth()->id(),
+            ]);
+
+            Log::info('Followup scheduled for lead', [
+                'lead_id' => $lead->id,
+                'followup_id' => $followup->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup scheduled successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Add followup error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error scheduling followup'
             ], 500);
         }
     }
@@ -279,13 +363,15 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
+            // Allow super_admin, lead_manager, and telecallers
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
                 ], 403);
             }
 
+            // Only pending leads can be edited
             if ($lead->status !== 'pending') {
                 return response()->json([
                     'success' => false,
@@ -293,10 +379,19 @@ class LeadController extends Controller
                 ], 403);
             }
 
+            // Role-specific authorization
             if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You can only edit your own leads'
+                ], 403);
+            }
+
+            // Telecallers can only edit their assigned leads
+            if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only edit leads assigned to you'
                 ], 403);
             }
 
@@ -314,18 +409,29 @@ class LeadController extends Controller
         }
     }
 
+
     public function update(Request $request, Lead $lead)
     {
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
+            // Check permissions - super_admin, lead_manager, and telecallers can edit
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
                 ], 403);
             }
 
+            // Telecallers can only edit their assigned leads
+            if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only edit your assigned leads'
+                ], 403);
+            }
+
+            // Only pending leads can be edited
             if ($lead->status !== 'pending') {
                 return response()->json([
                     'success' => false,
@@ -333,6 +439,7 @@ class LeadController extends Controller
                 ], 403);
             }
 
+            // Lead manager can only edit their own leads
             if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
                 return response()->json([
                     'success' => false,
@@ -343,36 +450,43 @@ class LeadController extends Controller
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:leads,email,' . $lead->id,
-                'phone' => 'required|string|max:20',
+                'phone' => 'required|string|max:20|unique:leads,phone,' . $lead->id,
+                'service_id' => 'required|exists:services,id',
                 'lead_source_id' => 'required|exists:lead_sources,id',
+                'assigned_to' => 'nullable|exists:users,id',
+                'amount' => 'nullable|numeric|min:0',  // Add this
                 'branch_id' => $user->role === 'super_admin'
                     ? 'required|exists:branches,id'
                     : 'nullable',
                 'description' => 'nullable|string',
-            ], [
-                'email.unique' => 'This email address is already registered as a lead.',
-                'email.required' => 'Email is required.',
-                'email.email' => 'Please enter a valid email address.',
-                'name.required' => 'Lead name is required.',
-                'phone.required' => 'Phone number is required.',
-                'lead_source_id.required' => 'Please select a lead source.',
-                'branch_id.required' => 'Please select a branch.',
             ]);
 
             $branchId = $user->role === 'super_admin'
                 ? $validated['branch_id']
                 : $user->branch_id;
 
+            // Check if amount was changed
+            $amountChanged = isset($validated['amount']) && $validated['amount'] != $lead->amount;
+
             $lead->update([
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'phone' => $validated['phone'],
+                'service_id' => $validated['service_id'],
                 'lead_source_id' => $validated['lead_source_id'],
+                'assigned_to' => $validated['assigned_to'] ?? null,
+                'amount' => $validated['amount'] ?? null,
+                'amount_updated_at' => $amountChanged ? now() : $lead->amount_updated_at,
+                'amount_updated_by' => $amountChanged ? $user->id : $lead->amount_updated_by,
                 'branch_id' => $branchId,
                 'description' => $validated['description'] ?? null,
             ]);
 
-            Log::info('Lead updated', ['lead_id' => $lead->id]);
+            Log::info('Lead updated', [
+                'lead_id' => $lead->id,
+                'updated_by' => $user->id,
+                'amount_changed' => $amountChanged
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -436,11 +550,11 @@ class LeadController extends Controller
     public function approve(Request $request, Lead $lead)
     {
         try {
-            // Security check: Only super_admin can approve
-            if (auth()->user()->role !== 'super_admin') {
+            // Security check: Only super_admin and lead_manager can approve
+            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Only Super Admin can approve leads.'
+                    'message' => 'Unauthorized. Only Super Admin or Lead Manager can approve leads.'
                 ], 403);
             }
 
@@ -449,6 +563,31 @@ class LeadController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'This lead has already been processed'
+                ], 400);
+            }
+
+            // Check if amount is set
+            if (!$lead->amount || $lead->amount <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Lead amount must be set before approval. Please add the amount first.'
+                ], 400);
+            }
+
+            // Check daily budget limit
+            $budgetCheck = $this->checkDailyBudget($lead->amount);
+
+            if (!$budgetCheck['can_approve']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Daily budget limit exceeded!',
+                    'budget_info' => [
+                        'daily_limit' => '₹' . number_format($budgetCheck['daily_limit'], 2),
+                        'today_total' => '₹' . number_format($budgetCheck['today_total'], 2),
+                        'remaining' => '₹' . number_format($budgetCheck['remaining'], 2),
+                        'requested' => '₹' . number_format($budgetCheck['requested_amount'], 2),
+                        'excess' => '₹' . number_format($budgetCheck['requested_amount'] - $budgetCheck['remaining'], 2)
+                    ]
                 ], 400);
             }
 
@@ -471,7 +610,7 @@ class LeadController extends Controller
                     'is_active' => true,
                 ]);
 
-                // Generate UNIQUE job code - FIX FOR DUPLICATE ERROR
+                // Generate UNIQUE job code
                 $jobCode = $this->generateUniqueJobCode();
 
                 // Auto-create Job from approved lead
@@ -482,11 +621,14 @@ class LeadController extends Controller
                     'lead_id' => $lead->id,
                     'service_id' => $lead->service_id,
                     'branch_id' => $lead->branch_id,
-                    'assigned_to' => null,
+                    'assigned_to' => $lead->assigned_to,
+                    'amount' => $lead->amount,
                     'scheduled_date' => null,
                     'status' => 'pending',
                     'created_by' => auth()->id(),
-                    'notes' => 'Auto-created from approved lead: ' . $lead->lead_code . "\n" . ($validated['approval_notes'] ?? ''),
+                    'notes' => 'Auto-created from approved lead: ' . $lead->lead_code . "\n" .
+                            'Amount: ₹' . number_format($lead->amount, 2) . "\n" .
+                            ($validated['approval_notes'] ?? ''),
                 ]);
 
                 // Update Lead with approval details
@@ -509,11 +651,15 @@ class LeadController extends Controller
 
                 DB::commit();
 
-                Log::info('Lead approved, customer and job created', [
+                // Calculate new remaining budget
+                $newRemaining = $budgetCheck['remaining'] - $lead->amount;
+
+                Log::info('Lead approved with budget check', [
                     'lead_id' => $lead->id,
+                    'amount' => $lead->amount,
                     'customer_id' => $customer->id,
                     'job_id' => $job->id,
-                    'job_code' => $jobCode,
+                    'remaining_budget' => $newRemaining,
                     'approved_by' => auth()->id()
                 ]);
 
@@ -523,7 +669,9 @@ class LeadController extends Controller
                     'customer_id' => $customer->id,
                     'customer_code' => $customer->customer_code,
                     'job_id' => $job->id,
-                    'job_code' => $job->job_code
+                    'job_code' => $job->job_code,
+                    'amount' => '₹' . number_format($lead->amount, 2),
+                    'remaining_budget' => '₹' . number_format($newRemaining, 2)
                 ]);
 
             } catch (\Exception $e) {
@@ -734,4 +882,33 @@ class LeadController extends Controller
             return response()->json(['exists' => false], 500);
         }
     }
+
+    /**
+     * Get today's total approved amount
+     */
+    private function getTodayApprovedAmount()
+    {
+        return Lead::whereDate('approved_at', today())
+            ->where('status', 'approved')
+            ->sum('amount');
+    }
+
+    /**
+     * Check if amount exceeds daily budget
+     */
+    private function checkDailyBudget($amount)
+    {
+        $dailyLimit = Setting::get('daily_budget_limit', 100000);
+        $todayTotal = $this->getTodayApprovedAmount();
+        $remaining = $dailyLimit - $todayTotal;
+
+        return [
+            'can_approve' => $amount <= $remaining,
+            'daily_limit' => $dailyLimit,
+            'today_total' => $todayTotal,
+            'remaining' => $remaining,
+            'requested_amount' => $amount
+        ];
+    }
+
 }

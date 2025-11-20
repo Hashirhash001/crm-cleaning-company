@@ -53,8 +53,8 @@
                             <option value="">All Roles</option>
                             <option value="super_admin">Super Admin</option>
                             <option value="lead_manager">Lead Manager</option>
+                            <option value="telecallers">Telecaller</option>
                             <option value="field_staff">Field Staff</option>
-                            <option value="reporting_user">Reporting User</option>
                         </select>
                     </div>
 
@@ -176,8 +176,8 @@
                                 <option value="">Select Role</option>
                                 <option value="super_admin">Super Admin</option>
                                 <option value="lead_manager">Lead Manager</option>
+                                <option value="telecallers">Telecaller</option>
                                 <option value="field_staff">Field Staff</option>
-                                <option value="reporting_user">Reporting User</option>
                             </select>
                             <span class="text-danger error-text role_error"></span>
                         </div>

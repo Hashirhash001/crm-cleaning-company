@@ -12,6 +12,7 @@ class Lead extends Model
     protected $fillable = [
         'lead_code',
         'branch_id',
+        'assigned_to',
         'created_by',
         'lead_source_id',
         'service_id',
@@ -19,6 +20,9 @@ class Lead extends Model
         'email',
         'phone',
         'description',
+        'amount',
+        'amount_updated_at',
+        'amount_updated_by',
         'status',
         'approved_by',
         'approved_at',
@@ -28,6 +32,8 @@ class Lead extends Model
 
     protected $casts = [
         'approved_at' => 'datetime',
+        'amount' => 'decimal:2',
+        'amount_updated_at' => 'datetime',
     ];
 
     // Relationships
@@ -137,6 +143,26 @@ class Lead extends Model
     public function notes()
     {
         return $this->hasMany(LeadNote::class)->latest();
+    }
+
+    public function assignedTo()
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function amountUpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'amount_updated_by');
+    }
+
+    public function followups()
+    {
+        return $this->hasMany(LeadFollowup::class);
+    }
+
+    public function pendingFollowups()
+    {
+        return $this->hasMany(LeadFollowup::class)->where('status', 'pending');
     }
 
 }

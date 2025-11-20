@@ -63,7 +63,7 @@ class UserController extends Controller
             'password' => 'required|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'branch_id' => 'required|exists:branches,id',
-            'role' => 'required|in:super_admin,lead_manager,field_staff,reporting_user',
+            'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers',
         ]);
 
         User::create([
@@ -113,7 +113,7 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'branch_id' => 'required|exists:branches,id',
-            'role' => 'required|in:super_admin,lead_manager,field_staff,reporting_user',
+            'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers',
         ]);
 
         $user->update([

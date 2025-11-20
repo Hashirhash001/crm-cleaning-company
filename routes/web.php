@@ -1,12 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\LeadController;
 use App\Http\Controllers\JobController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\LeadController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\DashboardController;
 
 // Guest Routes
 Route::middleware('guest')->group(function () {
@@ -27,6 +28,12 @@ Route::middleware('auth')->group(function () {
         Route::resource('customers', CustomerController::class)->only(['index', 'show', 'edit', 'update']);
         Route::post('customers/{customer}/notes', [CustomerController::class, 'addNote'])->name('customers.addNote');
     });
+
+    // Settings
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::post('/daily-budget', [SettingsController::class, 'updateDailyBudget'])->name('settings.updateDailyBudget');
+
+    Route::post('/leads/{lead}/followups', [LeadController::class, 'addFollowup'])->name('leads.addFollowup');
 
     // Lead Management
     Route::resource('leads', LeadController::class);

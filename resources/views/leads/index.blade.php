@@ -397,23 +397,8 @@
                         </div>
                         @endif
 
-                        <!-- Branch Filter -->
-                        @if(auth()->user()->role === 'super_admin')
-                        <div class="col-2">
-                            <label class="form-label fw-semibold mb-2">Branch</label>
-                            <select class="form-select" name="branch_id" id="branchFilter" style="min-width: 140px;">
-                                <option value="">All Branches</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
-                                        {{ $branch->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @endif
-
                         <!-- Lead Source Filter -->
-                        <div class="col-2">
+                        <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Lead Source</label>
                             <select class="form-select" name="lead_source_id" id="sourceFilter" style="min-width: 140px;">
                                 <option value="">All Sources</option>
@@ -426,7 +411,7 @@
                         </div>
 
                         <!-- Date From -->
-                        <div class="col-2">
+                        <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Date From</label>
                             <input type="date"
                                    class="form-control"
@@ -447,8 +432,39 @@
                                    style="min-width: 150px;">
                         </div>
 
+                        <!-- Branch Filter -->
+                        @if(auth()->user()->role === 'super_admin')
+                        <div class="col-3">
+                            <label class="form-label fw-semibold mb-2">Branch</label>
+                            <select class="form-select" name="branch_id" id="branchFilter" style="min-width: 140px;">
+                                <option value="">All Branches</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
+                                        {{ $branch->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+
+                        <!-- Lead Source Filter -->
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                            <div class="col-3">
+                                <label class="form-label fw-semibold mb-2">Assigned To</label>
+                                <select class="form-select" name="assigned_to" id="filter_assigned_to">
+                                    <option value="">All Telecallers</option>
+                                    <option value="unassigned">Unassigned</option>
+                                    @foreach($telecallers as $telecaller)
+                                        <option value="{{ $telecaller->id }}" {{ request('assigned_to') == $telecaller->id ? 'selected' : '' }}>
+                                            {{ $telecaller->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+
                         <!-- Search moved to second row -->
-                        <div class="col-12 mt-3">
+                        <div class="col-6 mt-3">
                             <label class="form-label fw-semibold mb-2">Search</label>
                             <div class="d-flex gap-2 align-items-end">
                                 <input type="text"
@@ -478,7 +494,7 @@
     </div>
 </div>
 
-<!-- Leads Table with Proper Scrolling -->
+<!-- Leads Table -->
 <div class="row">
     <div class="col-12">
         <div class="card leads-card">
@@ -511,6 +527,7 @@
                                     <th>Branch</th>
                                 @endif
                                 <th>Status</th>
+                                <th>Assigned To</th>
                                 @if(auth()->user()->role === 'super_admin')
                                     <th>Created By</th>
                                 @endif
@@ -615,6 +632,29 @@
                         </div>
                     </div>
                     @endif
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="assigned_to" class="form-label">Assign To Telecaller</label>
+                            <select class="form-select" id="assigned_to" name="assigned_to">
+                                <option value="">Select Telecaller (Optional)</option>
+                                @foreach($telecallers as $telecaller)
+                                    <option value="{{ $telecaller->id }}">{{ $telecaller->name }}</option>
+                                @endforeach
+                            </select>
+                            <span class="error-text assigned_to_error text-danger d-block mt-1"></span>
+                        </div>
+                        <div class="col-6">
+                            <label for="amount" class="form-label">
+                                Lead Amount (₹)
+                                <small class="text-muted">(Optional)</small>
+                            </label>
+                            <input type="number" class="form-control" id="amount" name="amount"
+                                step="0.01" min="0" placeholder="Enter amount">
+                            <span class="error-text amount_error text-danger d-block mt-1"></span>
+                            <small class="text-muted">You can add this later when following up with the customer</small>
+                        </div>
+                    </div>
 
                     <div class="row mb-3">
                         <div class="col-12">
@@ -804,7 +844,7 @@
                 $('#dateFromFilter').val('');
                 $('#dateToFilter').val('');
                 $('#searchInput').val('');
-
+                $('#filter_assigned_to').val('');
                 // Redirect to clean URL
                 window.location.href = '{{ route("leads.index") }}';
             });
@@ -1132,6 +1172,8 @@
                         $('#phone').val(response.lead.phone);
                         $('#lead_source_id').val(response.lead.lead_source_id);
                         $('#service_id').val(response.lead.service_id);
+                        $('#assigned_to').val(response.lead.assigned_to);
+                        $('#amount').val(response.lead.amount);
 
                         @if(auth()->user()->role === 'super_admin')
                             $('#branch_id').val(response.lead.branch_id);
