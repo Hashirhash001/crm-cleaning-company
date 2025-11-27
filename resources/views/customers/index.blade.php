@@ -47,6 +47,10 @@
             margin: 0;
         }
 
+        .error-text {
+            display: none;
+            font-size: 0.875rem;
+        }
     </style>
 @endsection
 
@@ -55,7 +59,7 @@
     <div class="col-sm-12">
         <div class="page-title-box d-md-flex justify-content-md-between align-items-center">
             <h4 class="page-title">Customers Management</h4>
-            <div class="">
+            <div>
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
                     <li class="breadcrumb-item active">Customers</li>
@@ -70,7 +74,7 @@
     <div class="col-12">
         <div class="card">
             <div class="card-body" style="padding: 1.5rem; border-radius: 0.4rem;">
-                <div class="row align-items-end">
+                <div class="row align-items-end g-3">
                     <div class="col-md-3">
                         <label class="form-label fw-semibold">Filter by Priority</label>
                         <select class="form-select" id="priorityFilter">
@@ -81,27 +85,14 @@
                         </select>
                     </div>
 
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <label class="form-label fw-semibold">Search</label>
                         <input type="text" class="form-control" id="searchCustomer" placeholder="Search by name or email...">
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold">Sort By</label>
-                        <select class="form-select" id="sortBy">
-                            <option value="">Default (Latest First)</option>
-                            <option value="name-asc">Name (A-Z)</option>
-                            <option value="name-desc">Name (Z-A)</option>
-                            <option value="priority-high">Priority (High First)</option>
-                            <option value="priority-low">Priority (Low First)</option>
-                            <option value="jobs-high">Most Jobs</option>
-                            <option value="jobs-low">Least Jobs</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-3">
                         <button type="button" class="btn btn-secondary w-100" id="resetFilters">
-                            <i class="fas fa-redo me-2"></i> Reset Filters
+                            <i class="las la-redo me-2"></i> Reset Filters
                         </button>
                     </div>
                 </div>
@@ -114,9 +105,18 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <h4 class="card-title">Customers List (<span id="customerCount">{{ $customers->total() }}</span> total)</h4>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="card-title mb-0">
+                    Customers List (<span id="customerCount">{{ $customers->total() }}</span> total)
+                </h4>
+
+                @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
+                <a href="{{ route('customers.create') }}" class="btn btn-success">
+                    <i class="las la-plus me-1"></i> Create Customer
+                </a>
+                @endif
             </div>
+
             <div class="card-body pt-0">
                 <div class="table-responsive">
                     <table class="table mb-0" id="customersTable">
@@ -148,7 +148,6 @@
     </div>
 </div>
 
-
 <!-- Edit Customer Modal -->
 <div class="modal fade" id="editCustomerModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -165,20 +164,21 @@
                         <div class="col-md-6">
                             <label for="edit_name" class="form-label">Name <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="edit_name" name="name" required>
-                            <span class="error-text name_error text-danger d-block mt-1"></span>
+                            <span class="error-text name_error text-danger"></span>
                         </div>
                         <div class="col-md-6">
-                            <label for="edit_email" class="form-label">Email <span class="text-danger">*</span></label>
-                            <input type="email" class="form-control" id="edit_email" name="email" required>
-                            <span class="error-text email_error text-danger d-block mt-1"></span>
+                            <label for="edit_email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="edit_email" name="email">
+                            <span class="error-text email_error text-danger"></span>
+                            <small class="text-muted">Email is optional</small>
                         </div>
                     </div>
 
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="edit_phone" class="form-label">Phone</label>
-                            <input type="text" class="form-control" id="edit_phone" name="phone">
-                            <span class="error-text phone_error text-danger d-block mt-1"></span>
+                            <label for="edit_phone" class="form-label">Phone <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit_phone" name="phone" required>
+                            <span class="error-text phone_error text-danger"></span>
                         </div>
                         <div class="col-md-6">
                             <label for="edit_priority" class="form-label">Priority <span class="text-danger">*</span></label>
@@ -187,7 +187,7 @@
                                 <option value="medium">Medium Priority</option>
                                 <option value="high">High Priority</option>
                             </select>
-                            <span class="error-text priority_error text-danger d-block mt-1"></span>
+                            <span class="error-text priority_error text-danger"></span>
                         </div>
                     </div>
 
@@ -195,7 +195,7 @@
                         <div class="col-12">
                             <label for="edit_address" class="form-label">Address</label>
                             <textarea class="form-control" id="edit_address" name="address" rows="2"></textarea>
-                            <span class="error-text address_error text-danger d-block mt-1"></span>
+                            <span class="error-text address_error text-danger"></span>
                         </div>
                     </div>
 
@@ -203,7 +203,7 @@
                         <div class="col-12">
                             <label for="edit_notes" class="form-label">General Notes</label>
                             <textarea class="form-control" id="edit_notes" name="notes" rows="3"></textarea>
-                            <span class="error-text notes_error text-danger d-block mt-1"></span>
+                            <span class="error-text notes_error text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -248,16 +248,39 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
+        @if(session('success'))
+            let successData = @json(json_decode(session('success'), true));
+            Swal.fire({
+                icon: 'success',
+                title: successData.title,
+                html: `<p>${successData.message}</p>
+                    ${successData.customer_code ? `<p><strong>Customer Code:</strong> <span class="badge bg-primary">${successData.customer_code}</span></p>` : ''}
+                    ${successData.name ? `<p><strong>Name:</strong> ${successData.name}</p>` : ''}`,
+                timer: 4000,
+                showConfirmButton: true,
+                confirmButtonColor: '#28a745'
+            });
+        @endif
+
+        @if(session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: '{{ session("error") }}',
+            });
+        @endif
+
         $(document).ready(function() {
             $.ajaxSetup({
                 headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
 
             let currentSort = { column: null, direction: 'asc' };
 
-            // AJAX Load Function
+            // AJAX Load Function - FIXED
             function loadCustomers(url = null) {
                 let requestUrl = url || '{{ route("customers.index") }}';
                 let params = {
@@ -270,6 +293,9 @@
                     url: requestUrl,
                     type: 'GET',
                     data: params,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'  // This is crucial!
+                    },
                     success: function(response) {
                         $('#customersTableBody').html(response.html);
                         $('#paginationContainer').html(response.pagination);
@@ -295,24 +321,37 @@
 
             // Filters with Debounce
             let filterTimeout;
-            $('#priorityFilter, #searchCustomer, #sortBy').on('change keyup', function() {
+            $('#priorityFilter, #sortBy').on('change', function() {
                 clearTimeout(filterTimeout);
                 filterTimeout = setTimeout(function() {
                     loadCustomers();
                 }, 300);
             });
 
+            $('#searchCustomer').on('keyup', function() {
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(function() {
+                    loadCustomers();
+                }, 500);
+            });
+
             // Reset Filters
             $('#resetFilters').click(function() {
-                $('#priorityFilter, #searchCustomer, #sortBy').val('');
+                $('#priorityFilter').val('');
+                $('#searchCustomer').val('');
+                $('#sortBy').val('');
                 $('.sortable').removeClass('asc desc');
                 currentSort = { column: null, direction: 'asc' };
-                window.location.href = '{{ route("customers.index") }}';
+                loadCustomers();
             });
 
             // Edit Customer
             $(document).on('click', '.editCustomerBtn', function() {
                 let customerId = $(this).data('id');
+
+                // Clear previous errors
+                $('.error-text').text('').hide();
+                $('input, select, textarea').removeClass('is-invalid');
 
                 $.ajax({
                     url: '/customers/' + customerId + '/edit',
@@ -322,12 +361,11 @@
                             let customer = response.customer;
                             $('#customer_id').val(customer.id);
                             $('#edit_name').val(customer.name);
-                            $('#edit_email').val(customer.email);
+                            $('#edit_email').val(customer.email || '');
                             $('#edit_phone').val(customer.phone);
                             $('#edit_priority').val(customer.priority);
-                            $('#edit_address').val(customer.address);
-                            $('#edit_notes').val(customer.notes);
-                            $('.error-text').text('');
+                            $('#edit_address').val(customer.address || '');
+                            $('#edit_notes').val(customer.notes || '');
                             $('#editCustomerModal').modal('show');
                         } else {
                             Swal.fire('Error!', 'Failed to load customer data', 'error');
@@ -344,6 +382,13 @@
                 });
             });
 
+            // Remove error styling when user types in edit modal
+            $('#editCustomerModal input, #editCustomerModal select, #editCustomerModal textarea').on('input change', function() {
+                $(this).removeClass('is-invalid');
+                let fieldName = $(this).attr('name');
+                $('.' + fieldName + '_error').text('').hide();
+            });
+
             // Submit Edit Customer Form
             $('#editCustomerForm').on('submit', function(e) {
                 e.preventDefault();
@@ -352,7 +397,9 @@
                 let formData = new FormData(this);
                 formData.append('_method', 'PUT');
 
-                $('.error-text').text('');
+                // Clear previous errors
+                $('.error-text').text('').hide();
+                $('input, select, textarea').removeClass('is-invalid');
 
                 $.ajax({
                     url: '/customers/' + customerId,
@@ -369,14 +416,21 @@
                             timer: 2000,
                             showConfirmButton: false
                         }).then(() => {
-                            loadCustomers(); // Use AJAX reload instead of location.reload()
+                            loadCustomers();
                         });
                     },
                     error: function(xhr) {
                         if (xhr.status === 422) {
                             let errors = xhr.responseJSON.errors;
                             $.each(errors, function(key, value) {
-                                $('.' + key + '_error').text(value[0]);
+                                $('#edit_' + key).addClass('is-invalid');
+                                $('.' + key + '_error').text(value[0]).show();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: xhr.responseJSON?.message || 'Failed to update customer'
                             });
                         }
                     }
@@ -413,6 +467,13 @@
                             timer: 2000,
                             showConfirmButton: false
                         });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: xhr.responseJSON?.message || 'Failed to add note'
+                        });
                     }
                 });
             });
@@ -445,30 +506,30 @@
 
                     switch(column) {
                         case 'code':
-                            aVal = $(a).data('code');
-                            bVal = $(b).data('code');
+                            aVal = $(a).data('code') || '';
+                            bVal = $(b).data('code') || '';
                             break;
                         case 'name':
-                            aVal = $(a).data('name');
-                            bVal = $(b).data('name');
+                            aVal = $(a).data('name') || '';
+                            bVal = $(b).data('name') || '';
                             break;
                         case 'email':
-                            aVal = $(a).data('email');
-                            bVal = $(b).data('email');
+                            aVal = $(a).data('email') || '';
+                            bVal = $(b).data('email') || '';
                             break;
                         case 'priority':
                             let priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-                            aVal = priorityOrder[$(a).data('priority')];
-                            bVal = priorityOrder[$(b).data('priority')];
+                            aVal = priorityOrder[$(a).data('priority')] || 0;
+                            bVal = priorityOrder[$(b).data('priority')] || 0;
                             break;
                         case 'total-jobs':
                         case 'jobs':
-                            aVal = parseInt($(a).data('total-jobs'));
-                            bVal = parseInt($(b).data('total-jobs'));
+                            aVal = parseInt($(a).data('total-jobs')) || 0;
+                            bVal = parseInt($(b).data('total-jobs')) || 0;
                             break;
                         case 'completed-jobs':
-                            aVal = parseInt($(a).data('completed-jobs'));
-                            bVal = parseInt($(b).data('completed-jobs'));
+                            aVal = parseInt($(a).data('completed-jobs')) || 0;
+                            bVal = parseInt($(b).data('completed-jobs')) || 0;
                             break;
                     }
 
@@ -485,5 +546,4 @@
             }
         });
     </script>
-
 @endsection

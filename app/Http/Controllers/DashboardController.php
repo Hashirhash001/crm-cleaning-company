@@ -21,6 +21,8 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
         $branchId = $request->query('branch_id');
+        $dateFrom = $request->query('date_from', now()->startOfWeek()->toDateString());
+        $dateTo = $request->query('date_to', now()->endOfWeek()->toDateString());
         $selectedBranchName = 'All Branches';
 
         // Budget Information
@@ -31,18 +33,15 @@ class DashboardController extends Controller
         $remaining = $dailyBudget - $todayTotal;
         $percentage = $dailyBudget > 0 ? ($todayTotal / $dailyBudget) * 100 : 0;
 
-        // Followup Data based on user role
-        $followupData = $this->getFollowupData($user, $branchId);
+        // Followup Data based on user role with date filter
+        $followupData = $this->getFollowupData($user, $branchId, $dateFrom, $dateTo);
 
         if ($user->role === 'super_admin') {
-            // Super Admin - can see all branches
             $branches = Branch::where('is_active', true)->get();
 
             if ($branchId) {
                 $totalUsers = User::where('branch_id', $branchId)->count();
-                $activeUsers = User::where('branch_id', $branchId)
-                    ->where('is_active', true)->count();
-
+                $activeUsers = User::where('branch_id', $branchId)->where('is_active', true)->count();
                 $selectedBranch = Branch::find($branchId);
                 $selectedBranchName = $selectedBranch ? $selectedBranch->name : 'All Branches';
             } else {
@@ -56,105 +55,90 @@ class DashboardController extends Controller
                     'branch_id' => $branch->id,
                     'branch_name' => $branch->name,
                     'total_users' => User::where('branch_id', $branch->id)->count(),
-                    'active_users' => User::where('branch_id', $branch->id)
-                        ->where('is_active', true)->count(),
-                    'super_admin_count' => User::where('branch_id', $branch->id)
-                        ->where('role', 'super_admin')->count(),
-                    'lead_manager_count' => User::where('branch_id', $branch->id)
-                        ->where('role', 'lead_manager')->count(),
-                    'field_staff_count' => User::where('branch_id', $branch->id)
-                        ->where('role', 'field_staff')->count(),
-                    'telecallers_count' => User::where('branch_id', $branch->id)
-                        ->where('role', 'telecallers')->count(),
+                    'active_users' => User::where('branch_id', $branch->id)->where('is_active', true)->count(),
+                    'super_admin_count' => User::where('branch_id', $branch->id)->where('role', 'super_admin')->count(),
+                    'lead_manager_count' => User::where('branch_id', $branch->id)->where('role', 'lead_manager')->count(),
+                    'field_staff_count' => User::where('branch_id', $branch->id)->where('role', 'field_staff')->count(),
+                    'telecallers_count' => User::where('branch_id', $branch->id)->where('role', 'telecallers')->count(),
                 ];
             });
 
+            // Sales with date filter
+            $approvedWeekly = Lead::where('status', 'approved')
+                ->whereBetween('approved_at', [$dateFrom, $dateTo])
+                ->sum('amount');
+
+            $approvedMonthly = Lead::where('status', 'approved')
+                ->whereYear('approved_at', now()->year)
+                ->whereMonth('approved_at', now()->month)
+                ->sum('amount');
+
             return view('dashboard', compact(
-                'totalUsers',
-                'activeUsers',
-                'branches',
-                'branchStatistics',
-                'selectedBranchName',
-                'dailyBudget',
-                'todayTotal',
-                'remaining',
-                'percentage',
-                'followupData'
+                'totalUsers', 'activeUsers', 'branches', 'branchStatistics', 'selectedBranchName',
+                'dailyBudget', 'todayTotal', 'remaining', 'percentage', 'followupData',
+                'approvedWeekly', 'approvedMonthly', 'dateFrom', 'dateTo'
             ));
         } else {
-            // Other roles - see only their branch/assigned data
             $totalUsers = User::where('branch_id', $user->branch_id)->count();
-            $activeUsers = User::where('branch_id', $user->branch_id)
-                ->where('is_active', true)->count();
-
+            $activeUsers = User::where('branch_id', $user->branch_id)->where('is_active', true)->count();
             $branches = [];
             $branchStatistics = [];
 
+            $approvedWeekly = Lead::where('status', 'approved')
+                ->whereBetween('approved_at', [$dateFrom, $dateTo])
+                ->sum('amount');
+
+            $approvedMonthly = Lead::where('status', 'approved')
+                ->whereYear('approved_at', now()->year)
+                ->whereMonth('approved_at', now()->month)
+                ->sum('amount');
+
             return view('dashboard', compact(
-                'totalUsers',
-                'activeUsers',
-                'branches',
-                'branchStatistics',
-                'selectedBranchName',
-                'dailyBudget',
-                'todayTotal',
-                'remaining',
-                'percentage',
-                'followupData'
+                'totalUsers', 'activeUsers', 'branches', 'branchStatistics', 'selectedBranchName',
+                'dailyBudget', 'todayTotal', 'remaining', 'percentage', 'followupData',
+                'approvedWeekly', 'approvedMonthly', 'dateFrom', 'dateTo'
             ));
         }
     }
 
-    private function getFollowupData($user, $branchId = null)
+    private function getFollowupData($user, $branchId = null, $dateFrom = null, $dateTo = null)
     {
-        $query = LeadFollowup::with(['lead', 'assignedToUser'])
-            ->where('status', 'pending');
+        $query = LeadFollowup::with(['lead', 'assignedToUser'])->where('status', 'pending');
 
         // Role-based filtering
         if ($user->role === 'super_admin') {
-            // Super admin sees all
             if ($branchId) {
                 $query->whereHas('lead', function($q) use ($branchId) {
                     $q->where('branch_id', $branchId);
                 });
             }
         } elseif ($user->role === 'lead_manager') {
-            // Lead manager sees their created leads
             $query->whereHas('lead', function($q) use ($user) {
                 $q->where('created_by', $user->id);
             });
         } elseif ($user->role === 'telecallers') {
-            // Telecallers see only their assigned followups
             $query->where('assigned_to', $user->id);
         } elseif ($user->role === 'field_staff') {
-            // Field staff see their assigned followups
             $query->where('assigned_to', $user->id);
         }
 
-        // Get counts
+        // Date filter
+        if ($dateFrom && $dateTo) {
+            $query->whereBetween('followup_date', [$dateFrom, $dateTo]);
+        }
+
         $overdue = (clone $query)->where('followup_date', '<', now()->toDateString())->count();
         $today = (clone $query)->whereDate('followup_date', today())->count();
-        $thisWeek = (clone $query)->whereBetween('followup_date', [
-            now()->startOfWeek(),
-            now()->endOfWeek()
-        ])->count();
-        $thisMonth = (clone $query)->whereBetween('followup_date', [
-            now()->startOfMonth(),
-            now()->endOfMonth()
-        ])->count();
+        $thisWeek = (clone $query)->whereBetween('followup_date', [now()->startOfWeek(), now()->endOfWeek()])->count();
+        $thisMonth = (clone $query)->whereBetween('followup_date', [now()->startOfMonth(), now()->endOfMonth()])->count();
 
-        // Get detailed followups for this week
         $weeklyFollowups = (clone $query)
-            ->whereBetween('followup_date', [
-                now()->startOfWeek(),
-                now()->endOfWeek()
-            ])
+            ->whereBetween('followup_date', [$dateFrom ?: now()->startOfWeek(), $dateTo ?: now()->endOfWeek()])
             ->orderBy('followup_date')
             ->orderBy('followup_time')
             ->limit(10)
             ->get();
 
-        // Get overdue followups
         $overdueFollowups = (clone $query)
             ->where('followup_date', '<', now()->toDateString())
             ->orderBy('followup_date')
@@ -170,4 +154,5 @@ class DashboardController extends Controller
             'overdueFollowups' => $overdueFollowups,
         ];
     }
+
 }

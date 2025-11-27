@@ -18,17 +18,14 @@
             color: #fff;
         }
 
-        /* Prevent horizontal page scroll */
         body {
             overflow-x: hidden;
         }
 
-        /* Main content area */
         .page-content {
             overflow-x: hidden;
         }
 
-        /* Row and Column fixes */
         .row {
             margin-left: 0;
             margin-right: 0;
@@ -39,54 +36,29 @@
             padding-right: 12px;
         }
 
-        /* Card should not overflow */
         .card {
             overflow: hidden;
         }
 
-        /* Remove card body padding that causes overflow */
         .leads-card .card-body {
             padding: 0;
             overflow: hidden;
         }
 
-        /* Card Footer Styling */
         .leads-card .card-footer {
             padding: 15px 20px;
             background-color: #f8f9fa;
         }
 
-        /* Search Input Styling */
-        .search-wrapper .input-group-text {
-            border-right: 0;
-            background-color: #fff;
-            border-color: #ced4da;
-        }
-
-        .search-wrapper .form-control {
-            border-left: 0;
-        }
-
-        .search-wrapper .form-control:focus {
-            box-shadow: none;
-            border-color: #86b7fe;
-        }
-
-        .search-wrapper .input-group:focus-within .input-group-text {
-            border-color: #86b7fe;
-        }
-
-        /* Table Container - FIXED WIDTH */
+        /* Table Container - X-AXIS SCROLL ONLY */
         .table-container {
             overflow-x: auto;
-            overflow-y: auto;
-            max-height: 600px;
+            overflow-y: visible;
+            max-height: none;
             position: relative;
             width: 100%;
-            /* Prevent the table from expanding the container */
         }
 
-        /* Custom Scrollbar Styling */
         .table-container::-webkit-scrollbar {
             width: 10px;
             height: 10px;
@@ -106,14 +78,11 @@
             background: #555;
         }
 
-        /* Table styling - REMOVE max-content */
         .table-container table {
             margin-bottom: 0;
             min-width: 100%;
-            /* REMOVED: width: max-content; - This was causing the overflow */
         }
 
-        /* Sticky Table Header */
         .table-container thead th {
             position: sticky;
             top: 0;
@@ -126,185 +95,176 @@
             font-weight: 600;
         }
 
-        /* Table Body Styling */
         .table-container tbody td {
             white-space: nowrap;
             padding: 12px 15px;
             vertical-align: middle;
         }
 
-        /* Column Widths - Adjusted for better fit */
-        .table-container th:nth-child(1),
-        .table-container td:nth-child(1) { /* Lead Code */
-            min-width: 100px;
-            width: 100px;
-        }
-
-        .table-container th:nth-child(2),
-        .table-container td:nth-child(2) { /* Name */
-            min-width: 150px;
-            width: 150px;
-        }
-
-        .table-container th:nth-child(3),
-        .table-container td:nth-child(3) { /* Email */
-            min-width: 200px;
-            width: 200px;
-        }
-
-        .table-container th:nth-child(4),
-        .table-container td:nth-child(4) { /* Phone */
-            min-width: 140px;
-            width: 140px;
-        }
-
-        .table-container th:nth-child(5),
-        .table-container td:nth-child(5) { /* Service */
-            min-width: 140px;
-            width: 140px;
-        }
-
-        .table-container th:nth-child(6),
-        .table-container td:nth-child(6) { /* Source */
-            min-width: 120px;
-            width: 120px;
-        }
-
-        .table-container th:nth-child(7),
-        .table-container td:nth-child(7) { /* Branch */
-            min-width: 100px;
-            width: 100px;
-        }
-
-        .table-container th:nth-child(8),
-        .table-container td:nth-child(8) { /* Status */
-            min-width: 110px;
-            width: 110px;
-        }
-
-        .table-container th:nth-child(9),
-        .table-container td:nth-child(9) { /* Created By */
-            min-width: 130px;
-            width: 130px;
-        }
-
-        .table-container th:nth-child(10),
-        .table-container td:nth-child(10) { /* Created Date */
-            min-width: 120px;
-            width: 120px;
-        }
-
-        .table-container th:nth-child(11),
-        .table-container td:nth-child(11) { /* Action */
-            min-width: 180px;
-            width: 180px;
-            text-align: right;
-        }
-
-        /* Table Hover Effect */
         .table-container tbody tr:hover td {
             background-color: #f8f9fa;
         }
 
-        /* Duplicate Alert Animation */
-        #duplicateAlertContainer {
-            animation: slideDown 0.4s ease-out;
+        /* Checkbox Styling */
+        .checkbox-col {
+            width: 50px;
+            min-width: 50px;
+            text-align: center;
+            padding: 12px 10px !important;
         }
 
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .custom-checkbox {
+            width: 12px;
+            height: 12px;
+            cursor: pointer;
+            accent-color: #0d6efd;
+            transform: scale(1.2);
         }
 
-        .customer-info-card {
+        .custom-checkbox:hover {
+            transform: scale(1.3);
+        }
+
+        #selectAll {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            accent-color: #198754;
+            transform: scale(1.3);
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .table-container tbody tr:has(.custom-checkbox:checked) {
+            background-color: #e7f3ff;
+            border-left: 3px solid #0d6efd;
+        }
+
+        /* Modern Selected Leads Preview */
+        .leads-preview-container {
             background: #f8f9fa;
-            padding: 15px;
             border-radius: 8px;
-            margin-bottom: 10px;
+            padding: 0;
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
         }
 
-        .priority-badge-large {
-            font-size: 0.9rem;
-            padding: 8px 15px;
+        .lead-preview-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.2s ease;
         }
 
-        /* SweetAlert fixes */
-        .swal-no-animation .swal2-show {
-            animation: none !important;
+        .lead-preview-item:last-child {
+            border-bottom: none;
         }
-        .swal-no-animation .swal2-hide {
-            animation: none !important;
+
+        .lead-preview-item:hover {
+            background-color: #e9ecef;
         }
-        .swal2-container {
-            transition: none !important;
-        }
-        .swal2-popup {
-            animation: none !important;
-        }
-        .swal2-textarea {
-            border: 1px solid #d9d9d9;
+
+        .lead-preview-badge {
+            background: #0d6efd;
+            color: white;
+            padding: 4px 10px;
             border-radius: 4px;
-            padding: 10px;
-            font-size: 14px;
-            resize: none !important;
-            overflow: hidden !important;
-            min-height: 80px;
-            max-height: 150px;
-        }
-        .swal2-textarea:focus {
-            border-color: #4CAF50;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 80px;
+            text-align: center;
         }
 
-        /* Filter Section Styling */
-        .card-body form .row {
-            margin: 0;
+        .lead-preview-name {
+            font-weight: 500;
+            color: #495057;
+            flex: 1;
         }
 
-        .card-body form .col-auto {
-            padding-left: 8px;
-            padding-right: 8px;
+        .lead-preview-icon {
+            color: #6c757d;
+            font-size: 18px;
         }
 
-        .card-body form .form-label {
-            font-size: 14px;
-            color: #333;
+        /* Alert styling for lead info */
+        .lead-info-box {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 1px solid #90caf9;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .lead-info-box p {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             margin-bottom: 8px;
-            display: block;
         }
 
-        .card-body form .form-select,
-        .card-body form .form-control {
-            font-size: 14px;
-            padding: 0.47rem 0.75rem;
-            height: auto;
+        .lead-info-box p:last-child {
+            margin-bottom: 0;
         }
 
-        .card-body form .btn {
-            font-size: 14px;
-            white-space: nowrap;
+        .lead-info-label {
+            font-weight: 600;
+            color: #1565c0;
+            min-width: 100px;
         }
 
-        /* Consistent button heights */
-        .card-body form .btn,
-        .card-body form .form-control,
-        .card-body form .form-select {
-            height: 38px;
+        .lead-info-value {
+            color: #0d47a1;
+            font-weight: 500;
         }
 
-        /* Remove default form spacing */
-        .card-body form {
-            margin: 0;
+        /* Modern form controls */
+        .form-select:focus,
+        .form-control:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.15);
         }
 
-        /* Action Icons Spacing */
+        /* Disabled telecaller dropdown styling */
+        #bulk_telecaller:disabled,
+        #assign_telecaller:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Warning badge for selected count */
+        .selected-count-badge {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+            border: 1px solid #ffca2c;
+            border-radius: 8px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .selected-count-badge i {
+            font-size: 24px;
+            color: #997404;
+        }
+
+        .selected-count-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #664d03;
+        }
+
         .action-icons {
             display: inline-flex;
             gap: 8px;
@@ -318,30 +278,12 @@
             justify-content: center;
         }
 
-        /* Card Header Styling */
         .card-header {
             background-color: #fff;
             border-bottom: 1px solid #e9ecef;
             padding: 15px 20px;
         }
 
-        /* Ensure cards don't cause overflow */
-        .leads-card {
-            overflow: hidden;
-            max-width: 100%;
-        }
-
-        /* Filter card shouldn't overflow */
-        .filter-card {
-            overflow: hidden;
-            max-width: 100%;
-        }
-
-        .swal2-textarea{
-            margin: 0 !important;
-        }
-
-        /* Clickable lead name styling */
         .lead-name-link {
             color: #0d6efd;
             text-decoration: none;
@@ -359,6 +301,415 @@
             margin: 0;
         }
 
+        #approval_notes {
+            margin: 0 !important;
+        }
+
+        #rejection_reason {
+            margin: 0 !important;
+        }
+
+        /* Sortable headers */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 20px !important;
+        }
+        .sortable:hover {
+            background-color: #e9ecef;
+        }
+        .sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 8px;
+            opacity: 0.3;
+        }
+        .sortable.asc::after {
+            content: '↑';
+            opacity: 1;
+        }
+        .sortable.desc::after {
+            content: '↓';
+            opacity: 1;
+        }
+
+        /* ============================================
+           MOBILE RESPONSIVE STYLES
+           ============================================ */
+
+        /* Tablets and below (768px) */
+        @media (max-width: 768px) {
+            /* Page title */
+            .page-title-box {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 10px;
+            }
+
+            .page-title-box .breadcrumb {
+                margin-top: 5px;
+            }
+
+            /* Filter section */
+            .card-body form .row {
+                row-gap: 15px;
+            }
+
+            .card-body form .col-3,
+            .card-body form .col-6 {
+                width: 100%;
+                max-width: 100%;
+                flex: 0 0 100%;
+            }
+
+            .card-body form .d-flex {
+                flex-direction: column;
+                align-items: stretch !important;
+            }
+
+            .card-body form .d-flex .form-control {
+                max-width: 100% !important;
+            }
+
+            .card-body form .d-flex .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            /* Card header */
+            .card-header {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 15px;
+            }
+
+            .card-header .d-flex {
+                width: 100%;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .card-header .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .card-title {
+                font-size: 16px;
+            }
+
+            /* Table - Enable horizontal scroll */
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .table-container table {
+                min-width: 1200px; /* Force horizontal scroll */
+            }
+
+            /* Smaller font in table */
+            .table-container thead th,
+            .table-container tbody td {
+                font-size: 13px;
+                padding: 8px 10px;
+            }
+
+            /* Badges */
+            .badge {
+                font-size: 10px;
+                padding: 3px 8px;
+            }
+
+            /* Action icons */
+            .action-icons {
+                gap: 5px;
+            }
+
+            .action-icons i {
+                font-size: 20px !important;
+            }
+
+            /* Pagination */
+            .pagination {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .pagination .page-item {
+                margin: 2px;
+            }
+
+            .pagination .page-link {
+                padding: 5px 10px;
+                font-size: 14px;
+            }
+
+            /* Modals */
+            .modal-dialog {
+                margin: 10px;
+                max-width: calc(100% - 20px);
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .modal-header {
+                padding: 12px 15px;
+            }
+
+            .modal-title {
+                font-size: 16px;
+            }
+
+            .modal-footer {
+                padding: 12px 15px;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+                margin: 0 !important;
+            }
+
+            /* Lead info box */
+            .lead-info-box p {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .lead-info-label {
+                min-width: auto;
+            }
+
+            /* Selected leads preview */
+            .lead-preview-item {
+                padding: 10px;
+                gap: 8px;
+            }
+
+            .lead-preview-badge {
+                min-width: 70px;
+                font-size: 11px;
+            }
+
+            .lead-preview-name {
+                font-size: 14px;
+            }
+
+            /* Selected count badge */
+            .selected-count-badge {
+                padding: 10px 15px;
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .selected-count-text {
+                font-size: 14px;
+            }
+
+            /* Card footer */
+            .card-footer {
+                padding: 10px 15px;
+            }
+        }
+
+        /* Mobile phones (576px and below) */
+        @media (max-width: 576px) {
+            /* Page title */
+            .page-title {
+                font-size: 18px;
+            }
+
+            .breadcrumb {
+                font-size: 12px;
+            }
+
+            /* Card padding */
+            .card-body {
+                padding: 15px !important;
+            }
+
+            /* Filter labels */
+            .form-label {
+                font-size: 13px;
+                margin-bottom: 5px;
+            }
+
+            /* Form controls */
+            .form-select,
+            .form-control,
+            .btn {
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+
+            /* Table */
+            .table-container thead th,
+            .table-container tbody td {
+                font-size: 12px;
+                padding: 6px 8px;
+            }
+
+            /* Checkbox */
+            .custom-checkbox,
+            #selectAll {
+                width: 18px;
+                height: 18px;
+                transform: scale(1);
+            }
+
+            .custom-checkbox:hover,
+            #selectAll:hover {
+                transform: scale(1.1);
+            }
+
+            /* Lead name */
+            .lead-name-link h6 {
+                font-size: 13px;
+            }
+
+            /* Badges */
+            .badge {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
+
+            /* Action icons smaller */
+            .action-icons i {
+                font-size: 18px !important;
+            }
+
+            /* Modal */
+            .modal-dialog {
+                margin: 5px;
+                max-width: calc(100% - 10px);
+            }
+
+            .modal-header .modal-title {
+                font-size: 14px;
+            }
+
+            .modal-body {
+                padding: 12px;
+            }
+
+            .form-label.fw-semibold {
+                font-size: 13px;
+            }
+
+            .modal-footer .btn {
+                font-size: 14px;
+                padding: 8px 15px;
+            }
+
+            /* Lead preview items smaller */
+            .lead-preview-item {
+                padding: 8px;
+                gap: 6px;
+            }
+
+            .lead-preview-badge {
+                min-width: 60px;
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            .lead-preview-name {
+                font-size: 13px;
+            }
+
+            .lead-preview-icon {
+                font-size: 16px;
+            }
+
+            /* Selected count badge */
+            .selected-count-badge i {
+                font-size: 20px;
+            }
+
+            .selected-count-text {
+                font-size: 13px;
+            }
+
+            /* Pagination */
+            .pagination .page-link {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+        }
+
+        /* Extra small devices (below 400px) */
+        @media (max-width: 400px) {
+            .page-title {
+                font-size: 16px;
+            }
+
+            .card-title {
+                font-size: 14px;
+            }
+
+            .table-container thead th,
+            .table-container tbody td {
+                font-size: 11px;
+                padding: 5px 6px;
+            }
+
+            .btn {
+                font-size: 13px;
+                padding: 7px 10px;
+            }
+
+            .modal-title {
+                font-size: 13px;
+            }
+
+            .lead-preview-badge {
+                min-width: 55px;
+                font-size: 9px;
+            }
+
+            .lead-preview-name {
+                font-size: 12px;
+            }
+        }
+
+        /* Landscape mode optimization */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .modal-dialog {
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            .modal-body {
+                max-height: calc(90vh - 150px);
+                overflow-y: auto;
+            }
+
+            .leads-preview-container {
+                max-height: 150px;
+            }
+        }
+
+        /* Ensure modals are scrollable on small screens */
+        @media (max-height: 600px) {
+            .modal-dialog {
+                margin: 5px auto;
+            }
+
+            .modal-body {
+                max-height: 400px;
+                overflow-y: auto;
+            }
+
+            .leads-preview-container {
+                max-height: 150px;
+            }
+        }
     </style>
 @endsection
 
@@ -367,7 +718,7 @@
     <div class="col-sm-12">
         <div class="page-title-box d-md-flex justify-content-md-between align-items-center">
             <h4 class="page-title">Leads Management</h4>
-            <div class="">
+            <div>
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
                     <li class="breadcrumb-item active">Leads</li>
@@ -377,18 +728,17 @@
     </div>
 </div>
 
-<!-- Filters Section - With Apply Filters Button -->
+<!-- Filters Section -->
 <div class="row mb-3">
     <div class="col-lg-12">
         <div class="card">
             <div class="card-body" style="padding: 20px;">
                 <form method="GET" action="{{ route('leads.index') }}" id="filterForm">
                     <div class="row align-items-end g-3">
-                        <!-- Status Filter -->
                         @if(auth()->user()->role === 'super_admin')
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Status</label>
-                            <select class="form-select" name="status" id="statusFilter" style="min-width: 140px;">
+                            <select class="form-select" name="status" id="statusFilter">
                                 <option value="">All Status</option>
                                 <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
                                 <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
@@ -397,46 +747,40 @@
                         </div>
                         @endif
 
-                        <!-- Lead Source Filter -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Lead Source</label>
-                            <select class="form-select" name="lead_source_id" id="sourceFilter" style="min-width: 140px;">
+                            <select class="form-select" name="leadsourceid" id="sourceFilter">
                                 <option value="">All Sources</option>
                                 @foreach($lead_sources as $source)
-                                    <option value="{{ $source->id }}" {{ request('lead_source_id') == $source->id ? 'selected' : '' }}>
+                                    <option value="{{ $source->id }}" {{ request('leadsourceid') == $source->id ? 'selected' : '' }}>
                                         {{ $source->name }}
                                     </option>
                                 @endforeach
                             </select>
                         </div>
 
-                        <!-- Date From -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Date From</label>
                             <input type="date"
                                    class="form-control"
                                    name="date_from"
                                    id="dateFromFilter"
-                                   value="{{ request('date_from') }}"
-                                   style="min-width: 150px;">
+                                   value="{{ request('date_from') }}">
                         </div>
 
-                        <!-- Date To -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Date To</label>
                             <input type="date"
                                    class="form-control"
                                    name="date_to"
                                    id="dateToFilter"
-                                   value="{{ request('date_to') }}"
-                                   style="min-width: 150px;">
+                                   value="{{ request('date_to') }}">
                         </div>
 
-                        <!-- Branch Filter -->
                         @if(auth()->user()->role === 'super_admin')
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Branch</label>
-                            <select class="form-select" name="branch_id" id="branchFilter" style="min-width: 140px;">
+                            <select class="form-select" name="branch_id" id="branchFilter">
                                 <option value="">All Branches</option>
                                 @foreach($branches as $branch)
                                     <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>
@@ -447,24 +791,22 @@
                         </div>
                         @endif
 
-                        <!-- Lead Source Filter -->
                         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
-                            <div class="col-3">
-                                <label class="form-label fw-semibold mb-2">Assigned To</label>
-                                <select class="form-select" name="assigned_to" id="filter_assigned_to">
-                                    <option value="">All Telecallers</option>
-                                    <option value="unassigned">Unassigned</option>
-                                    @foreach($telecallers as $telecaller)
-                                        <option value="{{ $telecaller->id }}" {{ request('assigned_to') == $telecaller->id ? 'selected' : '' }}>
-                                            {{ $telecaller->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
+                        <div class="col-3">
+                            <label class="form-label fw-semibold mb-2">Assigned To</label>
+                            <select class="form-select" name="assigned_to" id="filter_assigned_to">
+                                <option value="">All Telecallers</option>
+                                <option value="unassigned" {{ request('assigned_to') === 'unassigned' ? 'selected' : '' }}>Unassigned</option>
+                                @foreach($telecallers as $telecaller)
+                                    <option value="{{ $telecaller->id }}" {{ request('assigned_to') == $telecaller->id ? 'selected' : '' }}>
+                                        {{ $telecaller->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
                         @endif
 
-                        <!-- Search moved to second row -->
-                        <div class="col-6 mt-3">
+                        <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Search</label>
                             <div class="d-flex gap-2 align-items-end">
                                 <input type="text"
@@ -474,18 +816,17 @@
                                        placeholder="Search by name, email, phone..."
                                        value="{{ request('search') }}"
                                        style="max-width: 400px;">
-
-                                <!-- Apply Filters Button -->
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="las la-filter me-1"></i> Apply Filters
-                                </button>
-
-                                <!-- Reset Button -->
-                                <a href="{{ route('leads.index') }}" class="btn btn-secondary" id="resetBtn">
-                                    <i class="las la-redo-alt me-1"></i> Reset
-                                </a>
-
                             </div>
+                        </div>
+
+                        <div class="col-3 mt-1">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="las la-filter me-1"></i> Apply Filters
+                            </button>
+
+                            <a href="{{ route('leads.index') }}" class="btn btn-secondary" id="resetBtn">
+                                <i class="las la-redo-alt me-1"></i> Reset
+                            </a>
                         </div>
                     </div>
                 </form>
@@ -498,40 +839,52 @@
 <div class="row">
     <div class="col-12">
         <div class="card leads-card">
-            <div class="card-header d-flex">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h4 class="card-title mb-0">
                     Leads List (<span id="leadCount">{{ $leads->total() }}</span> total)
                     @if(auth()->user()->role === 'super_admin' && $pending_count > 0)
                         <span class="badge bg-warning ms-2">{{ $pending_count }} Pending Approval</span>
                     @endif
                 </h4>
-                <!-- Add Lead Button -->
-                @if(auth()->user()->role === 'super_admin' || auth()->user()->role === 'lead_manager')
-                <button type="button" class="btn btn-success ms-auto" id="addLeadBtn">
-                    <i class="las la-plus me-1"></i> Add Lead
-                </button>
-                @endif
+
+                <div class="d-flex gap-2">
+                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                    <button type="button" class="btn btn-info" id="bulkAssignBtn" style="display: none;">
+                        <i class="las la-users me-1"></i> Bulk Assign (<span id="bulk_count">0</span>)
+                    </button>
+                    @endif
+
+                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
+                    <a href="{{ route('leads.create') }}" class="btn btn-success">
+                        <i class="las la-plus me-1"></i> Create Lead
+                    </a>
+                    @endif
+                </div>
             </div>
             <div class="card-body">
                 <div class="table-container">
                     <table class="table table-hover mb-0" id="leadsTable">
                         <thead class="table-light">
                             <tr>
-                                <th>Lead Code</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Phone</th>
-                                <th>Service</th>
-                                <th>Source</th>
+                                <th class="checkbox-col">
+                                    <div class="checkbox-wrapper">
+                                        <input type="checkbox" class="custom-checkbox" id="selectAll" title="Select All">
+                                    </div>
+                                </th>
+                                <th class="sortable" data-column="code">Lead Code</th>
+                                <th class="sortable" data-column="name">Name</th>
+                                <th class="sortable" data-column="phone">Phone</th>
+                                <th class="sortable" data-column="service">Service</th>
+                                <th class="sortable" data-column="status">Status</th>
+                                <th class="sortable" data-column="source">Source</th>
                                 @if(auth()->user()->role === 'super_admin')
-                                    <th>Branch</th>
+                                    <th class="sortable" data-column="branch">Branch</th>
                                 @endif
-                                <th>Status</th>
-                                <th>Assigned To</th>
+                                <th class="sortable" data-column="assigned">Assigned To</th>
                                 @if(auth()->user()->role === 'super_admin')
-                                    <th>Created By</th>
+                                    <th class="sortable" data-column="created-by">Created By</th>
                                 @endif
-                                <th>Created Date</th>
+                                <th class="sortable" data-column="date">Created Date</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
@@ -541,7 +894,6 @@
                     </table>
                 </div>
             </div>
-            <!-- Pagination -->
             <div class="card-footer">
                 <div id="paginationContainer">
                     {{ $leads->links('pagination::bootstrap-5') }}
@@ -551,213 +903,178 @@
     </div>
 </div>
 
-
-<!-- Add/Edit Lead Modal -->
-<div class="modal fade" id="leadModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+<!-- Single Assign Modal -->
+<div class="modal fade" id="assignLeadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="leadModalLabel">Add Lead</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="las la-user-plus me-2"></i>Assign Lead to Telecaller
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form id="leadForm">
+            <form id="assignLeadForm">
                 @csrf
-                <input type="hidden" id="lead_id" name="lead_id">
+                <input type="hidden" id="assign_lead_id" name="lead_id">
+
                 <div class="modal-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="name" name="name" placeholder="Enter lead name" required>
-                            <span class="error-text name_error text-danger d-block mt-1"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                            <input type="email" class="form-control" id="email" name="email" placeholder="Enter email" required>
-                            <span class="error-text email_error text-danger d-block mt-1"></span>
-                            <small class="text-muted d-block mt-1">Will check for duplicates automatically</small>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="phone" class="form-label">Phone <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="phone" name="phone" placeholder="Enter phone number" required>
-                            <span class="error-text phone_error text-danger d-block mt-1"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="service_id" class="form-label">Service <span class="text-danger">*</span></label>
-                            <select class="form-select" id="service_id" name="service_id" required>
-                                <option value="">Select Service</option>
-                                @foreach($services as $service)
-                                    <option value="{{ $service->id }}">{{ $service->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text service_id_error text-danger d-block mt-1"></span>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Lead Information</label>
+                        <div class="lead-info-box">
+                            <p class="mb-2">
+                                <span class="lead-info-label">
+                                    <i class="las la-tag"></i> Lead Code:
+                                </span>
+                                <span class="lead-info-value" id="assign_lead_code"></span>
+                            </p>
+                            <p class="mb-0">
+                                <span class="lead-info-label">
+                                    <i class="las la-user"></i> Name:
+                                </span>
+                                <span class="lead-info-value" id="assign_lead_name"></span>
+                            </p>
                         </div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="lead_source_id" class="form-label">Lead Source <span class="text-danger">*</span></label>
-                            <select class="form-select" id="lead_source_id" name="lead_source_id" required>
-                                <option value="">Select Source</option>
-                                @foreach($lead_sources as $source)
-                                    <option value="{{ $source->id }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text lead_source_id_error text-danger d-block mt-1"></span>
-                        </div>
-                        @if(auth()->user()->role === 'super_admin')
-                        <div class="col-md-6">
-                            <label for="branch_id" class="form-label">Branch <span class="text-danger">*</span></label>
-                            <select class="form-select" id="branch_id" name="branch_id" required>
-                                <option value="">Select Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text branch_id_error text-danger d-block mt-1"></span>
-                        </div>
-                        @endif
+                    <!-- Branch Selection -->
+                    @if(auth()->user()->role === 'super_admin')
+                    <div class="mb-3">
+                        <label for="assign_branch" class="form-label fw-semibold">
+                            <i class="las la-building me-1"></i>Select Branch <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="assign_branch" name="branch_id" required>
+                            <option value="">Choose branch...</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i> Lead's current branch will be pre-selected
+                        </small>
                     </div>
+                    @else
+                    <input type="hidden" id="assign_branch" name="branch_id" value="{{ auth()->user()->branch_id }}">
 
-                    @if(auth()->user()->role !== 'super_admin')
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label class="form-label">Branch</label>
-                            <div class="form-control" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
-                                {{ auth()->user()->branch->name }}
-                            </div>
-                            <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Branch</label>
+                        <div class="alert alert-info mb-0 py-2">
+                            <i class="las la-building me-1"></i>
+                            <strong id="assign_branch_display">{{ auth()->user()->branch->name ?? 'N/A' }}</strong>
                         </div>
                     </div>
                     @endif
 
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="assigned_to" class="form-label">Assign To Telecaller</label>
-                            <select class="form-select" id="assigned_to" name="assigned_to">
-                                <option value="">Select Telecaller (Optional)</option>
-                                @foreach($telecallers as $telecaller)
-                                    <option value="{{ $telecaller->id }}">{{ $telecaller->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text assigned_to_error text-danger d-block mt-1"></span>
-                        </div>
-                        <div class="col-6">
-                            <label for="amount" class="form-label">
-                                Lead Amount (₹)
-                                <small class="text-muted">(Optional)</small>
-                            </label>
-                            <input type="number" class="form-control" id="amount" name="amount"
-                                step="0.01" min="0" placeholder="Enter amount">
-                            <span class="error-text amount_error text-danger d-block mt-1"></span>
-                            <small class="text-muted">You can add this later when following up with the customer</small>
-                        </div>
+                    <!-- Telecaller Selection -->
+                    <div class="mb-3">
+                        <label for="assign_telecaller" class="form-label fw-semibold">
+                            <i class="las la-user-tie me-1"></i>Select Telecaller <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="assign_telecaller" name="assigned_to" required @if(auth()->user()->role === 'super_admin') disabled @endif>
+                            <option value="">@if(auth()->user()->role === 'super_admin') Please select a branch first... @else Choose telecaller... @endif</option>
+                        </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i> @if(auth()->user()->role === 'super_admin') Select a branch above to see available telecallers @else Only telecallers from your branch are shown @endif
+                        </small>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="Enter lead description"></textarea>
-                            <span class="error-text description_error text-danger d-block mt-1"></span>
-                        </div>
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label for="assign_notes" class="form-label fw-semibold">
+                            <i class="las la-comment me-1"></i>Notes (Optional)
+                        </label>
+                        <textarea class="form-control" id="assign_notes" name="notes" rows="3" placeholder="Add any notes about this assignment..."></textarea>
                     </div>
-
-                    <!-- Duplicate Alert Will Appear Here -->
-                    <div id="duplicateAlertContainer"></div>
                 </div>
-
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="saveLeadBtn">Save Lead</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="las la-times me-1"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="las la-check me-1"></i> Assign Lead
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Create Job for Customer Modal -->
-<div class="modal fade" id="createJobModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+<!-- Bulk Assign Modal -->
+<div class="modal fade" id="bulkAssignModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Create Job for Existing Customer</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="las la-users me-2"></i>Bulk Assign Leads to Telecaller
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form id="createJobForm">
+            <form id="bulkAssignForm">
                 @csrf
-                <input type="hidden" id="job_customer_id" name="customer_id">
                 <div class="modal-body">
-                    <!-- Customer Info Display -->
-                    <div class="customer-info-card mb-3" id="jobCustomerInfo"></div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="job_service_id" class="form-label">Service <span class="text-danger">*</span></label>
-                            <select class="form-select" id="job_service_id" name="service_id" required>
-                                <option value="">Select Service</option>
-                                @foreach($services as $service)
-                                    <option value="{{ $service->id }}">{{ $service->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text service_id_error text-danger d-block mt-1"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="job_branch_id" class="form-label">Branch <span class="text-danger">*</span></label>
-                            <select class="form-select" id="job_branch_id" name="branch_id" required>
-                                <option value="">Select Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text branch_id_error text-danger d-block mt-1"></span>
-                        </div>
+                    <!-- Selected Count Badge -->
+                    <div class="selected-count-badge mb-3">
+                        <i class="las la-check-circle"></i>
+                        <span class="selected-count-text">
+                            <span id="selected_count">0</span> leads selected for assignment
+                        </span>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label for="job_title" class="form-label">Job Title <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="job_title" name="title" required>
-                            <span class="error-text title_error text-danger d-block mt-1"></span>
-                        </div>
+                    <!-- Modern Selected Leads Preview -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            <i class="las la-list me-1"></i>Selected Leads Preview
+                        </label>
+                        <div id="selected_leads_preview" class="leads-preview-container"></div>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label for="job_description" class="form-label">Description</label>
-                            <textarea class="form-control" id="job_description" name="description" rows="2"></textarea>
-                        </div>
+                    <!-- Branch Filter -->
+                    @if(auth()->user()->role === 'super_admin')
+                    <div class="mb-3">
+                        <label for="bulk_branch" class="form-label fw-semibold">
+                            <i class="las la-building me-1"></i>Select Branch <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="bulk_branch" name="branch_id" required>
+                            <option value="">Choose branch...</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i> Select a branch to see available telecallers
+                        </small>
+                    </div>
+                    @else
+                    <input type="hidden" id="bulk_branch" name="branch_id" value="{{ auth()->user()->branch_id }}">
+                    @endif
+
+                    <!-- Telecaller Selection -->
+                    <div class="mb-3">
+                        <label for="bulk_telecaller" class="form-label fw-semibold">
+                            <i class="las la-user-tie me-1"></i>Assign To Telecaller <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="bulk_telecaller" name="assigned_to" required disabled>
+                            <option value="">Please select a branch first...</option>
+                        </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i> Select a branch above to see available telecallers
+                        </small>
                     </div>
 
-                    <div class="row mb-3">
-                        <div class="col-12">
-                            <label for="job_customer_instructions" class="form-label">Customer Instructions</label>
-                            <textarea class="form-control" id="job_customer_instructions" name="customer_instructions" rows="2" placeholder="E.g., Use eco-friendly products, Key under doormat"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="job_location" class="form-label">Location</label>
-                            <input type="text" class="form-control" id="job_location" name="location">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="job_scheduled_date" class="form-label">Scheduled Date</label>
-                            <input type="date" class="form-control" id="job_scheduled_date" name="scheduled_date">
-                        </div>
-                    </div>
-
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="job_scheduled_time" class="form-label">Scheduled Time (HH:MM)</label>
-                            <input type="time" class="form-control" id="job_scheduled_time" name="scheduled_time">
-                        </div>
+                    <!-- Notes -->
+                    <div class="mb-3">
+                        <label for="bulk_notes" class="form-label fw-semibold">
+                            <i class="las la-comment me-1"></i>Notes (Optional)
+                        </label>
+                        <textarea class="form-control" id="bulk_notes" name="notes" rows="3" placeholder="Add any notes about this bulk assignment..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Create Job</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="las la-times me-1"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-info text-white">
+                        <i class="las la-check-double me-1"></i> Assign All Selected
+                    </button>
                 </div>
             </form>
         </div>
@@ -771,6 +1088,28 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     <script>
+        @if(session('success'))
+            let successData = @json(json_decode(session('success'), true));
+            Swal.fire({
+                icon: 'success',
+                title: successData.title,
+                html: `<p>${successData.message}</p>
+                    ${successData.lead_code ? `<p><strong>Lead Code:</strong> <span class="badge bg-primary">${successData.lead_code}</span></p>` : ''}
+                    ${successData.name ? `<p><strong>Name:</strong> ${successData.name}</p>` : ''}`,
+                timer: 4000,
+                showConfirmButton: true,
+                confirmButtonColor: '#28a745'
+            });
+        @endif
+
+        @if(session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: '{{ session("error") }}',
+            });
+        @endif
+
         $(document).ready(function() {
             $.ajaxSetup({
                 headers: {
@@ -778,11 +1117,18 @@
                 }
             });
 
-            let duplicateCheckTimeout;
-            let isDuplicateFound = false;
-            let currentCustomerData = null;
+            // Data from server
+            const allTelecallers = @json($telecallers->map(function($t) {
+                return ['id' => $t->id, 'name' => $t->name, 'branch_id' => $t->branch_id];
+            }));
 
-            // AJAX Form Submit Function for Pagination
+            const allBranches = @json($branches);
+
+            console.log('All Telecallers:', allTelecallers);
+            console.log('All Branches:', allBranches);
+
+            let currentSort = { column: null, direction: 'asc' };
+
             function loadLeads(url = null) {
                 let formData = $('#filterForm').serialize();
                 let requestUrl = url || '{{ route("leads.index") }}';
@@ -801,43 +1147,33 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Error!',
-                            text: 'Failed to load leads',
-                            customClass: {
-                                container: 'swal-no-animation',
-                                popup: 'swal-no-animation'
-                            }
+                            text: 'Failed to load leads'
                         });
                     }
                 });
             }
 
-            // Form Submit - AJAX
             $('#filterForm').on('submit', function(e) {
                 e.preventDefault();
                 loadLeads();
             });
 
-            // Pagination Click Handler - AJAX
             $(document).on('click', '#paginationContainer .pagination a', function(e) {
                 e.preventDefault();
                 let url = $(this).attr('href');
                 loadLeads(url);
             });
 
-            // Search with debounce
             let searchTimeout;
-            $('#searchLead').on('keyup', function() {
+            $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(function() {
                     loadLeads();
                 }, 500);
             });
 
-            // Reset button functionality
             $('#resetBtn').on('click', function(e) {
                 e.preventDefault();
-
-                // Clear all filters
                 $('#statusFilter').val('');
                 $('#branchFilter').val('');
                 $('#sourceFilter').val('');
@@ -845,345 +1181,290 @@
                 $('#dateToFilter').val('');
                 $('#searchInput').val('');
                 $('#filter_assigned_to').val('');
-                // Redirect to clean URL
                 window.location.href = '{{ route("leads.index") }}';
             });
 
-            // Add Lead Button
-            $('#addLeadBtn').click(function() {
-                $('#leadForm')[0].reset();
-                $('#lead_id').val('');
-                $('#leadModalLabel').text('Add Lead');
-                $('.error-text').text('');
-                $('#duplicateAlertContainer').html('');
-                isDuplicateFound = false;
-                currentCustomerData = null;
-
-                @if(auth()->user()->role === 'super_admin')
-                    $('#branch_id').val('');
-                @endif
-
-                $('#saveLeadBtn').prop('disabled', false).html('Save Lead');
-                $('#leadModal').modal('show');
+            // Checkbox handlers
+            $('#selectAll').on('change', function() {
+                $('.lead-checkbox').prop('checked', $(this).is(':checked'));
+                updateBulkAssignButton();
             });
 
-            // Real-time Duplicate Detection
-            $('#email, #phone').on('keyup', function() {
-                clearTimeout(duplicateCheckTimeout);
+            $(document).on('change', '.lead-checkbox', function() {
+                updateBulkAssignButton();
+                let total = $('.lead-checkbox').length;
+                let checked = $('.lead-checkbox:checked').length;
+                $('#selectAll').prop('checked', total === checked);
+            });
 
-                let email = $('#email').val().trim();
-                let phone = $('#phone').val().trim();
+            function updateBulkAssignButton() {
+                let checkedCount = $('.lead-checkbox:checked').length;
+                $('#bulk_count').text(checkedCount);
 
-                // Clear previous alerts
-                $('#duplicateAlertContainer').html('');
-                isDuplicateFound = false;
-                currentCustomerData = null;
-                $('#saveLeadBtn').prop('disabled', false).html('Save Lead');
+                if (checkedCount > 0) {
+                    $('#bulkAssignBtn').fadeIn();
+                } else {
+                    $('#bulkAssignBtn').fadeOut();
+                }
+            }
 
-                // Only check if email or phone has reasonable length
-                if (email.length < 5 && phone.length < 8) {
+            // Single Assign - Branch change handler
+            $('#assign_branch').on('change', function() {
+                let selectedBranchId = $(this).val();
+                let telecallerSelect = $('#assign_telecaller');
+
+                console.log('Single Assign - Branch Selected:', selectedBranchId);
+
+                telecallerSelect.html('<option value="">Choose telecaller...</option>');
+
+                if (selectedBranchId && selectedBranchId !== '') {
+                    telecallerSelect.prop('disabled', false);
+
+                    let filteredTelecallers = allTelecallers.filter(t => t.branch_id == selectedBranchId);
+                    console.log('Single Assign - Filtered Telecallers:', filteredTelecallers);
+
+                    filteredTelecallers.forEach(function(telecaller) {
+                        telecallerSelect.append(
+                            $('<option>', {
+                                value: telecaller.id,
+                                text: telecaller.name
+                            })
+                        );
+                    });
+
+                    if (filteredTelecallers.length === 0) {
+                        telecallerSelect.append('<option value="" disabled>No telecallers in this branch</option>');
+                    }
+                } else {
+                    telecallerSelect.prop('disabled', true);
+                    telecallerSelect.html('<option value="">Please select a branch first...</option>');
+                }
+            });
+
+            // Single Assign Lead
+            $(document).on('click', '.assignLeadBtn', function() {
+                let leadId = $(this).data('id');
+                let leadName = $(this).data('name');
+                let leadCode = $(this).data('code');
+                let branchId = $(this).data('branch');
+
+                console.log('Single Assign - Lead Details:', {
+                    leadId: leadId,
+                    leadName: leadName,
+                    leadCode: leadCode,
+                    branchId: branchId
+                });
+
+                $('#assign_lead_id').val(leadId);
+                $('#assign_lead_name').text(leadName);
+                $('#assign_lead_code').text(leadCode);
+                $('#assign_lead_branch').val(branchId);
+                $('#assign_notes').val('');
+
+                // Find branch name
+                let branch = allBranches.find(b => b.id == branchId);
+                console.log('Found Branch:', branch);
+                $('#assign_lead_branch_name').text(branch ? branch.name : 'N/A');
+
+                // Filter telecallers by branch
+                let telecallerSelect = $('#assign_telecaller');
+                telecallerSelect.html('<option value="">Choose telecaller...</option>');
+
+                let filteredTelecallers = allTelecallers.filter(t => t.branch_id == branchId);
+                console.log('Filtered Telecallers for branch ' + branchId + ':', filteredTelecallers);
+
+                filteredTelecallers.forEach(function(telecaller) {
+                    telecallerSelect.append(
+                        $('<option>', {
+                            value: telecaller.id,
+                            text: telecaller.name
+                        })
+                    );
+                });
+
+                if (filteredTelecallers.length === 0) {
+                    telecallerSelect.append('<option value="" disabled>No telecallers in this branch</option>');
+                    console.warn('No telecallers found for branch:', branchId);
+                }
+
+                $('#assignLeadModal').modal('show');
+            });
+
+            $('#assignLeadForm').on('submit', function(e) {
+                e.preventDefault();
+
+                let leadId = $('#assign_lead_id').val();
+                let formData = $(this).serialize();
+
+                $.ajax({
+                    url: `/leads/${leadId}/assign`,
+                    type: 'POST',
+                    data: formData,
+                    success: function(response) {
+                        $('#assignLeadModal').modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Assigned!',
+                            text: response.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            loadLeads();
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Failed to assign lead', 'error');
+                    }
+                });
+            });
+
+            // Bulk Assign branch filter
+            $('#bulk_branch').on('change', function() {
+                let selectedBranchId = $(this).val();
+                let telecallerSelect = $('#bulk_telecaller');
+
+                console.log('Bulk Assign - Branch Selected:', selectedBranchId);
+
+                telecallerSelect.html('<option value="">Choose telecaller...</option>');
+
+                if (selectedBranchId && selectedBranchId !== '') {
+                    telecallerSelect.prop('disabled', false);
+
+                    let filteredTelecallers = allTelecallers.filter(t => t.branch_id == selectedBranchId);
+                    console.log('Bulk Assign - Filtered Telecallers:', filteredTelecallers);
+
+                    filteredTelecallers.forEach(function(telecaller) {
+                        telecallerSelect.append(
+                            $('<option>', {
+                                value: telecaller.id,
+                                text: telecaller.name
+                            })
+                        );
+                    });
+
+                    if (filteredTelecallers.length === 0) {
+                        telecallerSelect.append('<option value="" disabled>No telecallers in this branch</option>');
+                    }
+                } else {
+                    telecallerSelect.prop('disabled', true);
+                    telecallerSelect.html('<option value="">Please select a branch first...</option>');
+                }
+            });
+
+            // Bulk Assign Button Click
+            $('#bulkAssignBtn').on('click', function() {
+                let selectedLeads = [];
+                let previewHtml = '';
+                let branchCounts = {};
+
+                $('.lead-checkbox:checked').each(function() {
+                    let leadId = $(this).val();
+                    let leadName = $(this).data('name');
+                    let leadCode = $(this).data('code');
+                    let branchId = $(this).data('branch');
+
+                    selectedLeads.push(leadId);
+
+                    // Count leads per branch
+                    if (branchId) {
+                        branchCounts[branchId] = (branchCounts[branchId] || 0) + 1;
+                    }
+
+                    // Modern lead preview item
+                    previewHtml += `
+                        <div class="lead-preview-item">
+                            <i class="las la-user-circle lead-preview-icon"></i>
+                            <span class="lead-preview-badge">${leadCode}</span>
+                            <span class="lead-preview-name">${leadName}</span>
+                            <i class="las la-check-circle text-success"></i>
+                        </div>
+                    `;
+                });
+
+                console.log('Bulk Assign - Branch Counts:', branchCounts);
+
+                $('#selected_count').text(selectedLeads.length);
+                $('#selected_leads_preview').html(previewHtml);
+                $('#bulk_branch').val('');
+                $('#bulk_notes').val('');
+
+                // Reset and disable telecaller dropdown initially
+                $('#bulk_telecaller').html('<option value="">Please select a branch first...</option>').prop('disabled', true);
+
+                // If all selected leads are from the same branch, auto-select it
+                let branchIds = Object.keys(branchCounts);
+                if (branchIds.length === 1 && branchIds[0] !== 'null' && branchIds[0] !== 'undefined') {
+                    $('#bulk_branch').val(branchIds[0]).trigger('change');
+                }
+
+                $('#bulkAssignModal').modal('show');
+            });
+
+            // For non-super-admin users (lead managers)
+            @if(auth()->user()->role === 'lead_manager')
+                let userBranchId = {{ auth()->user()->branch_id ?? 'null' }};
+                if (userBranchId) {
+                    // When bulk assign modal opens, auto-enable telecaller dropdown for lead manager
+                    $('#bulkAssignModal').on('show.bs.modal', function() {
+                        let telecallerSelect = $('#bulk_telecaller');
+                        telecallerSelect.prop('disabled', false);
+                        telecallerSelect.html('<option value="">Choose telecaller...</option>');
+
+                        let filteredTelecallers = allTelecallers.filter(t => t.branch_id == userBranchId);
+
+                        filteredTelecallers.forEach(function(telecaller) {
+                            telecallerSelect.append(
+                                $('<option>', {
+                                    value: telecaller.id,
+                                    text: telecaller.name
+                                })
+                            );
+                        });
+                    });
+                }
+            @endif
+
+            $('#bulkAssignForm').on('submit', function(e) {
+                e.preventDefault();
+
+                let selectedLeads = [];
+                $('.lead-checkbox:checked').each(function() {
+                    selectedLeads.push($(this).val());
+                });
+
+                let assignedTo = $('#bulk_telecaller').val();
+                let notes = $('#bulk_notes').val();
+
+                if (selectedLeads.length === 0) {
+                    Swal.fire('Error', 'No leads selected', 'error');
                     return;
                 }
 
-                duplicateCheckTimeout = setTimeout(function() {
-                    $.ajax({
-                        url: '/leads/check-duplicate',
-                        type: 'POST',
-                        data: {
-                            email: email,
-                            phone: phone
-                        },
-                        success: function(response) {
-                            if (response.exists) {
-                                isDuplicateFound = true;
-                                currentCustomerData = response.data;
-                                showDuplicateAlert(response);
-                                $('#saveLeadBtn').prop('disabled', true).html('<i class="las la-ban"></i> Cannot Save - Duplicate Found');
-                            }
-                        }
-                    });
-                }, 600);
-            });
-
-            function showDuplicateAlert(response) {
-                let alertHtml = '';
-
-                if (response.type === 'customer') {
-                    let data = response.data;
-                    let priorityClass = data.priority === 'high' ? 'danger' : (data.priority === 'medium' ? 'warning' : 'success');
-                    let priorityText = data.priority.charAt(0).toUpperCase() + data.priority.slice(1);
-
-                    // Store data globally for later use
-                    window.duplicateCustomerData = data;
-
-                    alertHtml = `
-                        <div class="alert alert-${priorityClass} border-${priorityClass}">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <h5 class="alert-heading mb-3">
-                                        <i class="las la-exclamation-triangle"></i>
-                                        Existing Customer Detected!
-                                    </h5>
-                                </div>
-                                <span class="badge bg-${priorityClass} priority-badge-large">${priorityText} Priority</span>
-                            </div>
-
-                            <div class="customer-info-card">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-primary">${data.customer_code}</span></p>
-                                        <p class="mb-2"><strong>Name:</strong> ${data.name}</p>
-                                        <p class="mb-2"><strong>Email:</strong> ${data.email}</p>
-                                        <p class="mb-2"><strong>Phone:</strong> ${data.phone}</p>
-                                        <p class="mb-0"><strong>Customer Since:</strong> ${data.customer_since}</p>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <p class="mb-2"><strong>Total Jobs:</strong> <span class="badge bg-info">${data.total_jobs}</span></p>
-                                        <p class="mb-2"><strong>Completed Jobs:</strong> <span class="badge bg-success">${data.completed_jobs}</span></p>
-                                        <p class="mb-2"><strong>Pending Jobs:</strong> <span class="badge bg-warning">${data.pending_jobs}</span></p>
-                                        <p class="mb-2"><strong>Last Service:</strong> ${data.last_service}</p>
-                                        <p class="mb-0"><strong>Last Job Date:</strong> ${data.last_job_date}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <hr class="my-3">
-
-                            <div class="alert alert-info mb-3">
-                                <i class="las la-info-circle"></i>
-                                <strong>Cannot create duplicate lead.</strong> This person is already a customer in the system.
-                            </div>
-
-                            <div class="d-flex gap-2 flex-wrap">
-                                <a href="/customers/${data.customer_id}" class="btn btn-info btn-sm" target="_blank">
-                                    <i class="las la-eye"></i> View Customer Profile
-                                </a>
-                                <button type="button" class="btn btn-success btn-sm" onclick="showCreateJobModal(${data.customer_id})">
-                                    <i class="las la-plus-circle"></i> Create New Job for This Customer
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                } else if (response.type === 'lead') {
-                    let data = response.data;
-                    let statusClass = data.status === 'pending' ? 'warning' : (data.status === 'approved' ? 'success' : 'danger');
-                    let statusText = data.status.charAt(0).toUpperCase() + data.status.slice(1);
-
-                    alertHtml = `
-                        <div class="alert alert-warning border-warning">
-                            <h5 class="alert-heading mb-3">
-                                <i class="las la-exclamation-circle"></i>
-                                Duplicate Lead Detected!
-                            </h5>
-
-                            <div class="customer-info-card">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${data.lead_code}</span></p>
-                                        <p class="mb-2"><strong>Name:</strong> ${data.name}</p>
-                                        <p class="mb-2"><strong>Email:</strong> ${data.email}</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p class="mb-2"><strong>Phone:</strong> ${data.phone}</p>
-                                        <p class="mb-2"><strong>Status:</strong> <span class="badge bg-${statusClass}">${statusText}</span></p>
-                                        <p class="mb-2"><strong>Service:</strong> ${data.service}</p>
-                                        <p class="mb-0"><strong>Created:</strong> ${data.created_at}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <hr class="my-3">
-
-                            <div class="alert alert-danger mb-3">
-                                <i class="las la-ban"></i>
-                                <strong>Cannot create duplicate lead.</strong> This email/phone already exists as a lead in the system.
-                            </div>
-
-                            <button type="button" class="btn btn-info btn-sm" onclick="viewExistingLead(${data.lead_id})">
-                                <i class="las la-eye"></i> View Existing Lead
-                            </button>
-                        </div>
-                    `;
-                }
-
-                $('#duplicateAlertContainer').html(alertHtml);
-            }
-
-            // Form Submit - Block if duplicate, use AJAX reload
-            $('#leadForm').on('submit', function(e) {
-                e.preventDefault();
-
-                if (isDuplicateFound) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Cannot Create Lead',
-                        text: 'A duplicate customer or lead was detected. Please check the warning above.',
-                        customClass: {
-                            container: 'swal-no-animation',
-                            popup: 'swal-no-animation'
-                        }
-                    });
-                    return false;
-                }
-
-                let leadId = $('#lead_id').val();
-                let url = leadId ? '/leads/' + leadId : '/leads';
-                let formData = new FormData(this);
-
-                if (leadId) {
-                    formData.append('_method', 'PUT');
-                }
-
-                $('.error-text').text('');
-
                 $.ajax({
-                    url: url,
+                    url: '/leads/bulk-assign',
                     type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
+                    data: {
+                        lead_ids: selectedLeads,
+                        assigned_to: assignedTo,
+                        notes: notes
+                    },
                     success: function(response) {
-                        $('#leadModal').modal('hide');
-
+                        $('#bulkAssignModal').modal('hide');
                         Swal.fire({
                             icon: 'success',
                             title: 'Success!',
-                            text: response.message,
-                            timer: 2000,
-                            showConfirmButton: false,
-                            customClass: {
-                                container: 'swal-no-animation',
-                                popup: 'swal-no-animation'
-                            }
+                            html: `${response.message}<br><small>Assigned ${response.count} leads</small>`,
+                            timer: 3000,
+                            showConfirmButton: false
                         }).then(() => {
-                            loadLeads(); // Use AJAX reload instead of location.reload()
+                            $('.lead-checkbox').prop('checked', false);
+                            $('#selectAll').prop('checked', false);
+                            updateBulkAssignButton();
+                            loadLeads();
                         });
                     },
                     error: function(xhr) {
-                        if (xhr.status === 422) {
-                            let errors = xhr.responseJSON.errors;
-
-                            if (errors) {
-                                $.each(errors, function(key, value) {
-                                    let errorElement = $('.' + key + '_error');
-                                    if (errorElement.length) {
-                                        errorElement.text(value[0]);
-                                    }
-                                });
-
-                                let firstError = Object.values(errors)[0][0];
-                                Swal.fire({
-                                    icon: 'warning',
-                                    title: 'Validation Error',
-                                    text: firstError,
-                                    confirmButtonText: 'OK',
-                                    customClass: {
-                                        container: 'swal-no-animation',
-                                        popup: 'swal-no-animation'
-                                    }
-                                });
-                            }
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error!',
-                                text: xhr.responseJSON?.message || 'Something went wrong. Please try again.',
-                                confirmButtonText: 'OK',
-                                customClass: {
-                                    container: 'swal-no-animation',
-                                    popup: 'swal-no-animation'
-                                }
-                            });
-                        }
-                    }
-                });
-            });
-
-            // Create Job for Existing Customer
-            $('#createJobForm').on('submit', function(e) {
-                e.preventDefault();
-
-                let formData = new FormData(this);
-
-                $('.error-text').text('');
-
-                $.ajax({
-                    url: '/jobs/create-for-customer',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        $('#createJobModal').modal('hide');
-                        $('#leadModal').modal('hide');
-
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Job Created!',
-                            html: `Job <strong>${response.job_code}</strong> has been created successfully for the existing customer.`,
-                            confirmButtonText: 'View Jobs',
-                            showCancelButton: true,
-                            cancelButtonText: 'Stay Here',
-                            customClass: {
-                                container: 'swal-no-animation',
-                                popup: 'swal-no-animation'
-                            }
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                window.location.href = '/jobs';
-                            } else {
-                                loadLeads(); // Use AJAX reload
-                            }
-                        });
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            let errors = xhr.responseJSON.errors;
-                            $.each(errors, function(key, value) {
-                                $('.' + key + '_error').text(value[0]);
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error!',
-                                text: xhr.responseJSON?.message || 'Failed to create job',
-                                customClass: {
-                                    container: 'swal-no-animation',
-                                    popup: 'swal-no-animation'
-                                }
-                            });
-                        }
-                    }
-                });
-            });
-
-            // Edit Lead
-            $(document).on('click', '.editLeadBtn', function() {
-                let leadId = $(this).data('id');
-
-                $.ajax({
-                    url: '/leads/' + leadId + '/edit',
-                    type: 'GET',
-                    success: function(response) {
-                        $('#lead_id').val(response.lead.id);
-                        $('#leadModalLabel').text('Edit Lead');
-                        $('#name').val(response.lead.name);
-                        $('#email').val(response.lead.email);
-                        $('#phone').val(response.lead.phone);
-                        $('#lead_source_id').val(response.lead.lead_source_id);
-                        $('#service_id').val(response.lead.service_id);
-                        $('#assigned_to').val(response.lead.assigned_to);
-                        $('#amount').val(response.lead.amount);
-
-                        @if(auth()->user()->role === 'super_admin')
-                            $('#branch_id').val(response.lead.branch_id);
-                        @endif
-
-                        $('#description').val(response.lead.description);
-                        $('.error-text').text('');
-                        $('#duplicateAlertContainer').html('');
-                        isDuplicateFound = false;
-                        $('#leadModal').modal('show');
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Failed to assign leads', 'error');
                     }
                 });
             });
@@ -1191,38 +1472,114 @@
             // Delete Lead
             $(document).on('click', '.deleteLeadBtn', function() {
                 let leadId = $(this).data('id');
+                let leadName = $(this).data('name');
 
                 Swal.fire({
                     title: 'Delete Lead?',
-                    text: "You won't be able to revert this!",
+                    text: `Are you sure you want to delete ${leadName}?`,
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Delete',
+                    confirmButtonText: 'Yes, Delete',
                     cancelButtonText: 'Cancel',
-                    customClass: {
-                        container: 'swal-no-animation',
-                        popup: 'swal-no-animation'
-                    }
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: '/leads/' + leadId,
+                            url: `/leads/${leadId}`,
                             type: 'DELETE',
                             success: function(response) {
+                                if(response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Deleted!',
+                                        text: response.message,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        loadLeads();
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not delete lead.', 'error');
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Approve Lead
+            $(document).on('click', '.approveLeadBtn', function() {
+                let leadId = $(this).data('id');
+                let leadName = $(this).data('name');
+                let leadAmount = $(this).data('amount');
+
+                if (!leadAmount || leadAmount == 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Amount Required',
+                        text: 'Please set the lead amount before approving.',
+                        confirmButtonColor: '#ffc107'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Approve Lead?',
+                    html: `
+                        <p>Lead: <strong>${leadName}</strong></p>
+                        <p>Amount: <strong>₹${leadAmount}</strong></p>
+                        <textarea id="approval_notes" class="swal2-textarea" placeholder="Add approval notes (optional)" style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d9d9d9; border-radius: 4px;"></textarea>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Approve',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        let notes = $('#approval_notes').val();
+                        $.ajax({
+                            url: `/leads/${leadId}/approve`,
+                            type: 'POST',
+                            data: { approval_notes: notes },
+                            success: function(response) {
+                                if(response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Approved!',
+                                        html: `${response.message}<br>
+                                               <small>Customer: ${response.customer_code}</small><br>
+                                               <small>Job: ${response.job_code}</small><br>
+                                               <small>Remaining Budget: ${response.remaining_budget}</small>`,
+                                        timer: 4000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        loadLeads();
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                let errorMsg = 'Could not approve lead.';
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    errorMsg = xhr.responseJSON.message;
+                                }
+                                if (xhr.responseJSON && xhr.responseJSON.budget_info) {
+                                    let info = xhr.responseJSON.budget_info;
+                                    errorMsg += `<br><br><small>
+                                        Daily Limit: ${info.daily_limit}<br>
+                                        Used Today: ${info.today_total}<br>
+                                        Remaining: ${info.remaining}<br>
+                                        Requested: ${info.requested}<br>
+                                        Excess: ${info.excess}
+                                    </small>`;
+                                }
                                 Swal.fire({
-                                    icon: 'success',
-                                    title: 'Deleted!',
-                                    text: response.message,
-                                    timer: 2000,
-                                    showConfirmButton: false,
-                                    customClass: {
-                                        container: 'swal-no-animation',
-                                        popup: 'swal-no-animation'
-                                    }
-                                }).then(() => {
-                                    loadLeads(); // Use AJAX reload instead of location.reload()
+                                    icon: 'error',
+                                    title: 'Approval Failed',
+                                    html: errorMsg
                                 });
                             }
                         });
@@ -1230,197 +1587,135 @@
                 });
             });
 
-            // Approve Lead Button
-            $(document).on('click', '.approveLeadBtn', function() {
-                let leadId = $(this).data('id');
-                approveLead(leadId);
-            });
-
-            // Reject Lead Button
+            // Reject Lead
             $(document).on('click', '.rejectLeadBtn', function() {
                 let leadId = $(this).data('id');
-                rejectLead(leadId);
-            });
-        });
+                let leadName = $(this).data('name');
 
-        // Global functions
-        function approveLead(leadId) {
-            Swal.fire({
-                title: 'Approve Lead?',
-                html: '<textarea id="approval_notes_input" class="swal2-textarea" placeholder="Enter approval notes (optional)" style="width: 100%; min-height: 80px;"></textarea>',
-                showCancelButton: true,
-                confirmButtonText: 'Approve',
-                confirmButtonColor: '#28a745',
-                cancelButtonText: 'Cancel',
-                showLoaderOnConfirm: true,
-                focusConfirm: false,
-                customClass: {
-                    container: 'swal-no-animation',
-                    popup: 'swal-no-animation'
-                },
-                didOpen: () => {
-                    document.getElementById('approval_notes_input').focus();
-                },
-                preConfirm: () => {
-                    return document.getElementById('approval_notes_input').value;
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: '/leads/' + leadId + '/approve',
-                        type: 'POST',
-                        data: {
-                            approval_notes: result.value || '',
-                            _token: $('meta[name="csrf-token"]').attr('content')
-                        },
-                        success: function(response) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Approved!',
-                                text: response.message,
-                                timer: 2000,
-                                showConfirmButton: false,
-                                customClass: {
-                                    container: 'swal-no-animation',
-                                    popup: 'swal-no-animation'
-                                }
-                            }).then(() => {
-                                loadLeads(); // Use AJAX reload
-                            });
-                        },
-                        error: function(xhr) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error!',
-                                text: xhr.responseJSON?.message || 'Failed to approve lead',
-                                customClass: {
-                                    container: 'swal-no-animation',
-                                    popup: 'swal-no-animation'
-                                }
-                            });
+                Swal.fire({
+                    title: 'Reject Lead?',
+                    html: `
+                        <p>Are you sure you want to reject <strong>${leadName}</strong>?</p>
+                        <textarea id="rejection_reason" class="swal2-textarea" placeholder="Enter rejection reason (required)" required style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d9d9d9; border-radius: 4px;"></textarea>
+                    `,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Reject',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    preConfirm: () => {
+                        const reason = $('#rejection_reason').val();
+                        if (!reason) {
+                            Swal.showValidationMessage('Rejection reason is required');
                         }
-                    });
-                }
-            });
-        }
-
-        function rejectLead(leadId) {
-            Swal.fire({
-                title: 'Reject Lead?',
-                html: '<textarea id="rejection_reason_input" class="swal2-textarea" placeholder="Enter rejection reason (required)" style="width: 100%; min-height: 80px;" required></textarea>',
-                showCancelButton: true,
-                confirmButtonText: 'Reject',
-                confirmButtonColor: '#dc3545',
-                cancelButtonText: 'Cancel',
-                showLoaderOnConfirm: true,
-                focusConfirm: false,
-                customClass: {
-                    container: 'swal-no-animation',
-                    popup: 'swal-no-animation'
-                },
-                didOpen: () => {
-                    document.getElementById('rejection_reason_input').focus();
-                },
-                preConfirm: () => {
-                    const value = document.getElementById('rejection_reason_input').value;
-                    if (!value) {
-                        Swal.showValidationMessage('Rejection reason is required');
+                        return { reason: reason };
                     }
-                    return value;
-                }
-            }).then((result) => {
-                if (result.isConfirmed && result.value) {
-                    $.ajax({
-                        url: '/leads/' + leadId + '/reject',
-                        type: 'POST',
-                        data: {
-                            rejection_reason: result.value,
-                            _token: $('meta[name="csrf-token"]').attr('content')
-                        },
-                        success: function(response) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Rejected!',
-                                text: response.message,
-                                timer: 2000,
-                                showConfirmButton: false,
-                                customClass: {
-                                    container: 'swal-no-animation',
-                                    popup: 'swal-no-animation'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/leads/${leadId}/reject`,
+                            type: 'POST',
+                            data: { rejection_reason: result.value.reason },
+                            success: function(response) {
+                                if(response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Rejected!',
+                                        text: response.message,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        loadLeads();
+                                    });
                                 }
-                            }).then(() => {
-                                loadLeads(); // Use AJAX reload
-                            });
-                        },
-                        error: function(xhr) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error!',
-                                text: xhr.responseJSON?.message || 'Failed to reject lead',
-                                customClass: {
-                                    container: 'swal-no-animation',
-                                    popup: 'swal-no-animation'
-                                }
-                            });
-                        }
-                    });
-                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not reject lead.', 'error');
+                            }
+                        });
+                    }
+                });
             });
-        }
 
-        // Global functions (outside document.ready)
-        function viewExistingCustomer(customerId) {
-            window.open('/customers/' + customerId, '_blank');
-        }
+            // Table sorting
+            $(document).on('click', '.sortable', function() {
+                let column = $(this).data('column');
 
-        function showCreateJobModal(customerId) {
-            if (!window.duplicateCustomerData) {
-                Swal.fire('Error!', 'Customer data not available', 'error');
-                return;
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+
+                $('.sortable').removeClass('asc desc');
+                $(this).addClass(currentSort.direction);
+
+                sortLeadsTable(column, currentSort.direction);
+            });
+
+            function sortLeadsTable(column, direction) {
+                let rows = $('#leadsTableBody tr').get();
+
+                rows.sort(function(a, b) {
+                    let aVal, bVal;
+
+                    switch(column) {
+                        case 'code':
+                            aVal = $(a).data('code');
+                            bVal = $(b).data('code');
+                            break;
+                        case 'name':
+                            aVal = $(a).data('name');
+                            bVal = $(b).data('name');
+                            break;
+                        case 'phone':
+                            aVal = $(a).data('phone');
+                            bVal = $(b).data('phone');
+                            break;
+                        case 'service':
+                            aVal = $(a).data('service');
+                            bVal = $(b).data('service');
+                            break;
+                        case 'source':
+                            aVal = $(a).data('source');
+                            bVal = $(b).data('source');
+                            break;
+                        case 'branch':
+                            aVal = $(a).data('branch');
+                            bVal = $(b).data('branch');
+                            break;
+                        case 'status':
+                            let statusOrder = { 'pending': 1, 'approved': 2, 'rejected': 3 };
+                            aVal = statusOrder[$(a).data('status')];
+                            bVal = statusOrder[$(b).data('status')];
+                            break;
+                        case 'assigned':
+                            aVal = $(a).data('assigned');
+                            bVal = $(b).data('assigned');
+                            break;
+                        case 'created-by':
+                            aVal = $(a).data('created-by');
+                            bVal = $(b).data('created-by');
+                            break;
+                        case 'date':
+                            aVal = new Date($(a).data('date'));
+                            bVal = new Date($(b).data('date'));
+                            break;
+                    }
+
+                    if (direction === 'asc') {
+                        return aVal > bVal ? 1 : -1;
+                    } else {
+                        return aVal < bVal ? 1 : -1;
+                    }
+                });
+
+                $.each(rows, function(index, row) {
+                    $('#leadsTableBody').append(row);
+                });
             }
-
-            $('#job_customer_id').val(customerId);
-
-            let data = window.duplicateCustomerData;
-            let priorityClass = data.priority === 'high' ? 'danger' : (data.priority === 'medium' ? 'warning' : 'success');
-
-            let customerInfoHtml = `
-                <div class="alert alert-${priorityClass}">
-                    <h6 class="mb-2"><i class="las la-user"></i> Customer Information</h6>
-                    <p class="mb-1"><strong>Code:</strong> ${data.customer_code} | <strong>Name:</strong> ${data.name}</p>
-                    <p class="mb-0"><strong>Priority:</strong> <span class="badge bg-${priorityClass}">${data.priority.toUpperCase()}</span></p>
-                </div>
-            `;
-
-            $('#jobCustomerInfo').html(customerInfoHtml);
-            $('#job_title').val(data.name + ' - Service');
-
-            $('#createJobModal').modal('show');
-        }
-
-        function viewExistingLead(leadId) {
-            $('#leadModal').modal('hide');
-            window.location.href = '/leads/' + leadId;
-        }
-
-        // Make loadLeads globally accessible if needed
-        window.loadLeads = function(url = null) {
-            let formData = $('#filterForm').serialize();
-            let requestUrl = url || '{{ route("leads.index") }}';
-
-            $.ajax({
-                url: requestUrl,
-                type: 'GET',
-                data: formData,
-                success: function(response) {
-                    $('#leadsTableBody').html(response.html);
-                    $('#paginationContainer').html(response.pagination);
-                    $('#leadCount').text(response.total);
-                },
-                error: function(xhr) {
-                    console.error('Error loading leads:', xhr);
-                }
-            });
-        };
+        });
     </script>
 @endsection

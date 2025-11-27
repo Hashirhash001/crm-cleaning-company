@@ -21,19 +21,26 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
     // Super Admin Only - User Management
-    Route::middleware('role:super_admin')->group(function() {
+    Route::middleware('role:super_admin')->group(function () {
         Route::resource('users', UserController::class);
-
-        // Customer Management
-        Route::resource('customers', CustomerController::class)->only(['index', 'show', 'edit', 'update']);
-        Route::post('customers/{customer}/notes', [CustomerController::class, 'addNote'])->name('customers.addNote');
     });
+
+    // Customer Management
+    Route::resource('customers', CustomerController::class)->only(['index', 'show', 'edit', 'update', 'create', 'store']);
+    Route::post('customers/{customer}/notes', [CustomerController::class, 'addNote'])->name('customers.addNote');
 
     // Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/daily-budget', [SettingsController::class, 'updateDailyBudget'])->name('settings.updateDailyBudget');
 
     Route::post('/leads/{lead}/followups', [LeadController::class, 'addFollowup'])->name('leads.addFollowup');
+    Route::post('/lead-followups/{followup}/complete', [LeadController::class, 'complete'])->name('lead-followups.complete');
+
+    // Quick search for telecallers
+    Route::get('/telecaller/quick-search', [LeadController::class, 'quickSearch'])
+        ->name('telecaller.quick-search')
+        ->middleware('auth');
+
 
     // Lead Management
     Route::resource('leads', LeadController::class);
@@ -41,6 +48,8 @@ Route::middleware('auth')->group(function () {
     Route::post('leads/{lead}/reject', [LeadController::class, 'reject'])->name('leads.reject');
     Route::post('leads/{lead}/calls', [LeadController::class, 'addCall'])->name('leads.addCall');
     Route::post('leads/{lead}/notes', [LeadController::class, 'addNote'])->name('leads.addNote');
+    Route::post('/leads/{lead}/assign', [LeadController::class, 'assignLead'])->name('leads.assign');
+    Route::post('/leads/bulk-assign', [LeadController::class, 'bulkAssign'])->name('leads.bulkAssign');
 
     // Job Management
     Route::resource('jobs', JobController::class);

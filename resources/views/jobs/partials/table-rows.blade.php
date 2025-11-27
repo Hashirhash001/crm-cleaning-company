@@ -16,6 +16,13 @@
             @endif
         </td>
         <td><span class="badge bg-info">{{ $job->service->name ?? 'N/A' }}</span></td>
+        <td>
+            @if($job->amount)
+                <strong class="text-success">₹{{ number_format($job->amount, 2) }}</strong>
+            @else
+                <span class="text-muted">N/A</span>
+            @endif
+        </td>
         <td><span class="badge badge-{{ $job->status }}">{{ ucfirst(str_replace('_', ' ', $job->status)) }}</span></td>
         <td>{{ $job->branch->name }}</td>
         @if(auth()->user()->role === 'super_admin')

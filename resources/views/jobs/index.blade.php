@@ -330,6 +330,7 @@
                                     <th style="min-width: 200px;">Title</th>
                                     <th style="min-width: 150px;">Customer</th>
                                     <th style="min-width: 140px;">Service</th>
+                                    <th style="min-width: 120px;">Amount</th>
                                     <th style="min-width: 120px;">Status</th>
                                     <th style="min-width: 120px;">Branch</th>
                                     @if(auth()->user()->role === 'super_admin')
@@ -370,14 +371,11 @@
                 <input type="hidden" id="job_id" name="job_id">
                 <div class="modal-body">
                     <div class="row mb-3">
-                        <div class="col-12">
+                        <div class="col-md-6">
                             <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="title" name="title" required>
                             <span class="error-text title_error text-danger d-block mt-1"></span>
                         </div>
-                    </div>
-
-                    <div class="row mb-3">
                         <div class="col-md-6">
                             <label for="customer_id" class="form-label">Customer</label>
                             <select class="form-select" id="customer_id" name="customer_id">
@@ -387,6 +385,14 @@
                                 @endforeach
                             </select>
                             <span class="error-text customer_id_error text-danger d-block mt-1"></span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="amount" class="form-label">Amount (₹)</label>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" placeholder="0.00">
+                            <span class="error-text amount_error text-danger d-block mt-1"></span>
                         </div>
                         <div class="col-md-6">
                             <label for="service_id" class="form-label">Service</label>
@@ -585,6 +591,7 @@
                         $('#customer_instructions').val(response.job.customer_instructions || '');
                         $('#branch_id').val(response.job.branch_id || '');
                         $('#location').val(response.job.location || '');
+                        $('#amount').val(response.job.amount || '');
 
                         let today = new Date().toISOString().split('T')[0];
                         $('#scheduled_date').attr('min', today);

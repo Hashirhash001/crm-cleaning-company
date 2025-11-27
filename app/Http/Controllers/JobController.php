@@ -105,6 +105,7 @@ class JobController extends Controller
                 'location' => 'nullable|string',
                 'scheduled_date' => 'nullable|date',
                 'scheduled_time' => 'nullable|date_format:H:i',
+                'amount' => 'nullable|numeric|min:0',
             ]);
 
             // Generate unique job code
@@ -122,6 +123,7 @@ class JobController extends Controller
                 'location' => $validated['location'] ?? null,
                 'scheduled_date' => $validated['scheduled_date'] ?? null,
                 'scheduled_time' => $validated['scheduled_time'] ?? null,
+                'amount' => $validated['amount'] ?? null,
                 'created_by' => auth()->id(),
                 'status' => 'pending',
             ]);
@@ -220,6 +222,7 @@ class JobController extends Controller
                 'location' => 'nullable|string',
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
+                'amount' => 'nullable|numeric|min:0',
             ]);
 
             $job->update($validated);
@@ -317,7 +320,6 @@ class JobController extends Controller
         }
     }
 
-
     public function startJob(Job $job)
     {
         try {
@@ -414,6 +416,7 @@ class JobController extends Controller
                 'location' => 'nullable|string',
                 'scheduled_date' => 'nullable|date',
                 'scheduled_time' => 'nullable|date_format:H:i',
+                'amount' => 'nullable|numeric|min:0',
             ]);
 
             // Generate unique job code
@@ -431,6 +434,7 @@ class JobController extends Controller
                 'location' => $validated['location'] ?? null,
                 'scheduled_date' => $validated['scheduled_date'] ?? null,
                 'scheduled_time' => $validated['scheduled_time'] ?? null,
+                'amount' => $validated['amount'] ?? null,
                 'created_by' => auth()->id(),
                 'status' => 'pending',
             ]);

@@ -1,35 +1,69 @@
 @forelse($leads as $lead)
     <tr data-lead-id="{{ $lead->id }}"
+        data-code="{{ $lead->lead_code }}"
+        data-name="{{ $lead->name }}"
+        data-phone="{{ $lead->phone }}"
+        data-service="{{ $lead->service->name ?? 'N/A' }}"
         data-status="{{ $lead->status }}"
-        data-source="{{ $lead->lead_source_id }}"
-        data-branch="{{ $lead->branch_id }}"
+        data-source="{{ $lead->source->name }}"
+        data-branch="{{ $lead->branch->name ?? 'N/A' }}"
+        data-assigned="{{ $lead->assignedTo ? $lead->assignedTo->name : 'Unassigned' }}"
+        data-created-by="{{ $lead->createdBy->name }}"
         data-date="{{ $lead->created_at->format('Y-m-d') }}">
+
+        <!-- Checkbox for bulk selection -->
+        <td class="checkbox-col">
+            @if($lead->status === 'pending' && in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+            <div class="checkbox-wrapper">
+                <input type="checkbox"
+                       class="custom-checkbox lead-checkbox"
+                       value="{{ $lead->id }}"
+                       data-name="{{ $lead->name }}"
+                       data-code="{{ $lead->lead_code }}"
+                       data-branch="{{ $lead->branch_id }}"
+                       title="Select {{ $lead->name }}">
+            </div>
+            @endif
+        </td>
+
+        <!-- Lead Code -->
         <td>
             <span class="badge bg-primary">{{ $lead->lead_code }}</span>
         </td>
+
+        <!-- Name -->
         <td>
             <a href="{{ route('leads.show', $lead->id) }}" class="lead-name-link text-decoration-none">
                 <h6 class="m-0 text-primary">{{ $lead->name }}</h6>
             </a>
         </td>
-        <td>
-            <a href="mailto:{{ $lead->email }}">{{ $lead->email }}</a>
-        </td>
+
+        <!-- Phone -->
         <td>{{ $lead->phone }}</td>
+
+        <!-- Service -->
         <td>
             <span class="badge bg-info">{{ $lead->service->name ?? 'N/A' }}</span>
         </td>
+
+        <!-- Status -->
+        <td>
+            <span class="badge badge-{{ $lead->status }}">{{ ucfirst($lead->status) }}</span>
+        </td>
+
+        <!-- Source -->
         <td>
             <span class="badge bg-secondary">{{ $lead->source->name }}</span>
         </td>
+
+        <!-- Branch (Super Admin only) -->
         @if(auth()->user()->role === 'super_admin')
             <td>
                 <span class="badge bg-dark">{{ $lead->branch->name ?? 'N/A' }}</span>
             </td>
         @endif
-        <td>
-            <span class="badge badge-{{ $lead->status }}">{{ ucfirst($lead->status) }}</span>
-        </td>
+
+        <!-- Assigned To -->
         <td>
             @if($lead->assignedTo)
                 <span class="badge bg-info">{{ $lead->assignedTo->name }}</span>
@@ -37,10 +71,16 @@
                 <span class="text-muted">Unassigned</span>
             @endif
         </td>
+
+        <!-- Created By (Super Admin only) -->
         @if(auth()->user()->role === 'super_admin')
             <td>{{ $lead->createdBy->name }}</td>
         @endif
+
+        <!-- Created Date -->
         <td>{{ $lead->created_at->format('d M Y') }}</td>
+
+        <!-- Action -->
         <td>
             <div class="action-icons d-flex gap-2">
                 @php
@@ -48,49 +88,62 @@
                     $canEdit = false;
                     $canDelete = false;
                     $canApprove = false;
+                    $canAssign = false;
 
                     if ($lead->status === 'pending') {
-                        // Super Admin can edit, delete, approve all
                         if ($user->role === 'super_admin') {
                             $canEdit = true;
                             $canDelete = true;
                             $canApprove = true;
+                            $canAssign = true;
                         }
-                        // Lead Manager can edit/delete their own leads
                         elseif ($user->role === 'lead_manager' && $lead->created_by === $user->id) {
                             $canEdit = true;
                             $canDelete = true;
-                            $canApprove = true; // Lead managers can also approve
+                            $canApprove = true;
+                            $canAssign = true;
                         }
-                        // Telecallers can edit their assigned leads
                         elseif ($user->role === 'telecallers' && $lead->assigned_to === $user->id) {
                             $canEdit = true;
                         }
                     }
                 @endphp
 
+                <!-- Assign Button -->
+                @if($canAssign)
+                    <a href="javascript:void(0)"
+                       class="assignLeadBtn"
+                       data-id="{{ $lead->id }}"
+                       data-name="{{ $lead->name }}"
+                       data-code="{{ $lead->lead_code }}"
+                       data-branch="{{ $lead->branch_id }}"
+                       title="Assign Lead">
+                        <i class="las la-user-plus text-primary fs-18"></i>
+                    </a>
+                @endif
+
                 @if($canEdit)
-                    <a href="javascript:void(0)" class="editLeadBtn" data-id="{{ $lead->id }}" title="Edit Lead">
+                    <a href="{{ route('leads.edit', $lead->id) }}" class="editLeadBtn" data-id="{{ $lead->id }}" title="Edit Lead">
                         <i class="las la-pen text-secondary fs-18"></i>
                     </a>
                 @endif
 
                 @if($canDelete)
-                    <a href="javascript:void(0)" class="deleteLeadBtn" data-id="{{ $lead->id }}" title="Delete Lead">
+                    <a href="javascript:void(0)" class="deleteLeadBtn" data-id="{{ $lead->id }}" data-name="{{ $lead->name }}" title="Delete Lead">
                         <i class="las la-trash-alt text-danger fs-18"></i>
                     </a>
                 @endif
 
                 @if($canApprove)
-                    <a href="javascript:void(0)" class="approveLeadBtn" data-id="{{ $lead->id }}" title="Approve Lead">
+                    <a href="javascript:void(0)" class="approveLeadBtn" data-id="{{ $lead->id }}" data-name="{{ $lead->name }}" data-amount="{{ $lead->amount ?? 0 }}" title="Approve Lead">
                         <i class="las la-check-circle text-success fs-18"></i>
                     </a>
-                    <a href="javascript:void(0)" class="rejectLeadBtn" data-id="{{ $lead->id }}" title="Reject Lead">
+                    <a href="javascript:void(0)" class="rejectLeadBtn" data-id="{{ $lead->id }}" data-name="{{ $lead->name }}" title="Reject Lead">
                         <i class="las la-times-circle text-danger fs-18"></i>
                     </a>
                 @endif
 
-                @if(!$canEdit && !$canDelete && !$canApprove)
+                @if(!$canEdit && !$canDelete && !$canApprove && !$canAssign)
                     <span class="text-muted">-</span>
                 @endif
             </div>
@@ -99,7 +152,10 @@
 @empty
     <tr>
         <td colspan="{{ auth()->user()->role === 'super_admin' ? '12' : '10' }}" class="text-center py-4">
-            <p class="text-muted mb-0">No leads found</p>
+            <div class="text-center py-5">
+                <i class="las la-inbox" style="font-size: 4rem; opacity: 0.2;"></i>
+                <p class="text-muted mt-3 mb-0">No leads found</p>
+            </div>
         </td>
     </tr>
 @endforelse

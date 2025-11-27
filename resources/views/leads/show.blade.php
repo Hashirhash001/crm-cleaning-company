@@ -1,398 +1,686 @@
 @extends('layouts.app')
 
-@section('title', 'Lead Details')
+@section('title', 'Lead Details - ' . $lead->name)
 
 @section('extra-css')
-    <style>
-        .swal2-textarea{
-            margin: 0 !important;
-        }
+<style>
+    .lead-detail-container {
+        background: #f8f9fb;
+        min-height: calc(100vh - 100px);
+        padding: 1.5rem 0;
+    }
 
-        /* Job Status Badges */
-        .badge-pending {
-            background-color: #ffc107;
-            color: #000;
-        }
-        .badge-in_progress {
-            background-color: #17a2b8;
-            color: #fff;
-        }
-        .badge-completed {
-            background-color: #28a745;
-            color: #fff;
-        }
-        .badge-cancelled {
-            background-color: #dc3545;
-            color: #fff;
-        }
-    </style>
+    .lead-header-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: #fff;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+        margin-bottom: 2rem;
+    }
+
+    .lead-status-badge {
+        padding: 0.5rem 1.25rem;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .info-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+        border: 1px solid #e8ecef;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s;
+    }
+
+    .info-card:hover {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+    }
+
+    .info-card-header {
+        border-bottom: 2px solid #f1f3f5;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-card-header h5 {
+        margin: 0;
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 1.1rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.875rem 0;
+        border-bottom: 1px dashed #e8ecef;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        color: #64748b;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+
+    .info-value {
+        color: #1e293b;
+        font-weight: 600;
+        text-align: right;
+    }
+
+    .amount-card {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: #fff;
+        text-align: center;
+    }
+
+    .amount-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0.5rem 0;
+    }
+
+    .converted-customer-card {
+        background: linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%);
+        border: 2px solid #11998e;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .related-job-card {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+        border: 2px solid #3b82f6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .view-profile-btn {
+        background: #11998e;
+        color: #fff;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s;
+        width: 100%;
+    }
+
+    .view-profile-btn:hover {
+        background: #0d7a6f;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(17, 153, 142, 0.4);
+    }
+
+    .view-job-btn {
+        background: #3b82f6;
+        color: #fff;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s;
+        width: 100%;
+    }
+
+    .view-job-btn:hover {
+        background: #2563eb;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .action-button {
+        border-radius: 10px;
+        padding: 0.625rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.3s;
+        border: none;
+    }
+
+    .action-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    }
+
+    .followup-timeline {
+        position: relative;
+        padding-left: 0;
+    }
+
+    .followup-item {
+        position: relative;
+        padding: 1.25rem;
+        background: #f8f9fb;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border-left: 4px solid #667eea;
+        transition: all 0.3s;
+    }
+
+    .followup-item:hover {
+        background: #fff;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        transform: translateX(4px);
+    }
+
+    .followup-item.overdue {
+        border-left-color: #dc3545;
+        background: linear-gradient(90deg, rgba(220, 53, 69, 0.05), #f8f9fb);
+    }
+
+    .followup-item.completed {
+        border-left-color: #28a745;
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.05), #f8f9fb);
+        opacity: 0.8;
+    }
+
+    .followup-item.today {
+        border-left-color: #ffc107;
+        background: linear-gradient(90deg, rgba(255, 193, 7, 0.05), #f8f9fb);
+    }
+
+    .call-log-item, .note-item {
+        background: #fff;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        border-left: 3px solid #667eea;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+
+    .note-item {
+        background: #fffbea;
+        border-left-color: #ffc107;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: #94a3b8;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        opacity: 0.3;
+        margin-bottom: 1rem;
+    }
+</style>
 @endsection
 
 @section('content')
-<div class="row">
-    <div class="col-sm-12">
-        <div class="page-title-box d-md-flex justify-content-md-between align-items-center">
-            <h4 class="page-title">Lead Details</h4>
-            <div class="">
-                <ol class="breadcrumb mb-0">
-                    <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
-                    <li class="breadcrumb-item"><a href="{{ route('leads.index') }}">Leads</a></li>
-                    <li class="breadcrumb-item active">{{ $lead->lead_code }}</li>
-                </ol>
+<div class="lead-detail-container">
+    <div class="container-fluid">
+        <!-- Lead Header with Action Buttons -->
+        <div class="lead-header-card">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center mb-2">
+                        <h2 class="mb-0 me-3">{{ $lead->name }}</h2>
+                        <span class="lead-status-badge bg-{{ $lead->status === 'approved' ? 'success' : ($lead->status === 'rejected' ? 'danger' : 'warning') }}">
+                            {{ strtoupper($lead->status) }}
+                        </span>
+                    </div>
+                    <p class="mb-0 opacity-90">
+                        <i class="las la-tag me-2"></i>{{ $lead->lead_code }} |
+                        <i class="las la-calendar ms-3 me-2"></i>{{ $lead->created_at->format('d M Y') }}
+                    </p>
+                </div>
+                <div class="col-md-8 text-md-end mt-3 mt-md-0">
+                    <a href="{{ route('leads.index') }}" class="btn btn-light action-button me-2">
+                        <i class="las la-arrow-left me-2"></i>Back to Leads
+                    </a>
+
+                    @if($lead->status === 'pending')
+                        <!-- Edit Button -->
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']) || (auth()->user()->role === 'telecallers' && $lead->assigned_to === auth()->id()))
+                        <button type="button" class="btn btn-primary action-button me-2" onclick="editLeadFromShow()">
+                            <i class="las la-edit me-2"></i>Edit
+                        </button>
+                        @endif
+
+                        <!-- Approve Button -->
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                        <button type="button" class="btn btn-success action-button me-2" onclick="approveLead()">
+                            <i class="las la-check me-2"></i>Approve
+                        </button>
+
+                        <!-- Reject Button -->
+                        @if(auth()->user()->role === 'super_admin')
+                        <button type="button" class="btn btn-danger action-button" onclick="rejectLead()">
+                            <i class="las la-times me-2"></i>Reject
+                        </button>
+                        @endif
+                        @endif
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-lg-4">
+
+                <!-- Converted to Customer Section -->
+                @if($lead->status === 'approved' && $lead->customer)
+                <div class="converted-customer-card">
+                    <h6 class="mb-3" style="color: #11998e;">
+                        <i class="las la-user-check me-2"></i>Converted to Customer
+                    </h6>
+                    <div class="mb-2">
+                        <strong>Customer Code:</strong>
+                        <span class="badge bg-success ms-2">{{ $lead->customer->customer_code }}</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Name:</strong> {{ $lead->customer->name }}
+                    </div>
+                    <a href="{{ route('customers.show', $lead->customer->id) }}" class="btn view-profile-btn">
+                        <i class="las la-external-link-alt me-2"></i>View Customer Profile
+                    </a>
+                </div>
+                @endif
+
+                <!-- Related Job Section -->
+                @if($lead->status === 'approved' && $lead->jobs && $lead->jobs->count() > 0)
+                    @php $job = $lead->jobs->first(); @endphp
+                    <div class="related-job-card">
+                        <h6 class="mb-3" style="color: #3b82f6;">
+                            <i class="las la-briefcase me-2"></i>Related Job
+                        </h6>
+                        <div class="mb-2">
+                            <strong>Job Code:</strong>
+                            <span class="badge bg-primary ms-2">{{ $job->job_code }}</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Title:</strong><br>
+                            {{ $job->title }}
+                        </div>
+                        <div class="mb-2">
+                            <strong>Service:</strong>
+                            <span class="badge bg-info">{{ $job->service->name ?? 'N/A' }}</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>Amount:</strong>
+                            <span class="text-success fw-bold">₹{{ number_format($job->amount, 2) }}</span>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Status:</strong>
+                            <span class="badge bg-warning">{{ ucfirst($job->status) }}</span>
+                        </div>
+                        <a href="{{ route('jobs.show', $job->id) }}" class="btn view-job-btn">
+                            <i class="las la-external-link-alt me-2"></i>View Job Details
+                        </a>
+                    </div>
+                @endif
+
+                <!-- Contact Information -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <h5><i class="las la-user me-2"></i>Contact Information</h5>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Email</span>
+                        <span class="info-value">{{ $lead->email }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Phone</span>
+                        <span class="info-value">{{ $lead->phone }}</span>
+                    </div>
+                    @if($lead->address)
+                    <div class="info-row">
+                        <span class="info-label">Address</span>
+                        <span class="info-value">{{ $lead->address }}</span>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Lead Details -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <h5><i class="las la-info-circle me-2"></i>Lead Details</h5>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Service</span>
+                        <span class="info-value">{{ $lead->service->name ?? 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Source</span>
+                        <span class="info-value">{{ $lead->source->name ?? 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Branch</span>
+                        <span class="info-value">{{ $lead->branch->name ?? 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Created By</span>
+                        <span class="info-value">{{ $lead->createdBy->name ?? 'N/A' }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Assigned To</span>
+                        <span class="info-value">{{ $lead->assignedTo->name ?? 'Unassigned' }}</span>
+                    </div>
+                </div>
+
+                <!-- Amount Card -->
+                @if($lead->amount)
+                <div class="amount-card">
+                    <p class="mb-1 opacity-90"><strong>Lead Amount:</strong></p>
+                    <div class="amount-value">₹{{ number_format($lead->amount, 2) }}</div>
+                    @if($lead->amountUpdatedBy && $lead->amount_updated_at)
+                    <hr style="border-color: rgba(255,255,255,0.3);">
+                    <small class="opacity-75 d-block">
+                        <strong>Updated by</strong> {{ $lead->amountUpdatedBy->name }}<br>
+                        {{ $lead->amount_updated_at->format('d M Y, h:i A') }}
+                    </small>
+                    @endif
+                </div>
+                @else
+                <div class="info-card text-center">
+                    <i class="las la-money-bill-wave" style="font-size: 3rem; opacity: 0.2;"></i>
+                    <p class="text-muted mb-0">Amount not set</p>
+                </div>
+                @endif
+
+
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-8">
+                <!-- Scheduled Followups -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="las la-calendar-check me-2"></i>Scheduled Followups</h5>
+                            @if($lead->status === 'pending')
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
+                                <i class="las la-plus me-1"></i>Add Followup
+                            </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($lead->followups && $lead->followups->count() > 0)
+                        <div class="followup-timeline">
+                            @foreach($lead->followups as $followup)
+                            <div class="followup-item {{ $followup->followup_date->isToday() ? 'today' : '' }} {{ $followup->followup_date->isPast() && $followup->status === 'pending' ? 'overdue' : '' }} {{ $followup->status === 'completed' ? 'completed' : '' }}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="badge bg-{{ $followup->priority === 'high' ? 'danger' : ($followup->priority === 'medium' ? 'warning' : 'info') }}">
+                                            <i class="las la-flag me-1"></i>{{ ucfirst($followup->priority) }} Priority
+                                        </span>
+                                        @if($followup->followup_date->isToday())
+                                            <span class="badge bg-warning ms-2">Today</span>
+                                        @endif
+                                        @if($followup->followup_date->isPast() && $followup->status === 'pending')
+                                            <span class="badge bg-danger ms-2">Overdue</span>
+                                        @endif
+                                    </div>
+                                    <span class="badge bg-{{ $followup->status === 'completed' ? 'success' : ($followup->status === 'cancelled' ? 'secondary' : 'primary') }}">
+                                        {{ ucfirst($followup->status) }}
+                                    </span>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1">
+                                            <strong><i class="las la-calendar me-1"></i>Date:</strong>
+                                            {{ $followup->followup_date->format('d M Y') }}
+                                            @if($followup->followup_time)
+                                                <br><strong><i class="las la-clock me-1"></i>Time:</strong>
+                                                {{ \Carbon\Carbon::parse($followup->followup_time)->format('h:i A') }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1">
+                                            <strong><i class="las la-user me-1"></i>Assigned To:</strong>
+                                            {{ $followup->assignedToUser->name ?? 'N/A' }}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                @if($followup->notes)
+                                <div class="mt-2 p-2 bg-white rounded">
+                                    <small class="text-muted">{{ $followup->notes }}</small>
+                                </div>
+                                @endif
+
+                                @if($followup->status === 'pending' && (auth()->user()->role === 'super_admin' || $followup->assigned_to == auth()->id()))
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-success markFollowupComplete" data-id="{{ $followup->id }}">
+                                        <i class="las la-check me-1"></i>Mark Complete
+                                    </button>
+                                </div>
+                                @endif
+
+                                @if($followup->status === 'completed' && $followup->completed_at)
+                                <div class="mt-2">
+                                    <small class="text-success">
+                                        <i class="las la-check-circle me-1"></i>
+                                        Completed on {{ $followup->completed_at->format('d M Y, h:i A') }}
+                                    </small>
+                                </div>
+                                @endif
+                            </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="empty-state">
+                            <i class="las la-calendar-times"></i>
+                            <p class="mb-0">No followups scheduled yet</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Call Logs -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="las la-phone me-2"></i>Call Logs</h5>
+                            @if($lead->status === 'pending')
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addCallModal">
+                                <i class="las la-plus me-1"></i>Add Call
+                            </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($lead->calls && $lead->calls->count() > 0)
+                        @foreach($lead->calls as $call)
+                        <div class="call-log-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ $call->user->name }}</strong>
+                                    <span class="badge bg-{{ $call->outcome === 'interested' ? 'success' : ($call->outcome === 'not_interested' ? 'danger' : 'warning') }} ms-2">
+                                        {{ ucfirst(str_replace('_', ' ', $call->outcome)) }}
+                                    </span>
+                                    <p class="text-muted small mb-1 mt-1">
+                                        {{ \Carbon\Carbon::parse($call->call_date)->format('d M Y') }}
+                                        @if($call->duration) | Duration: {{ $call->duration }} min @endif
+                                    </p>
+                                    @if($call->notes)
+                                    <p class="mb-0 small">{{ $call->notes }}</p>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="empty-state">
+                            <i class="las la-phone-slash"></i>
+                            <p class="mb-0">No call logs yet</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Notes -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="las la-sticky-note me-2"></i>Notes</h5>
+                            @if($lead->status === 'pending')
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                                <i class="las la-plus me-1"></i>Add Note
+                            </button>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($lead->notes && $lead->notes->count() > 0)
+                        @foreach($lead->notes as $note)
+                        <div class="note-item">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ $note->createdBy->name }}</strong>
+                                <small class="text-muted">{{ $note->created_at->diffForHumans() }}</small>
+                            </div>
+                            <p class="mb-0 mt-2">{{ $note->note }}</p>
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="empty-state">
+                            <i class="las la-comment-slash"></i>
+                            <p class="mb-0">No notes yet</p>
+                        </div>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <!-- Lead Info Card -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Lead Information</h5>
-                    @if($lead->status === 'pending')
-                        <span class="badge bg-warning">Pending</span>
-                    @elseif($lead->status === 'approved')
-                        <span class="badge bg-success">Approved</span>
-                    @else
-                        <span class="badge bg-danger">Rejected</span>
-                    @endif
-                </div>
+<!-- Edit Lead Modal -->
+<div class="modal fade" id="editLeadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="las la-edit me-2"></i>Edit Lead</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="card-body">
-                <p><strong>Lead Code:</strong><br><span class="badge bg-primary fs-6">{{ $lead->lead_code }}</span></p>
-                <hr>
-                <p><strong>Name:</strong><br>{{ $lead->name }}</p>
-                <p><strong>Email:</strong><br><a href="mailto:{{ $lead->email }}">{{ $lead->email }}</a></p>
-                <p><strong>Phone:</strong><br><a href="tel:{{ $lead->phone }}">{{ $lead->phone }}</a></p>
-                <p><strong>Service:</strong><br><span class="badge bg-info">{{ $lead->service->name ?? 'N/A' }}</span></p>
-                <p><strong>Source:</strong><br><span class="badge bg-secondary">{{ $lead->source->name }}</span></p>
-                <p>
-                    <strong>Assigned To:</strong><br>
-                    @if($lead->assignedTo)
-                        <span class="badge bg-info">
-                            <i class="las la-user"></i> {{ $lead->assignedTo->name }}
-                        </span>
-                    @else
-                        <span class="badge bg-secondary">
-                            <i class="las la-user-times"></i> Unassigned
-                        </span>
-                    @endif
-                </p>
-                <p><strong>Branch:</strong><br>{{ $lead->branch->name }}</p>
-
-                <!-- Amount Display -->
-                <hr>
-                <div class="amount-section">
-                    <p class="mb-2"><strong>Lead Amount:</strong></p>
-                    @if($lead->amount)
-                        <h4 class="text-success mb-2">₹{{ number_format($lead->amount, 2) }}</h4>
-                        @if($lead->amountUpdatedBy && $lead->amount_updated_at)
-                            <small class="text-muted d-block">
-                                Updated by {{ $lead->amountUpdatedBy->name }}<br>
-                                {{ \Carbon\Carbon::parse($lead->amount_updated_at)->format('d M Y, h:i A') }}
-                            </small>
+            <form id="editLeadForm">
+                @csrf
+                @method('PUT')
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="edit_name" name="name" value="{{ $lead->name }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email *</label>
+                            <input type="email" class="form-control" id="edit_email" name="email" value="{{ $lead->email }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone *</label>
+                            <input type="text" class="form-control" id="edit_phone" name="phone" value="{{ $lead->phone }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Service *</label>
+                            <select class="form-select" id="edit_service_id" name="service_id" required>
+                                @foreach(\App\Models\Service::where('is_active', true)->get() as $service)
+                                    <option value="{{ $service->id }}" {{ $lead->service_id == $service->id ? 'selected' : '' }}>{{ $service->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Lead Source *</label>
+                            <select class="form-select" id="edit_lead_source_id" name="lead_source_id" required>
+                                @foreach(\App\Models\LeadSource::where('is_active', true)->get() as $source)
+                                    <option value="{{ $source->id }}" {{ $lead->lead_source_id == $source->id ? 'selected' : '' }}>{{ $source->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Amount (₹)</label>
+                            <input type="number" class="form-control" id="edit_amount" name="amount" value="{{ $lead->amount }}" step="0.01" min="0">
+                        </div>
+                        @if(auth()->user()->role === 'super_admin')
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Branch *</label>
+                            <select class="form-select" id="edit_branch_id" name="branch_id" required>
+                                @foreach(\App\Models\Branch::where('is_active', true)->get() as $branch)
+                                    <option value="{{ $branch->id }}" {{ $lead->branch_id == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         @endif
-                    @else
-                        <span class="badge bg-warning">Not Set</span>
-                        <p class="text-muted small mt-1">Amount can be added when editing the lead</p>
-                    @endif
-                </div>
-
-                {{-- Customer and Job Information --}}
-                @if($lead->customer)
-                <hr>
-                <div class="alert alert-success mb-0">
-                    <h6 class="mb-2"><i class="las la-user-check"></i> Converted to Customer</h6>
-                    <p class="mb-1"><strong>Customer Code:</strong> <span class="badge bg-success">{{ $lead->customer->customer_code }}</span></p>
-                    <p class="mb-2"><strong>Name:</strong> {{ $lead->customer->name }}</p>
-                    <a href="{{ route('customers.show', $lead->customer->id) }}" class="btn btn-sm btn-success w-100 mb-2" target="_blank">
-                        <i class="las la-external-link-alt"></i> View Customer Profile
-                    </a>
-                </div>
-
-                {{-- Related Job Information --}}
-                @if($lead->jobs && $lead->jobs->count() > 0)
-                    @php
-                        $job = $lead->jobs->first();
-                    @endphp
-                    <div class="alert alert-primary mb-0 mt-2">
-                        <h6 class="mb-2"><i class="las la-briefcase"></i> Related Job</h6>
-                        <p class="mb-1"><strong>Job Code:</strong> <span class="badge bg-primary">{{ $job->job_code }}</span></p>
-                        <p class="mb-1"><strong>Title:</strong><br>{{ Str::limit($job->title, 40) }}</p>
-                        <p class="mb-1"><strong>Service:</strong> <span class="badge bg-info">{{ $job->service->name ?? 'N/A' }}</span></p>
-                        @if($job->amount)
-                        <p class="mb-1"><strong>Amount:</strong> <span class="text-success fw-bold">₹{{ number_format($job->amount, 2) }}</span></p>
-                        @endif
-                        <p class="mb-1">
-                            <strong>Status:</strong>
-                            @if($job->status === 'pending')
-                                <span class="badge bg-warning text-dark">Pending</span>
-                            @elseif($job->status === 'in_progress')
-                                <span class="badge bg-info">In Progress</span>
-                            @elseif($job->status === 'completed')
-                                <span class="badge bg-success">Completed</span>
-                            @else
-                                <span class="badge bg-danger">Cancelled</span>
-                            @endif
-                        </p>
-                        <a href="{{ route('jobs.show', $job->id) }}" class="btn btn-sm btn-primary w-100" target="_blank">
-                            <i class="las la-external-link-alt"></i> View Job Details
-                        </a>
-
-                        @if($lead->jobs->count() > 1)
-                            <small class="d-block mt-2 text-center text-muted">
-                                <i class="las la-info-circle"></i> +{{ $lead->jobs->count() - 1 }} more {{ Str::plural('job', $lead->jobs->count() - 1) }}
-                            </small>
-                        @endif
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Assigned To</label>
+                            <select class="form-select" id="edit_assigned_to" name="assigned_to">
+                                <option value="">Unassigned</option>
+                                @foreach(\App\Models\User::where('role', 'telecallers')->where('is_active', true)->get() as $user)
+                                    <option value="{{ $user->id }}" {{ $lead->assigned_to == $user->id ? 'selected' : '' }}>{{ $user->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="edit_description" name="description" rows="3">{{ $lead->description }}</textarea>
+                        </div>
                     </div>
-                @endif
-                @endif
-
-                @if($lead->description)
-                <hr>
-                <p><strong>Description:</strong><br>{{ $lead->description }}</p>
-                @endif
-
-                <hr>
-                <p><strong>Created By:</strong><br>{{ $lead->createdBy->name }}</p>
-                <p><strong>Created On:</strong><br>{{ $lead->created_at->format('d M Y, h:i A') }}</p>
-
-                @if($lead->status === 'approved' && $lead->approval_notes)
-                <hr>
-                <p><strong>Approval Notes:</strong><br>{{ $lead->approval_notes }}</p>
-                @endif
-
-                @if($lead->status === 'rejected' && $lead->approval_notes)
-                <hr>
-                <p><strong>Rejection Reason:</strong><br>{{ $lead->approval_notes }}</p>
-                @endif
-
-                <hr>
-
-                @php
-                    $canEdit = false;
-                    $user = auth()->user();
-
-                    if ($lead->status === 'pending') {
-                        if ($user->role === 'super_admin') {
-                            $canEdit = true;
-                        } elseif ($user->role === 'lead_manager' && $lead->created_by === $user->id) {
-                            $canEdit = true;
-                        } elseif ($user->role === 'telecallers' && $lead->assigned_to === $user->id) {
-                            $canEdit = true;
-                        }
-                    }
-                @endphp
-
-                <!-- Edit Lead Button -->
-                @if($canEdit)
-                <button type="button" class="btn btn-info btn-sm w-100 mb-2" onclick="editLeadFromShow()">
-                    <i class="las la-edit"></i> Edit Lead
-                </button>
-                @endif
-
-                <!-- Approve/Reject Buttons -->
-                @if($lead->status === 'pending' && in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
-                <div class="d-flex gap-2 mb-2">
-                    <button type="button" class="btn btn-success btn-sm flex-grow-1" onclick="approveLead({{ $lead->id }})">
-                        <i class="las la-check"></i> Approve
-                    </button>
-                    <button type="button" class="btn btn-danger btn-sm flex-grow-1" onclick="rejectLead({{ $lead->id }})">
-                        <i class="las la-times"></i> Reject
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="las la-save me-2"></i>Update Lead
                     </button>
                 </div>
-                @endif
-
-                <button type="button" class="btn btn-sm btn-primary w-100" onclick="window.location.href='{{ route('leads.index') }}'">
-                    <i class="las la-arrow-left"></i> Back to Leads
-                </button>
-            </div>
+            </form>
         </div>
     </div>
+</div>
 
-    <!-- Activity & Actions -->
-    <div class="col-lg-8">
-        <!-- Quick Actions -->
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <button type="button" class="btn btn-primary w-100" onclick="$('#addCallModal').modal('show')">
-                            <i class="las la-phone"></i> Log Call
-                        </button>
-                    </div>
-                </div>
+<!-- Add Followup Modal -->
+<div class="modal fade" id="addFollowupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="las la-calendar-plus me-2"></i>Schedule Followup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <button type="button" class="btn btn-info w-100" onclick="$('#addNoteModal').modal('show')">
-                            <i class="las la-sticky-note"></i> Add Note
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <button type="button" class="btn btn-success w-100" onclick="$('#addFollowupModal').modal('show')">
-                            <i class="las la-calendar-plus"></i> Schedule Followup
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Related Jobs Section -->
-        @if($lead->status === 'approved' && $lead->jobs && $lead->jobs->count() > 0)
-        <div class="card mb-3">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0"><i class="las la-briefcase"></i> Related Jobs</h5>
-                    <span class="badge bg-primary">{{ $lead->jobs->count() }} {{ Str::plural('Job', $lead->jobs->count()) }}</span>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Job Code</th>
-                                <th>Title</th>
-                                <th>Service</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Assigned To</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($lead->jobs as $job)
-                            <tr>
-                                <td>
-                                    <span class="badge bg-primary">{{ $job->job_code }}</span>
-                                </td>
-                                <td>
-                                    <a href="{{ route('jobs.show', $job->id) }}" class="text-decoration-none text-dark fw-bold" target="_blank" title="View Job Details">
-                                        {{ Str::limit($job->title, 40) }}
-                                        <i class="las la-external-link-alt ms-1 text-primary"></i>
-                                    </a>
-                                </td>
-                                <td>
-                                    <span class="badge bg-info">{{ $job->service->name ?? 'N/A' }}</span>
-                                </td>
-                                <td>
-                                    @if($job->amount)
-                                        <span class="text-success fw-bold">₹{{ number_format($job->amount, 2) }}</span>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($job->status === 'pending')
-                                        <span class="badge badge-pending">Pending</span>
-                                    @elseif($job->status === 'in_progress')
-                                        <span class="badge badge-in_progress">In Progress</span>
-                                    @elseif($job->status === 'completed')
-                                        <span class="badge badge-completed">Completed</span>
-                                    @else
-                                        <span class="badge badge-cancelled">Cancelled</span>
-                                    @endif
-                                </td>
-                                <td>
-                                    @if($job->assignedTo)
-                                        {{ $job->assignedTo->name }}
-                                    @else
-                                        <span class="text-muted">Unassigned</span>
-                                    @endif
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        @endif
-
-
-        <!-- Call History -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0"><i class="las la-phone"></i> Call History</h5>
-                    <span class="badge bg-primary">{{ $lead->calls->count() }} {{ Str::plural('Call', $lead->calls->count()) }}</span>
-                </div>
-            </div>
-            <div class="card-body">
-                @if($lead->calls->count() > 0)
-                    <div class="timeline">
-                        @foreach($lead->calls as $call)
-                        <div class="card mb-2">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <strong>{{ $call->user->name }}</strong>
-                                        <small class="text-muted ms-2">{{ $call->call_date->format('d M Y, h:i A') }}</small>
-                                    </div>
-                                    <div class="text-end">
-                                        @if($call->outcome === 'interested')
-                                            <span class="badge bg-success">Interested</span>
-                                        @elseif($call->outcome === 'not_interested')
-                                            <span class="badge bg-danger">Not Interested</span>
-                                        @elseif($call->outcome === 'callback')
-                                            <span class="badge bg-warning">Callback</span>
-                                        @elseif($call->outcome === 'no_answer')
-                                            <span class="badge bg-secondary">No Answer</span>
-                                        @else
-                                            <span class="badge bg-dark">Wrong Number</span>
-                                        @endif
-                                        @if($call->duration)
-                                            <br><small class="text-muted">{{ $call->duration }} min</small>
-                                        @endif
-                                    </div>
-                                </div>
-                                @if($call->notes)
-                                <p class="mb-0"><strong>Notes:</strong> {{ $call->notes }}</p>
-                                @endif
-                            </div>
+            <form id="addFollowupForm">
+                @csrf
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Followup Date *</label>
+                            <input type="date" class="form-control" name="followup_date" required min="{{ date('Y-m-d') }}">
                         </div>
-                        @endforeach
-                    </div>
-                @else
-                    <p class="text-muted text-center py-3">No calls logged yet.</p>
-                @endif
-            </div>
-        </div>
-
-        <!-- Notes -->
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0"><i class="las la-sticky-note"></i> Notes & Comments</h5>
-                    <span class="badge bg-primary">{{ $lead->notes->count() }} {{ Str::plural('Note', $lead->notes->count()) }}</span>
-                </div>
-            </div>
-            <div class="card-body">
-                @if($lead->notes->count() > 0)
-                    @foreach($lead->notes as $note)
-                    <div class="card mb-2">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                    <strong>{{ $note->createdBy->name }}</strong>
-                                    <small class="text-muted ms-2">{{ $note->created_at->diffForHumans() }}</small>
-                                </div>
-                            </div>
-                            <p class="mb-0">{{ $note->note }}</p>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Followup Time</label>
+                            <input type="time" class="form-control" name="followup_time">
                         </div>
                     </div>
-                    @endforeach
-                @else
-                    <p class="text-muted text-center py-3">No notes added yet.</p>
-                @endif
-            </div>
+                    <div class="mb-3">
+                        <label class="form-label">Priority *</label>
+                        <select class="form-select" name="priority" required>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Schedule Followup</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -510,160 +798,6 @@
     </div>
 </div>
 
-<!-- Add Followup Modal (Manual) -->
-<div class="modal fade" id="addFollowupModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Schedule Followup</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="addFollowupForm">
-                @csrf
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="manual_followup_date" class="form-label">Followup Date <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="manual_followup_date" name="followup_date" required>
-                            <span class="error-text followup_date_error text-danger d-block mt-1"></span>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="manual_followup_time" class="form-label">Followup Time</label>
-                            <input type="time" class="form-control" id="manual_followup_time" name="followup_time">
-                            <span class="error-text followup_time_error text-danger d-block mt-1"></span>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="manual_followup_priority" class="form-label">Priority <span class="text-danger">*</span></label>
-                        <select class="form-select" id="manual_followup_priority" name="priority" required>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                            <option value="low">Low</option>
-                        </select>
-                        <span class="error-text priority_error text-danger d-block mt-1"></span>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="manual_followup_notes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="manual_followup_notes" name="notes" rows="3" placeholder="What needs to be discussed?"></textarea>
-                        <span class="error-text notes_error text-danger d-block mt-1"></span>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-success">Schedule Followup</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Lead Modal -->
-<div class="modal fade" id="editLeadModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Lead</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="editLeadForm">
-                @csrf
-                @method('PUT')
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_name" class="form-label">Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="edit_name" name="name" required>
-                            <span class="error-text name_error text-danger d-block mt-1"></span>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_email" class="form-label">Email <span class="text-danger">*</span></label>
-                            <input type="email" class="form-control" id="edit_email" name="email" required>
-                            <span class="error-text email_error text-danger d-block mt-1"></span>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_phone" class="form-label">Phone <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="edit_phone" name="phone" required>
-                            <span class="error-text phone_error text-danger d-block mt-1"></span>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_service_id" class="form-label">Service <span class="text-danger">*</span></label>
-                            <select class="form-select" id="edit_service_id" name="service_id" required>
-                                <option value="">Select Service</option>
-                                @foreach(\App\Models\Service::where('is_active', true)->get() as $service)
-                                    <option value="{{ $service->id }}">{{ $service->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text service_id_error text-danger d-block mt-1"></span>
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_lead_source_id" class="form-label">Lead Source <span class="text-danger">*</span></label>
-                            <select class="form-select" id="edit_lead_source_id" name="lead_source_id" required>
-                                <option value="">Select Source</option>
-                                @foreach(\App\Models\LeadSource::where('is_active', true)->get() as $source)
-                                    <option value="{{ $source->id }}">{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text lead_source_id_error text-danger d-block mt-1"></span>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label for="edit_assigned_to" class="form-label">Assign To Telecaller</label>
-                            <select class="form-select" id="edit_assigned_to" name="assigned_to">
-                                <option value="">Select Telecaller (Optional)</option>
-                                @foreach(\App\Models\User::where('role', 'telecallers')->where('is_active', true)->orderBy('name')->get() as $telecaller)
-                                    <option value="{{ $telecaller->id }}">{{ $telecaller->name }}</option>
-                                @endforeach
-                            </select>
-                            <span class="error-text assigned_to_error text-danger d-block mt-1"></span>
-                        </div>
-                    </div>
-
-                    @if(auth()->user()->role === 'super_admin')
-                    <div class="mb-3">
-                        <label for="edit_branch_id" class="form-label">Branch <span class="text-danger">*</span></label>
-                        <select class="form-select" id="edit_branch_id" name="branch_id" required>
-                            <option value="">Select Branch</option>
-                            @foreach(\App\Models\Branch::where('is_active', true)->get() as $branch)
-                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                            @endforeach
-                        </select>
-                        <span class="error-text branch_id_error text-danger d-block mt-1"></span>
-                    </div>
-                    @endif
-
-                    <div class="mb-3">
-                        <label for="edit_amount" class="form-label">Lead Amount (₹)</label>
-                        <input type="number" class="form-control" id="edit_amount" name="amount"
-                               step="0.01" min="0" placeholder="Enter amount">
-                        <span class="error-text amount_error text-danger d-block mt-1"></span>
-                        <small class="text-muted">Required before approval</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="edit_description" class="form-label">Description</label>
-                        <textarea class="form-control" id="edit_description" name="description" rows="3"></textarea>
-                        <span class="error-text description_error text-danger d-block mt-1"></span>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Lead</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 @endsection
 
 @section('extra-scripts')
@@ -711,6 +845,42 @@
                     $('#followup_time').val('');
                     $('#followup_notes').val('');
                 }
+            });
+
+            // Mark followup as complete
+            $(document).on('click', '.markFollowupComplete', function() {
+                var followupId = $(this).data('id');
+                Swal.fire({
+                    title: 'Complete Followup?',
+                    text: 'Mark this followup as completed',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Complete',
+                    confirmButtonColor: '#28a745'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: '/lead-followups/' + followupId + '/complete',
+                            type: 'POST',
+                            success: function(response) {
+                                if(response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Completed!',
+                                        text: response.message,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('Error', 'Could not update followup', 'error');
+                            }
+                        });
+                    }
+                });
             });
 
             // Submit Add Call Form with Followup
@@ -893,120 +1063,125 @@
             });
         });
 
-        // Approve Lead with Budget Check
-        function approveLead(leadId) {
+        // Approve Lead
+        window.approveLead = function() {
             Swal.fire({
                 title: 'Approve Lead?',
-                html: '<textarea id="approval_notes_input" class="swal2-textarea" placeholder="Enter approval notes (optional)" style="width: 100%; min-height: 80px;"></textarea>',
+                html: `
+                    <div class="text-start mt-3">
+                        <label class="form-label fw-semibold">Approval Notes (Optional)</label>
+                        <textarea id="approval_notes" class="form-control" rows="3" placeholder="Add any notes about this approval"></textarea>
+                    </div>
+                `,
+                icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Approve',
+                confirmButtonText: '<i class="las la-check me-2"></i>Yes, Approve',
                 confirmButtonColor: '#28a745',
                 cancelButtonText: 'Cancel',
-                didOpen: () => {
-                    document.getElementById('approval_notes_input').focus();
-                },
+                width: '500px',
                 preConfirm: () => {
-                    return document.getElementById('approval_notes_input').value;
+                    return {
+                        approval_notes: document.getElementById('approval_notes').value
+                    };
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: '/leads/' + leadId + '/approve',
+                        url: '{{ route("leads.approve", $lead->id) }}',
                         type: 'POST',
-                        data: {
-                            approval_notes: result.value || '',
-                            _token: $('meta[name="csrf-token"]').attr('content')
-                        },
+                        data: result.value,
                         success: function(response) {
-                            let message = response.message;
-                            if (response.remaining_budget) {
-                                message += '<br><small class="text-muted">Remaining Budget: ' + response.remaining_budget + '</small>';
-                            }
-
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Approved!',
-                                html: message,
-                                timer: 3000,
-                                showConfirmButton: false
-                            }).then(() => {
-                                location.reload();
-                            });
+                                title: 'Lead Approved!',
+                                html: `
+                                    <p class="mb-3">${response.message}</p>
+                                    <div class="text-start">
+                                        <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-success">${response.customer_code}</span></p>
+                                        <p class="mb-2"><strong>Job Code:</strong> <span class="badge bg-primary">${response.job_code}</span></p>
+                                        <p class="mb-2"><strong>Amount:</strong> <span class="text-success">${response.amount}</span></p>
+                                        <p class="mb-0"><strong>Remaining Budget:</strong> <span class="text-success">${response.remaining_budget}</span></p>
+                                    </div>
+                                `,
+                                confirmButtonColor: '#28a745',
+                                confirmButtonText: 'OK'
+                            }).then(() => location.reload());
                         },
                         error: function(xhr) {
-                            let errorMessage = xhr.responseJSON?.message || 'Failed to approve lead';
+                            let message = xhr.responseJSON?.message || 'Failed to approve lead';
+                            let budgetInfo = xhr.responseJSON?.budget_info || null;
 
-                            // Handle budget exceeded error
-                            if (xhr.responseJSON?.budget_info) {
-                                let budget = xhr.responseJSON.budget_info;
-                                errorMessage = `
-                                    <div class="text-start">
-                                        <p><strong>${xhr.responseJSON.message}</strong></p>
-                                        <hr>
-                                        <p class="mb-1">Daily Limit: ${budget.daily_limit}</p>
-                                        <p class="mb-1">Used Today: ${budget.today_total}</p>
-                                        <p class="mb-1">Remaining: ${budget.remaining}</p>
-                                        <p class="mb-1">Requested: ${budget.requested}</p>
-                                        <p class="mb-0 text-danger"><strong>Excess: ${budget.excess}</strong></p>
+                            let html = `<p>${message}</p>`;
+
+                            if(budgetInfo) {
+                                html += `
+                                    <div class="mt-3 text-start alert alert-danger">
+                                        <p class="mb-1"><strong>Daily Limit:</strong> ${budgetInfo.daily_limit}</p>
+                                        <p class="mb-1"><strong>Used Today:</strong> ${budgetInfo.today_total}</p>
+                                        <p class="mb-1"><strong>Remaining:</strong> ${budgetInfo.remaining}</p>
+                                        <p class="mb-1"><strong>Requested:</strong> ${budgetInfo.requested}</p>
+                                        <p class="mb-0 text-danger"><strong>Excess Amount:</strong> ${budgetInfo.excess}</p>
                                     </div>
                                 `;
                             }
 
                             Swal.fire({
                                 icon: 'error',
-                                title: 'Cannot Approve',
-                                html: errorMessage
+                                title: 'Cannot Approve Lead',
+                                html: html,
+                                width: '500px'
                             });
                         }
                     });
                 }
             });
-        }
+        };
 
-        function rejectLead(leadId) {
+        // Reject Lead
+        window.rejectLead = function() {
             Swal.fire({
                 title: 'Reject Lead?',
-                html: '<textarea id="rejection_reason_input" class="swal2-textarea" placeholder="Enter rejection reason (required)" style="width: 100%; min-height: 80px;" required></textarea>',
+                html: `
+                    <div class="text-start mt-3">
+                        <label class="form-label fw-semibold">Rejection Reason *</label>
+                        <textarea id="rejection_reason" class="form-control" rows="3" placeholder="Please provide a reason for rejection" required></textarea>
+                    </div>
+                `,
+                icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Reject',
+                confirmButtonText: '<i class="las la-times me-2"></i>Yes, Reject',
                 confirmButtonColor: '#dc3545',
                 cancelButtonText: 'Cancel',
-                didOpen: () => {
-                    document.getElementById('rejection_reason_input').focus();
-                },
+                width: '500px',
                 preConfirm: () => {
-                    const value = document.getElementById('rejection_reason_input').value;
-                    if (!value) {
+                    const val = document.getElementById('rejection_reason').value;
+                    if(!val || val.trim() === '') {
                         Swal.showValidationMessage('Rejection reason is required');
+                        return false;
                     }
-                    return value;
+                    return { rejection_reason: val };
                 }
             }).then((result) => {
                 if (result.isConfirmed && result.value) {
                     $.ajax({
-                        url: '/leads/' + leadId + '/reject',
+                        url: '{{ route("leads.reject", $lead->id) }}',
                         type: 'POST',
-                        data: {
-                            rejection_reason: result.value,
-                            _token: $('meta[name="csrf-token"]').attr('content')
-                        },
+                        data: result.value,
                         success: function(response) {
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Rejected!',
+                                title: 'Lead Rejected',
                                 text: response.message,
-                                timer: 2000,
-                                showConfirmButton: false
-                            }).then(() => {
-                                location.reload();
-                            });
+                                confirmButtonColor: '#dc3545'
+                            }).then(() => location.reload());
                         },
                         error: function(xhr) {
-                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to reject lead', 'error');
+                            Swal.fire('Error', xhr.responseJSON?.message || 'Failed to reject lead', 'error');
                         }
                     });
                 }
             });
-        }
+        };
+
     </script>
 @endsection
