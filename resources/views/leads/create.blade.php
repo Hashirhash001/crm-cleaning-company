@@ -21,18 +21,41 @@
         content: " *";
         color: #dc3545;
     }
-    .duplicate-alert {
-        animation: slideDown 0.3s ease-out;
+    .balance-amount {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #28a745;
     }
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .service-select-box {
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 10px;
+        background: #fff;
+        min-height: 150px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .service-checkbox-item {
+        padding: 8px 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+    }
+    .service-checkbox-item:hover {
+        background: #f8f9fa;
+    }
+    .service-checkbox-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+    .service-checkbox-item label {
+        cursor: pointer;
+        margin: 0;
+        font-weight: 500;
     }
 </style>
 @endsection
@@ -54,7 +77,7 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-8 offset-lg-2">
+    <div class="col-lg-10 offset-lg-1">
         <div class="card">
             <div class="card-header">
                 <h4 class="card-title mb-0">
@@ -65,45 +88,25 @@
                 <form id="createLeadForm" method="POST" action="{{ route('leads.store') }}">
                     @csrf
 
-                    <!-- Duplicate Alert Container -->
-                    <div id="duplicateAlertContainer"></div>
-
-                    <!-- Personal Information Section -->
+                    <!-- Client Information Section -->
                     <div class="form-section">
-                        <h5><i class="las la-user me-2"></i>Personal Information</h5>
+                        <h5><i class="las la-user me-2"></i>Client Information</h5>
 
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label for="name" class="form-label required-field">Name</label>
+                                <label for="name" class="form-label required-field">Name of the Client</label>
                                 <input type="text"
                                        class="form-control @error('name') is-invalid @enderror"
                                        id="name"
                                        name="name"
                                        value="{{ old('name') }}"
-                                       placeholder="Enter lead name"
+                                       placeholder="Enter client name"
                                        required>
                                 @error('name')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
 
-                            <div class="col-md-6">
-                                <label for="phone" class="form-label required-field">Phone</label>
-                                <input type="text"
-                                       class="form-control @error('phone') is-invalid @enderror"
-                                       id="phone"
-                                       name="phone"
-                                       value="{{ old('phone') }}"
-                                       placeholder="Enter phone number"
-                                       required>
-                                @error('phone')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                        </div>
-
-                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="email" class="form-label">Email</label>
                                 <input type="email"
@@ -112,58 +115,122 @@
                                        name="email"
                                        value="{{ old('email') }}"
                                        placeholder="Enter email address">
-                                <small class="text-muted">We'll check for duplicates automatically</small>
                                 @error('email')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label required-field">Phone Number 1</label>
+                                <input type="text"
+                                       class="form-control @error('phone') is-invalid @enderror"
+                                       id="phone"
+                                       name="phone"
+                                       value="{{ old('phone') }}"
+                                       placeholder="Enter primary phone number"
+                                       required>
+                                @error('phone')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
 
                             <div class="col-md-6">
-                                <label for="amount" class="form-label">
-                                    Lead Amount (₹)
-                                    <small class="text-muted">(Optional)</small>
-                                </label>
-                                <input type="number"
-                                       class="form-control @error('amount') is-invalid @enderror"
-                                       id="amount"
-                                       name="amount"
-                                       value="{{ old('amount') }}"
-                                       step="0.01"
-                                       min="0"
-                                       placeholder="Enter amount">
-                                <small class="text-muted">You can add this later</small>
-                                @error('amount')
+                                <label for="phone_alternative" class="form-label">Phone Number 2 (Alternative)</label>
+                                <input type="text"
+                                       class="form-control @error('phone_alternative') is-invalid @enderror"
+                                       id="phone_alternative"
+                                       name="phone_alternative"
+                                       value="{{ old('phone_alternative') }}"
+                                       placeholder="Enter alternative phone number">
+                                @error('phone_alternative')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="address" class="form-label">Place/Address</label>
+                                <input type="text"
+                                       class="form-control @error('address') is-invalid @enderror"
+                                       id="address"
+                                       name="address"
+                                       value="{{ old('address') }}"
+                                       placeholder="Enter address">
+                                @error('address')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="district" class="form-label">District</label>
+                                <input type="text"
+                                       class="form-control @error('district') is-invalid @enderror"
+                                       id="district"
+                                       name="district"
+                                       value="{{ old('district') }}"
+                                       placeholder="Enter district">
+                                @error('district')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
                         </div>
                     </div>
 
-                    <!-- Service Details Section -->
+                    <!-- Property & Service Details Section -->
                     <div class="form-section">
-                        <h5><i class="las la-briefcase me-2"></i>Service Details</h5>
+                        <h5><i class="las la-building me-2"></i>Property & Service Details</h5>
 
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                <label for="service_id" class="form-label required-field">Service</label>
-                                <select class="form-select @error('service_id') is-invalid @enderror"
-                                        id="service_id"
-                                        name="service_id"
-                                        required>
-                                    <option value="">Select Service</option>
-                                    @foreach($services as $service)
-                                        <option value="{{ $service->id }}" {{ old('service_id') == $service->id ? 'selected' : '' }}>
-                                            {{ $service->name }}
-                                        </option>
-                                    @endforeach
+                                <label for="property_type" class="form-label">Property Type</label>
+                                <select class="form-select @error('property_type') is-invalid @enderror"
+                                        id="property_type"
+                                        name="property_type">
+                                    <option value="">Select Property Type</option>
+                                    <option value="commercial" {{ old('property_type') == 'commercial' ? 'selected' : '' }}>Commercial</option>
+                                    <option value="residential" {{ old('property_type') == 'residential' ? 'selected' : '' }}>Residential</option>
                                 </select>
-                                @error('service_id')
+                                @error('property_type')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
 
                             <div class="col-md-6">
-                                <label for="lead_source_id" class="form-label required-field">Lead Source</label>
+                                <label for="sqft" class="form-label">SQFT Details</label>
+                                <input type="number"
+                                       class="form-control @error('sqft') is-invalid @enderror"
+                                       id="sqft"
+                                       name="sqft"
+                                       value="{{ old('sqft') }}"
+                                       min="0"
+                                       placeholder="Enter square feet">
+                                @error('sqft')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="service_type" class="form-label required-field">Type of Service</label>
+                                <select class="form-select @error('service_type') is-invalid @enderror"
+                                        id="service_type"
+                                        name="service_type"
+                                        required>
+                                    <option value="">Select Service Type</option>
+                                    <option value="cleaning" {{ old('service_type') == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
+                                    <option value="pest_control" {{ old('service_type') == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
+                                </select>
+                                @error('service_type')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="lead_source_id" class="form-label required-field">Source of the Lead</label>
                                 <select class="form-select @error('lead_source_id') is-invalid @enderror"
                                         id="lead_source_id"
                                         name="lead_source_id"
@@ -183,12 +250,28 @@
 
                         <div class="row mb-3">
                             <div class="col-12">
-                                <label for="description" class="form-label">Description</label>
+                                <label class="form-label required-field">Select Services (Multiple Selection Allowed)</label>
+                                <div class="service-select-box @error('service_ids') is-invalid @enderror" id="servicesContainer">
+                                    <p class="text-muted text-center my-5">
+                                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
+                                        Please select a service type first
+                                    </p>
+                                </div>
+                                <small class="text-muted">Check all services that apply to this lead</small>
+                                @error('service_ids')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="description" class="form-label">Description of Customer Requirement</label>
                                 <textarea class="form-control @error('description') is-invalid @enderror"
                                           id="description"
                                           name="description"
                                           rows="4"
-                                          placeholder="Enter lead description or notes">{{ old('description') }}</textarea>
+                                          placeholder="Enter detailed customer requirements">{{ old('description') }}</textarea>
                                 @error('description')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -196,12 +279,101 @@
                         </div>
                     </div>
 
-                    <!-- Branch Information (Hidden for non-super-admin) -->
-                    @if(auth()->user()->role === 'super_admin')
+                    <!-- Pricing & Payment Section -->
                     <div class="form-section">
-                        <h5><i class="las la-building me-2"></i>Branch & Assignment</h5>
+                        <h5><i class="las la-rupee-sign me-2"></i>Price Details</h5>
 
                         <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="amount" class="form-label">Total Service Cost (₹)</label>
+                                <input type="number"
+                                       class="form-control @error('amount') is-invalid @enderror"
+                                       id="amount"
+                                       name="amount"
+                                       value="{{ old('amount') }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Enter total cost">
+                                @error('amount')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="advance_paid_amount" class="form-label">Advance Paid (₹)</label>
+                                <input type="number"
+                                       class="form-control @error('advance_paid_amount') is-invalid @enderror"
+                                       id="advance_paid_amount"
+                                       name="advance_paid_amount"
+                                       value="{{ old('advance_paid_amount', 0) }}"
+                                       step="0.01"
+                                       min="0"
+                                       placeholder="Enter paid amount">
+                                @error('advance_paid_amount')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="payment_mode" class="form-label">Mode of Payment</label>
+                                <select class="form-select @error('payment_mode') is-invalid @enderror"
+                                        id="payment_mode"
+                                        name="payment_mode">
+                                    <option value="">Select Payment Mode</option>
+                                    <option value="cash" {{ old('payment_mode') == 'cash' ? 'selected' : '' }}>Cash</option>
+                                    <option value="upi" {{ old('payment_mode') == 'upi' ? 'selected' : '' }}>UPI</option>
+                                    <option value="card" {{ old('payment_mode') == 'card' ? 'selected' : '' }}>Card</option>
+                                    <option value="bank_transfer" {{ old('payment_mode') == 'bank_transfer' ? 'selected' : '' }}>Bank Transfer</option>
+                                    <option value="neft" {{ old('payment_mode') == 'neft' ? 'selected' : '' }}>NEFT</option>
+                                </select>
+                                @error('payment_mode')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Balance Amount (₹)</label>
+                                <div class="form-control bg-light balance-amount" id="balance_amount">
+                                    ₹ 0.00
+                                </div>
+                                <small class="text-muted">Auto-calculated: Total Cost - Advance Paid</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lead Status & Assignment Section -->
+                    <div class="form-section">
+                        <h5><i class="las la-tasks me-2"></i>Status of Lead & Assignment</h5>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="status" class="form-label required-field">Lead Status</label>
+                                <select class="form-select @error('status') is-invalid @enderror"
+                                        id="status"
+                                        name="status"
+                                        required>
+                                    <option value="pending" {{ old('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                                    <option value="site_visit" {{ old('status') == 'site_visit' ? 'selected' : '' }}>Site Visit</option>
+                                    <option value="not_accepting_tc" {{ old('status') == 'not_accepting_tc' ? 'selected' : '' }}>Not Accepting T&C</option>
+                                    <option value="they_will_confirm" {{ old('status') == 'they_will_confirm' ? 'selected' : '' }}>They Will Confirm</option>
+                                    <option value="date_issue" {{ old('status') == 'date_issue' ? 'selected' : '' }}>Date Issue</option>
+                                    <option value="rate_issue" {{ old('status') == 'rate_issue' ? 'selected' : '' }}>Rate Issue</option>
+                                    <option value="service_not_provided" {{ old('status') == 'service_not_provided' ? 'selected' : '' }}>Service We Do Not Provide</option>
+                                    <option value="just_enquiry" {{ old('status') == 'just_enquiry' ? 'selected' : '' }}>Just Enquiry</option>
+                                    <option value="immediate_service" {{ old('status') == 'immediate_service' ? 'selected' : '' }}>Immediate Service</option>
+                                    <option value="no_response" {{ old('status') == 'no_response' ? 'selected' : '' }}>No Response</option>
+                                    <option value="location_not_available" {{ old('status') == 'location_not_available' ? 'selected' : '' }}>Location Not Available</option>
+                                    <option value="night_work_demanded" {{ old('status') == 'night_work_demanded' ? 'selected' : '' }}>Night Work Demanded</option>
+                                    <option value="customisation" {{ old('status') == 'customisation' ? 'selected' : '' }}>Customisation</option>
+                                </select>
+                                @error('status')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            @if(auth()->user()->role === 'super_admin')
                             <div class="col-md-6">
                                 <label for="branch_id" class="form-label required-field">Branch</label>
                                 <select class="form-select @error('branch_id') is-invalid @enderror"
@@ -219,7 +391,12 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+                            @else
+                            <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
+                            @endif
+                        </div>
 
+                        <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="assigned_to" class="form-label">Assign To Telecaller</label>
                                 <select class="form-select @error('assigned_to') is-invalid @enderror"
@@ -238,9 +415,6 @@
                             </div>
                         </div>
                     </div>
-                    @else
-                    <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
-                    @endif
 
                     <!-- Action Buttons -->
                     <div class="text-end mt-4">
@@ -270,28 +444,30 @@ $(document).ready(function() {
         }
     });
 
-    let duplicateCheckTimeout;
-    let isDuplicateFound = false;
-    let currentCustomerData = null;
-
-    // All telecallers data from server
     const allTelecallers = @json($telecallers);
 
-    // Branch change handler - filter telecallers
+    // Calculate balance amount
+    function calculateBalance() {
+        let totalAmount = parseFloat($('#amount').val()) || 0;
+        let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
+        let balance = totalAmount - advancePaid;
+        $('#balance_amount').text('₹ ' + balance.toFixed(2));
+    }
+
+    $('#amount, #advance_paid_amount').on('input', calculateBalance);
+
+    // Branch change handler
     $('#branch_id').on('change', function() {
         let selectedBranchId = $(this).val();
         let assignedToSelect = $('#assigned_to');
 
-        // Clear current options except the first one
         assignedToSelect.find('option:not(:first)').remove();
 
         if (selectedBranchId) {
-            // Filter telecallers by selected branch
             let filteredTelecallers = allTelecallers.filter(function(telecaller) {
                 return telecaller.branch_id == selectedBranchId;
             });
 
-            // Add filtered telecallers to dropdown
             filteredTelecallers.forEach(function(telecaller) {
                 assignedToSelect.append(
                     $('<option>', {
@@ -313,107 +489,67 @@ $(document).ready(function() {
         }
     });
 
-    // Real-time Duplicate Detection
-    $('#email, #phone').on('keyup', function() {
-        clearTimeout(duplicateCheckTimeout);
+    // Load services when service type is selected
+    $('#service_type').on('change', function() {
+        let serviceType = $(this).val();
+        let container = $('#servicesContainer');
 
-        let email = $('#email').val().trim();
-        let phone = $('#phone').val().trim();
-
-        // Clear previous alerts
-        $('#duplicateAlertContainer').html('');
-        isDuplicateFound = false;
-        currentCustomerData = null;
-        $('#submitBtn').prop('disabled', false).html('<i class="las la-save me-1"></i> Create Lead');
-
-        // Only check if email or phone has reasonable length
-        if (email.length < 5 && phone.length < 8) {
+        if (!serviceType) {
+            container.html(`
+                <p class="text-muted text-center my-5">
+                    <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
+                    Please select a service type first
+                </p>
+            `);
             return;
         }
 
-        duplicateCheckTimeout = setTimeout(function() {
-            $.ajax({
-                url: '{{ route("leads.checkDuplicate") }}',
-                type: 'POST',
-                data: {
-                    email: email,
-                    phone: phone
-                },
-                success: function(response) {
-                    if (response.exists) {
-                        isDuplicateFound = true;
-                        currentCustomerData = response.data;
-                        showDuplicateAlert(response);
-                        $('#submitBtn').prop('disabled', true).html('<i class="las la-ban me-1"></i> Cannot Create - Duplicate Found');
-                    }
+        container.html('<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>');
+
+        $.ajax({
+            url: '{{ route("leads.servicesByType") }}',
+            type: 'GET',
+            data: { service_type: serviceType },
+            success: function(services) {
+                if (services.length === 0) {
+                    container.html('<p class="text-muted text-center my-3">No services available for this type</p>');
+                    return;
                 }
-            });
-        }, 600);
+
+                let html = '';
+                services.forEach(function(service) {
+                    html += `
+                        <div class="service-checkbox-item">
+                            <input type="checkbox"
+                                   name="service_ids[]"
+                                   value="${service.id}"
+                                   id="service_${service.id}"
+                                   class="service-checkbox">
+                            <label for="service_${service.id}">${service.name}</label>
+                        </div>
+                    `;
+                });
+
+                container.html(html);
+
+                // Restore old values if any
+                @if(old('service_ids'))
+                    let oldServiceIds = @json(old('service_ids'));
+                    oldServiceIds.forEach(function(id) {
+                        $('#service_' + id).prop('checked', true);
+                    });
+                @endif
+            },
+            error: function() {
+                container.html('<p class="text-danger text-center my-3">Error loading services. Please try again.</p>');
+            }
+        });
     });
 
-    function showDuplicateAlert(response) {
-        let alertHtml = '';
-
-        if (response.type === 'customer') {
-            let data = response.data;
-            let priorityClass = data.priority === 'high' ? 'danger' : (data.priority === 'medium' ? 'warning' : 'success');
-
-            alertHtml = `
-                <div class="alert alert-${priorityClass} duplicate-alert">
-                    <h5 class="alert-heading">
-                        <i class="las la-exclamation-triangle"></i> Existing Customer Detected!
-                    </h5>
-                    <hr>
-                    <p><strong>Name:</strong> ${data.name}</p>
-                    <p><strong>Customer Code:</strong> <span class="badge bg-primary">${data.customer_code}</span></p>
-                    <p><strong>Total Jobs:</strong> ${data.total_jobs}</p>
-                    <hr>
-                    <p class="mb-0">
-                        <a href="/customers/${data.customer_id}" class="btn btn-sm btn-info" target="_blank">
-                            <i class="las la-eye"></i> View Customer
-                        </a>
-                    </p>
-                </div>
-            `;
-        } else if (response.type === 'lead') {
-            let data = response.data;
-
-            alertHtml = `
-                <div class="alert alert-warning duplicate-alert">
-                    <h5 class="alert-heading">
-                        <i class="las la-exclamation-circle"></i> Duplicate Lead Detected!
-                    </h5>
-                    <hr>
-                    <p><strong>Name:</strong> ${data.name}</p>
-                    <p><strong>Lead Code:</strong> <span class="badge bg-primary">${data.lead_code}</span></p>
-                    <p><strong>Status:</strong> <span class="badge bg-warning">${data.status}</span></p>
-                    <hr>
-                    <p class="mb-0">
-                        <a href="/leads/${data.lead_id}" class="btn btn-sm btn-info" target="_blank">
-                            <i class="las la-eye"></i> View Lead
-                        </a>
-                    </p>
-                </div>
-            `;
-        }
-
-        $('#duplicateAlertContainer').html(alertHtml);
-    }
-
-    // Form Submit
-    $('#createLeadForm').on('submit', function(e) {
-        if (isDuplicateFound) {
-            e.preventDefault();
-            Swal.fire({
-                icon: 'error',
-                title: 'Cannot Create Lead',
-                text: 'A duplicate customer or lead was detected. Please check the warning above.',
-                confirmButtonColor: '#dc3545'
-            });
-            return false;
-        }
-    });
+    // Trigger service type change if old value exists
+    @if(old('service_type'))
+        $('#service_type').trigger('change');
+    @endif
 });
 </script>
 @endsection
-

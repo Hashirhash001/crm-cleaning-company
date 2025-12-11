@@ -3,7 +3,7 @@
         data-code="{{ $lead->lead_code }}"
         data-name="{{ $lead->name }}"
         data-phone="{{ $lead->phone }}"
-        data-service="{{ $lead->service->name ?? 'N/A' }}"
+        data-service="{{ $lead->service_type ?? 'N/A' }}"
         data-status="{{ $lead->status }}"
         data-source="{{ $lead->source->name }}"
         data-branch="{{ $lead->branch->name ?? 'N/A' }}"
@@ -12,8 +12,9 @@
         data-date="{{ $lead->created_at->format('Y-m-d') }}">
 
         <!-- Checkbox for bulk selection -->
+        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
         <td class="checkbox-col">
-            @if($lead->status === 'pending' && in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+            @if ($lead->status === 'pending')
             <div class="checkbox-wrapper">
                 <input type="checkbox"
                        class="custom-checkbox lead-checkbox"
@@ -25,6 +26,7 @@
             </div>
             @endif
         </td>
+        @endif
 
         <!-- Lead Code -->
         <td>
@@ -43,7 +45,11 @@
 
         <!-- Service -->
         <td>
-            <span class="badge bg-info">{{ $lead->service->name ?? 'N/A' }}</span>
+            @if($lead->service_type)
+                <span class="badge bg-info">{{ ucfirst($lead->service_type) }}</span>
+            @else
+                <span class="text-muted">-</span>
+            @endif
         </td>
 
         <!-- Status -->
@@ -105,6 +111,12 @@
                         }
                         elseif ($user->role === 'telecallers' && $lead->assigned_to === $user->id) {
                             $canEdit = true;
+                        }
+                    }
+
+                    if ($lead->status === 'rejected') {
+                        if ($user->role === 'super_admin') {
+                            $canDelete = true;
                         }
                     }
                 @endphp

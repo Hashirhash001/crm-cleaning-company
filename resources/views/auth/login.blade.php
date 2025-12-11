@@ -67,7 +67,7 @@
                                 </div>
                                 <div class="card-body pt-0">
                                     <!-- Server Error Alert -->
-                                    <div id="serverErrorAlert" class="alert alert-danger alert-dismissible fade show d-none" role="alert">
+                                    <div id="serverErrorAlert" class="alert alert-danger alert-dismissible fade show d-none mt-3" role="alert">
                                         <span id="serverErrorMessage"></span>
                                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                                     </div>

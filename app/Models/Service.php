@@ -8,9 +8,10 @@ class Service extends Model
 {
     protected $fillable = [
         'name',
+        'service_type',
         'description',
         'price',
-        'is_active',
+        'is_active'
     ];
 
     protected $casts = [
@@ -18,13 +19,27 @@ class Service extends Model
         'is_active' => 'boolean',
     ];
 
+    // Relationship with leads (many-to-many)
     public function leads()
     {
-        return $this->hasMany(Lead::class);
+        return $this->belongsToMany(Lead::class, 'lead_service');
     }
 
-    public function jobs()
+    // Scope for cleaning services
+    public function scopeCleaning($query)
     {
-        return $this->hasMany(Job::class);
+        return $query->where('service_type', 'cleaning');
+    }
+
+    // Scope for pest control services
+    public function scopePestControl($query)
+    {
+        return $query->where('service_type', 'pest_control');
+    }
+
+    // Get service type label
+    public function getServiceTypeLabelAttribute()
+    {
+        return $this->service_type === 'cleaning' ? 'Cleaning' : 'Pest Control';
     }
 }

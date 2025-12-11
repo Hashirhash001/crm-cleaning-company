@@ -8,6 +8,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeadBulkImportController;
 
 // Guest Routes
 Route::middleware('guest')->group(function () {
@@ -33,23 +34,38 @@ Route::middleware('auth')->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/daily-budget', [SettingsController::class, 'updateDailyBudget'])->name('settings.updateDailyBudget');
 
-    Route::post('/leads/{lead}/followups', [LeadController::class, 'addFollowup'])->name('leads.addFollowup');
-    Route::post('/lead-followups/{followup}/complete', [LeadController::class, 'complete'])->name('lead-followups.complete');
-
     // Quick search for telecallers
     Route::get('/telecaller/quick-search', [LeadController::class, 'quickSearch'])
         ->name('telecaller.quick-search')
         ->middleware('auth');
 
+    // Lead Management - SPECIFIC ROUTES MUST COME BEFORE RESOURCE ROUTE
 
-    // Lead Management
-    Route::resource('leads', LeadController::class);
+    // Bulk Import Routes - BEFORE resource route
+    Route::get('/leads/bulk-import', [LeadBulkImportController::class, 'bulkImport'])->name('leads.bulk-import');
+    Route::get('/leads/download-template', [LeadBulkImportController::class, 'downloadTemplate'])->name('leads.download-template');
+    Route::post('/leads/process-bulk-import', [LeadBulkImportController::class, 'processBulkImport'])->name('leads.process-bulk-import');
+    Route::get('/leads/import-progress/{import}', [LeadBulkImportController::class, 'getImportProgress'])->name('leads.import-progress');
+
+    // Other specific lead routes - BEFORE resource route
+    Route::get('/leads/whatsapp', [LeadController::class, 'whatsappLeads'])->name('leads.whatsapp');
+    Route::get('/leads/google-ads', [LeadController::class, 'googleAdsLeads'])->name('leads.google-ads');
+    Route::get('/leads/services-by-type', [LeadController::class, 'getServicesByType'])->name('leads.servicesByType');
+
+    // Lead actions
     Route::post('leads/{lead}/approve', [LeadController::class, 'approve'])->name('leads.approve');
     Route::post('leads/{lead}/reject', [LeadController::class, 'reject'])->name('leads.reject');
     Route::post('leads/{lead}/calls', [LeadController::class, 'addCall'])->name('leads.addCall');
     Route::post('leads/{lead}/notes', [LeadController::class, 'addNote'])->name('leads.addNote');
     Route::post('/leads/{lead}/assign', [LeadController::class, 'assignLead'])->name('leads.assign');
+    Route::post('/leads/{lead}/followups', [LeadController::class, 'addFollowup'])->name('leads.addFollowup');
     Route::post('/leads/bulk-assign', [LeadController::class, 'bulkAssign'])->name('leads.bulkAssign');
+
+    // Lead resource route - MUST BE LAST
+    Route::resource('leads', LeadController::class);
+
+    // Lead Followups
+    Route::post('/lead-followups/{followup}/complete', [LeadController::class, 'complete'])->name('lead-followups.complete');
 
     // Job Management
     Route::resource('jobs', JobController::class);

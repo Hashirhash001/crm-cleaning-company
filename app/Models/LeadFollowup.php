@@ -11,6 +11,7 @@ class LeadFollowup extends Model
         'assigned_to',
         'followup_date',
         'followup_time',
+        'callback_time_preference',
         'priority',
         'status',
         'notes',
@@ -22,6 +23,19 @@ class LeadFollowup extends Model
         'followup_date' => 'date',
         'completed_at' => 'datetime',
     ];
+
+    // Add accessor for readable callback time preference
+    public function getCallbackTimePreferenceLabelAttribute()
+    {
+        $labels = [
+            'morning' => 'Morning (9 AM - 12 PM)',
+            'afternoon' => 'Afternoon (12 PM - 4 PM)',
+            'evening' => 'Evening (4 PM - 8 PM)',
+            'anytime' => 'Anytime',
+        ];
+
+        return $labels[$this->callback_time_preference] ?? 'Not specified';
+    }
 
     public function lead()
     {

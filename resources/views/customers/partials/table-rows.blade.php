@@ -25,11 +25,13 @@
         <td><span class="badge bg-info">{{ $customer->jobs->count() }}</span></td>
         <td><span class="badge bg-success">{{ $customer->completed_jobs_count ?? 0 }}</span></td>
         <td class="text-end">
-            <a href="javascript:void(0)" class="editCustomerBtn" data-id="{{ $customer->id }}" title="Edit">
-                <i class="las la-pen text-secondary fs-18"></i>
-            </a>
+            @if(auth()->user()->role === 'super_admin')
+                <a href="javascript:void(0)" class="editCustomerBtn" data-id="{{ $customer->id }}" title="Edit">
+                    <i class="las la-pen text-secondary fs-18"></i>
+                </a>
+            @endif
             <a href="javascript:void(0)" class="addNoteBtn" data-id="{{ $customer->id }}" title="Add Note">
-                <i class="las la-comment text-info fs-18 ms-2"></i>
+                <i class="las la-comment text-info fs-18 {{ auth()->user()->role === 'super_admin' ? 'ms-2' : '' }}"></i>
             </a>
         </td>
     </tr>

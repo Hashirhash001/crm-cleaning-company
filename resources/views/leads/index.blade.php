@@ -738,9 +738,21 @@
                         @if(auth()->user()->role === 'super_admin')
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Status</label>
-                            <select class="form-select" name="status" id="statusFilter">
+                            <select class="form-select" id="filterStatus" name="status">
                                 <option value="">All Status</option>
                                 <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                                <option value="site_visit" {{ request('status') == 'site_visit' ? 'selected' : '' }}>Site Visit</option>
+                                <option value="not_accepting_tc" {{ request('status') == 'not_accepting_tc' ? 'selected' : '' }}>Not Accepting T&C</option>
+                                <option value="they_will_confirm" {{ request('status') == 'they_will_confirm' ? 'selected' : '' }}>They Will Confirm</option>
+                                <option value="date_issue" {{ request('status') == 'date_issue' ? 'selected' : '' }}>Date Issue</option>
+                                <option value="rate_issue" {{ request('status') == 'rate_issue' ? 'selected' : '' }}>Rate Issue</option>
+                                <option value="service_not_provided" {{ request('status') == 'service_not_provided' ? 'selected' : '' }}>Service Not Provided</option>
+                                <option value="just_enquiry" {{ request('status') == 'just_enquiry' ? 'selected' : '' }}>Just Enquiry</option>
+                                <option value="immediate_service" {{ request('status') == 'immediate_service' ? 'selected' : '' }}>Immediate Service</option>
+                                <option value="no_response" {{ request('status') == 'no_response' ? 'selected' : '' }}>No Response</option>
+                                <option value="location_not_available" {{ request('status') == 'location_not_available' ? 'selected' : '' }}>Location Not Available</option>
+                                <option value="night_work_demanded" {{ request('status') == 'night_work_demanded' ? 'selected' : '' }}>Night Work Demanded</option>
+                                <option value="customisation" {{ request('status') == 'customisation' ? 'selected' : '' }}>Customisation</option>
                                 <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
                                 <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
                             </select>
@@ -842,8 +854,8 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h4 class="card-title mb-0">
                     Leads List (<span id="leadCount">{{ $leads->total() }}</span> total)
-                    @if(auth()->user()->role === 'super_admin' && $pending_count > 0)
-                        <span class="badge bg-warning ms-2">{{ $pending_count }} Pending Approval</span>
+                    @if(auth()->user()->role === 'super_admin' && $pendingcount > 0)
+                        <span class="badge bg-warning ms-2">{{ $pendingcount }} Pending Approval</span>
                     @endif
                 </h4>
 
@@ -854,11 +866,12 @@
                     </button>
                     @endif
 
-                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
-                    <a href="{{ route('leads.create') }}" class="btn btn-success">
+                    <a href="{{ route('leads.bulk-import') }}" class="btn btn-success">
+                        <i class="las la-file-import me-1"></i> Bulk Import
+                    </a>
+                    <a href="{{ route('leads.create') }}" class="btn btn-primary">
                         <i class="las la-plus me-1"></i> Create Lead
                     </a>
-                    @endif
                 </div>
             </div>
             <div class="card-body">
@@ -866,15 +879,17 @@
                     <table class="table table-hover mb-0" id="leadsTable">
                         <thead class="table-light">
                             <tr>
+                                @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
                                 <th class="checkbox-col">
                                     <div class="checkbox-wrapper">
                                         <input type="checkbox" class="custom-checkbox" id="selectAll" title="Select All">
                                     </div>
                                 </th>
+                                @endif
                                 <th class="sortable" data-column="code">Lead Code</th>
                                 <th class="sortable" data-column="name">Name</th>
                                 <th class="sortable" data-column="phone">Phone</th>
-                                <th class="sortable" data-column="service">Service</th>
+                                <th class="sortable" data-column="service_type">Service Type</th>
                                 <th class="sortable" data-column="status">Status</th>
                                 <th class="sortable" data-column="source">Source</th>
                                 @if(auth()->user()->role === 'super_admin')

@@ -176,10 +176,10 @@
                                 </a>
                             </li>
 
-                        @elseif(auth()->user()->role === 'telecallers')
+                            @elseif(auth()->user()->role === 'telecallers')
                             <!-- Telecaller Menu -->
                             <li class="nav-item">
-                                <a class="nav-link {{ request()->routeIs('leads.*') ? 'active' : '' }}" href="{{ route('leads.index') }}">
+                                <a class="nav-link {{ request()->routeIs('leads.*') && !request()->routeIs('leads.whatsapp') && !request()->routeIs('leads.google-ads') ? 'active' : '' }}" href="{{ route('leads.index') }}">
                                     <i class="iconoir-send menu-icon"></i>
                                     <span>My Leads
                                         @php
@@ -198,6 +198,46 @@
                                                     <i class="las la-bell" title="{{ $todayFollowups }} followups today"></i>
                                                 @endif
                                             </span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
+
+                            <!-- WhatsApp Leads -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('leads.whatsapp') ? 'active' : '' }}" href="{{ route('leads.whatsapp') }}">
+                                    <i class="lab la-whatsapp menu-icon"></i>
+                                    <span>WhatsApp Leads
+                                        @php
+                                            $whatsappSource = \App\Models\LeadSource::where('name', 'WhatsApp')->first();
+                                            $whatsappCount = $whatsappSource ?
+                                                \App\Models\Lead::where('assigned_to', auth()->id())
+                                                    ->where('lead_source_id', $whatsappSource->id)
+                                                    ->where('status', 'pending')
+                                                    ->count() : 0;
+                                        @endphp
+                                        @if($whatsappCount > 0)
+                                            <span class="badge bg-success ms-2">{{ $whatsappCount }}</span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
+
+                            <!-- Google Ads Leads -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('leads.google-ads') ? 'active' : '' }}" href="{{ route('leads.google-ads') }}">
+                                    <i class="lab la-google menu-icon"></i>
+                                    <span>Google Ads Leads
+                                        @php
+                                            $googleAdsSource = \App\Models\LeadSource::where('name', 'Google Ads')->first();
+                                            $googleAdsCount = $googleAdsSource ?
+                                                \App\Models\Lead::where('assigned_to', auth()->id())
+                                                    ->where('lead_source_id', $googleAdsSource->id)
+                                                    ->where('status', 'pending')
+                                                    ->count() : 0;
+                                        @endphp
+                                        @if($googleAdsCount > 0)
+                                            <span class="badge bg-warning ms-2">{{ $googleAdsCount }}</span>
                                         @endif
                                     </span>
                                 </a>

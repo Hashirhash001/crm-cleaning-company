@@ -13,5 +13,9 @@ class LeadSourceSeeder extends Seeder
         LeadSource::create(['name' => 'Google Ads', 'code' => 'google_ads']);
         LeadSource::create(['name' => 'Meta Ads', 'code' => 'meta_ads']);
         LeadSource::create(['name' => 'WhatsApp', 'code' => 'whatsapp']);
+        LeadSource::create(['name' => 'Regular client', 'code' => 'Regular client']);
+        LeadSource::create(['name' => 'organic call', 'code' => 'organic call']);
+        LeadSource::create(['name' => 'others', 'code' => 'others']);
+        LeadSource::create(['name' => 'reference call', 'code' => 'reference call']);
     }
 }

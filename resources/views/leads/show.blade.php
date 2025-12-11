@@ -4,47 +4,128 @@
 
 @section('extra-css')
 <style>
+    /* Professional CRM Color Palette */
+    :root {
+        --primary-blue: #2563eb;
+        --primary-blue-dark: #1e40af;
+        --secondary-gray: #64748b;
+        --success-green: #10b981;
+        --warning-orange: #f59e0b;
+        --danger-red: #ef4444;
+        --light-bg: #f8fafc;
+        --card-bg: #ffffff;
+        --border-color: #e2e8f0;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+    }
+
     .lead-detail-container {
-        background: #f8f9fb;
+        background: var(--light-bg);
         min-height: calc(100vh - 100px);
         padding: 1.5rem 0;
     }
 
+    /* Header Card - Simple Blue */
     .lead-header-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 16px;
+        background: var(--primary-blue);
+        border-radius: 12px;
         padding: 2rem;
         color: #fff;
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+        margin-bottom: 1.5rem;
+    }
+
+    .lead-header-card h2 {
+        font-weight: 700;
+        margin: 0;
     }
 
     .lead-status-badge {
-        padding: 0.5rem 1.25rem;
-        border-radius: 20px;
+        padding: 0.5rem 1.2rem;
+        border-radius: 6px;
         font-weight: 600;
-        font-size: 0.875rem;
+        /* font-size: 0.85rem; */
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        background: rgba(255, 255, 255, 0.2);
     }
 
+    /* Price Card - Professional Teal/Blue */
+    .price-card {
+        background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+        border-radius: 12px;
+        padding: 1.8rem;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(8, 145, 178, 0.2);
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .price-card h5 {
+        color: #fff;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .price-card h5 i {
+        margin-right: 0.5rem;
+    }
+
+    .price-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.9rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+        align-items: center;
+    }
+
+    .price-row:last-of-type {
+        border-bottom: none;
+        padding-top: 1rem;
+        margin-top: 0.5rem;
+        border-top: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .price-label {
+        font-weight: 500;
+        font-size: 0.95rem;
+        opacity: 0.95;
+    }
+
+    .price-value {
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    .balance-highlight {
+        font-size: 1.6rem;
+        color: #fef3c7;
+        font-weight: 800;
+    }
+
+    .price-updated-info {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(255,255,255,0.15);
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    /* Info Cards - Clean White */
     .info-card {
-        background: #fff;
+        background: var(--card-bg);
         border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-        border: 1px solid #e8ecef;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        border: 1px solid var(--border-color);
         margin-bottom: 1.5rem;
-        transition: all 0.3s;
-    }
-
-    .info-card:hover {
-        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-        transform: translateY(-2px);
     }
 
     .info-card-header {
-        border-bottom: 2px solid #f1f3f5;
+        border-bottom: 2px solid var(--border-color);
         padding-bottom: 1rem;
         margin-bottom: 1.5rem;
     }
@@ -52,15 +133,24 @@
     .info-card-header h5 {
         margin: 0;
         font-weight: 700;
-        color: #1e293b;
+        color: var(--text-primary);
         font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .info-card-header h5 i {
+        color: var(--primary-blue);
+        margin-right: 0.5rem;
+        font-size: 1.3rem;
     }
 
     .info-row {
         display: flex;
         justify-content: space-between;
-        padding: 0.875rem 0;
-        border-bottom: 1px dashed #e8ecef;
+        padding: 0.85rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        align-items: center;
     }
 
     .info-row:last-child {
@@ -68,155 +158,213 @@
     }
 
     .info-label {
-        color: #64748b;
+        color: var(--text-secondary);
         font-weight: 500;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
     }
 
     .info-value {
-        color: #1e293b;
+        color: var(--text-primary);
         font-weight: 600;
         text-align: right;
+        font-size: 0.95rem;
     }
 
-    .amount-card {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-        border-radius: 12px;
-        padding: 1.5rem;
-        color: #fff;
-        text-align: center;
-    }
-
-    .amount-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin: 0.5rem 0;
-    }
-
+    /* Special Cards */
     .converted-customer-card {
-        background: linear-gradient(135deg, rgba(17, 153, 142, 0.1) 0%, rgba(56, 239, 125, 0.1) 100%);
-        border: 2px solid #11998e;
+        background: #f0fdf4;
+        border: 1px solid #86efac;
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
+    }
+
+    .converted-customer-card h6 {
+        color: var(--success-green);
+        font-weight: 700;
+        margin-bottom: 1rem;
     }
 
     .related-job-card {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
-        border: 2px solid #3b82f6;
+        background: #eff6ff;
+        border: 1px solid #93c5fd;
         border-radius: 12px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
     }
 
-    .view-profile-btn {
-        background: #11998e;
-        color: #fff;
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 10px;
+    .related-job-card h6 {
+        color: var(--primary-blue);
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* Buttons - Clean & Professional */
+    .action-button {
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
         font-weight: 600;
-        transition: all 0.3s;
+        border: none;
+        font-size: 0.9rem;
+    }
+
+    .view-profile-btn, .view-job-btn {
         width: 100%;
+        padding: 0.85rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        font-size: 0.95rem;
+    }
+
+    .view-profile-btn {
+        background: var(--success-green);
+        color: #fff;
     }
 
     .view-profile-btn:hover {
-        background: #0d7a6f;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(17, 153, 142, 0.4);
+        background: #059669;
     }
 
     .view-job-btn {
-        background: #3b82f6;
+        background: var(--primary-blue);
         color: #fff;
-        border: none;
-        padding: 0.75rem 2rem;
-        border-radius: 10px;
-        font-weight: 600;
-        transition: all 0.3s;
-        width: 100%;
     }
 
     .view-job-btn:hover {
-        background: #2563eb;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        background: var(--primary-blue-dark);
     }
 
-    .action-button {
-        border-radius: 10px;
-        padding: 0.625rem 1.5rem;
+    /* Service Badges */
+    .services-badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .service-badge {
+        background: var(--primary-blue);
+        color: #fff;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
         font-weight: 600;
-        transition: all 0.3s;
-        border: none;
     }
 
-    .action-button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    }
-
+    /* Followup Timeline - Clean */
     .followup-timeline {
         position: relative;
-        padding-left: 0;
     }
 
     .followup-item {
         position: relative;
-        padding: 1.25rem;
-        background: #f8f9fb;
-        border-radius: 12px;
+        padding: 1.2rem;
+        background: var(--card-bg);
+        border-radius: 8px;
         margin-bottom: 1rem;
-        border-left: 4px solid #667eea;
-        transition: all 0.3s;
-    }
-
-    .followup-item:hover {
-        background: #fff;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-        transform: translateX(4px);
+        border-left: 3px solid var(--primary-blue);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--primary-blue);
     }
 
     .followup-item.overdue {
-        border-left-color: #dc3545;
-        background: linear-gradient(90deg, rgba(220, 53, 69, 0.05), #f8f9fb);
+        border-left-color: var(--danger-red);
+        background: #fef2f2;
     }
 
     .followup-item.completed {
-        border-left-color: #28a745;
-        background: linear-gradient(90deg, rgba(40, 167, 69, 0.05), #f8f9fb);
-        opacity: 0.8;
+        border-left-color: var(--success-green);
+        background: #f0fdf4;
+        opacity: 0.85;
     }
 
     .followup-item.today {
-        border-left-color: #ffc107;
-        background: linear-gradient(90deg, rgba(255, 193, 7, 0.05), #f8f9fb);
+        border-left-color: var(--warning-orange);
+        background: #fffbeb;
     }
 
+    /* Call Logs & Notes */
     .call-log-item, .note-item {
-        background: #fff;
-        border-radius: 10px;
+        background: var(--card-bg);
+        border-radius: 8px;
         padding: 1rem;
         margin-bottom: 0.75rem;
-        border-left: 3px solid #667eea;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border-left: 3px solid var(--primary-blue);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--primary-blue);
     }
 
     .note-item {
-        background: #fffbea;
-        border-left-color: #ffc107;
+        background: #fffbeb;
+        border-left-color: var(--warning-orange);
     }
 
+    /* Empty State */
     .empty-state {
         text-align: center;
         padding: 3rem 1rem;
-        color: #94a3b8;
+        color: var(--text-secondary);
     }
 
     .empty-state i {
         font-size: 4rem;
-        opacity: 0.3;
+        opacity: 0.2;
         margin-bottom: 1rem;
+        color: var(--text-secondary);
+    }
+
+    /* Badge Colors */
+    .badge {
+        /* padding: 0.4rem 0.9rem; */
+        border-radius: 6px;
+        font-weight: 600;
+        /* font-size: 0.8rem; */
+    }
+
+    .badge.bg-success {
+        background: var(--success-green) !important;
+    }
+
+    .badge.bg-primary {
+        background: var(--primary-blue) !important;
+    }
+
+    .badge.bg-info {
+        background: #0891b2 !important;
+    }
+
+    .badge.bg-warning {
+        background: var(--warning-orange) !important;
+        color: #fff !important;
+    }
+
+    .badge.bg-danger {
+        background: var(--danger-red) !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .lead-header-card {
+            padding: 1.5rem;
+        }
+
+        .price-card {
+            padding: 1.3rem;
+        }
+
+        .info-card {
+            padding: 1.2rem;
+        }
+
+        .price-value {
+            font-size: 1rem;
+        }
+
+        .balance-highlight {
+            font-size: 1.3rem;
+        }
     }
 </style>
 @endsection
@@ -224,18 +372,37 @@
 @section('content')
 <div class="lead-detail-container">
     <div class="container-fluid">
+
         <!-- Lead Header with Action Buttons -->
         <div class="lead-header-card">
             <div class="row align-items-center">
                 <div class="col-md-4">
                     <div class="d-flex align-items-center mb-2">
                         <h2 class="mb-0 me-3">{{ $lead->name }}</h2>
-                        <span class="lead-status-badge bg-{{ $lead->status === 'approved' ? 'success' : ($lead->status === 'rejected' ? 'danger' : 'warning') }}">
-                            {{ strtoupper($lead->status) }}
-                        </span>
+                        @php
+                            $statusColors = [
+                                'pending' => 'warning',
+                                'site_visit' => 'info',
+                                'not_accepting_tc' => 'danger',
+                                'they_will_confirm' => 'primary',
+                                'date_issue' => 'warning',
+                                'rate_issue' => 'warning',
+                                'service_not_provided' => 'secondary',
+                                'just_enquiry' => 'light text-dark',
+                                'immediate_service' => 'success',
+                                'no_response' => 'secondary',
+                                'location_not_available' => 'secondary',
+                                'night_work_demanded' => 'dark',
+                                'customisation' => 'info',
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                            ];
+                            $color = $statusColors[$lead->status] ?? 'secondary';
+                        @endphp
+                        <span class="lead-status-badge">{{ $lead->status_label }}</span>
                     </div>
-                    <p class="mb-0 opacity-90">
-                        <i class="las la-tag me-2"></i>{{ $lead->lead_code }} |
+                    <p class="mb-0" style="opacity: 0.95; font-weight: 500;">
+                        <i class="las la-tag me-2"></i>{{ $lead->lead_code }}
                         <i class="las la-calendar ms-3 me-2"></i>{{ $lead->created_at->format('d M Y') }}
                     </p>
                 </div>
@@ -244,26 +411,23 @@
                         <i class="las la-arrow-left me-2"></i>Back to Leads
                     </a>
 
-                    @if($lead->status === 'pending')
-                        <!-- Edit Button -->
+                    @if(!in_array($lead->status, ['approved', 'rejected']))
                         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']) || (auth()->user()->role === 'telecallers' && $lead->assigned_to === auth()->id()))
-                        <button type="button" class="btn btn-primary action-button me-2" onclick="editLeadFromShow()">
-                            <i class="las la-edit me-2"></i>Edit
-                        </button>
+                            <a href="{{ route('leads.edit', $lead->id) }}" class="btn btn-primary action-button me-2">
+                                <i class="las la-edit me-2"></i>Edit
+                            </a>
                         @endif
 
-                        <!-- Approve Button -->
                         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
-                        <button type="button" class="btn btn-success action-button me-2" onclick="approveLead()">
-                            <i class="las la-check me-2"></i>Approve
-                        </button>
+                            <button type="button" class="btn btn-success action-button me-2" onclick="approveLead()">
+                                <i class="las la-check me-2"></i>Approve
+                            </button>
 
-                        <!-- Reject Button -->
-                        @if(auth()->user()->role === 'super_admin')
-                        <button type="button" class="btn btn-danger action-button" onclick="rejectLead()">
-                            <i class="las la-times me-2"></i>Reject
-                        </button>
-                        @endif
+                            @if(auth()->user()->role === 'super_admin')
+                                <button type="button" class="btn btn-danger action-button" onclick="rejectLead()">
+                                    <i class="las la-times me-2"></i>Reject
+                                </button>
+                            @endif
                         @endif
                     @endif
                 </div>
@@ -274,12 +438,51 @@
             <!-- Left Column -->
             <div class="col-lg-4">
 
+                <!-- PRICE DETAILS CARD -->
+                @if($lead->amount)
+                <div class="price-card">
+                    <h5><i class="las la-rupee-sign"></i>Price Details</h5>
+
+                    <div class="price-row">
+                        <span class="price-label">Total Service Cost</span>
+                        <span class="price-value">₹{{ number_format($lead->amount, 2) }}</span>
+                    </div>
+
+                    <div class="price-row">
+                        <span class="price-label">Advance Paid</span>
+                        <span class="price-value">₹{{ number_format($lead->advance_paid_amount, 2) }}</span>
+                    </div>
+
+                    @if($lead->payment_mode)
+                    <div class="price-row">
+                        <span class="price-label">Payment Mode</span>
+                        <span class="price-value text-uppercase">{{ str_replace('_', ' ', $lead->payment_mode) }}</span>
+                    </div>
+                    @endif
+
+                    <div class="price-row">
+                        <span class="price-label">Balance Amount</span>
+                        <span class="price-value balance-highlight">₹{{ number_format($lead->balance_amount, 2) }}</span>
+                    </div>
+
+                    @if($lead->amountUpdatedBy && $lead->amount_updated_at)
+                    <div class="price-updated-info">
+                        <strong>Updated by:</strong> {{ $lead->amountUpdatedBy->name }}<br>
+                        <i class="las la-clock me-1"></i>{{ $lead->amount_updated_at->format('d M Y, h:i A') }}
+                    </div>
+                    @endif
+                </div>
+                @else
+                <div class="info-card text-center">
+                    <i class="las la-money-bill-wave" style="font-size: 3rem; opacity: 0.15; color: #cbd5e0;"></i>
+                    <p class="text-muted mb-0 mt-3" style="font-weight: 500;">Price details not set</p>
+                </div>
+                @endif
+
                 <!-- Converted to Customer Section -->
                 @if($lead->status === 'approved' && $lead->customer)
                 <div class="converted-customer-card">
-                    <h6 class="mb-3" style="color: #11998e;">
-                        <i class="las la-user-check me-2"></i>Converted to Customer
-                    </h6>
+                    <h6><i class="las la-user-check me-2"></i>Converted to Customer</h6>
                     <div class="mb-2">
                         <strong>Customer Code:</strong>
                         <span class="badge bg-success ms-2">{{ $lead->customer->customer_code }}</span>
@@ -297,16 +500,13 @@
                 @if($lead->status === 'approved' && $lead->jobs && $lead->jobs->count() > 0)
                     @php $job = $lead->jobs->first(); @endphp
                     <div class="related-job-card">
-                        <h6 class="mb-3" style="color: #3b82f6;">
-                            <i class="las la-briefcase me-2"></i>Related Job
-                        </h6>
+                        <h6><i class="las la-briefcase me-2"></i>Related Job</h6>
                         <div class="mb-2">
                             <strong>Job Code:</strong>
                             <span class="badge bg-primary ms-2">{{ $job->job_code }}</span>
                         </div>
                         <div class="mb-2">
-                            <strong>Title:</strong><br>
-                            {{ $job->title }}
+                            <strong>Title:</strong><br>{{ $job->title }}
                         </div>
                         <div class="mb-2">
                             <strong>Service:</strong>
@@ -329,20 +529,32 @@
                 <!-- Contact Information -->
                 <div class="info-card">
                     <div class="info-card-header">
-                        <h5><i class="las la-user me-2"></i>Contact Information</h5>
+                        <h5><i class="las la-user"></i>Contact Information</h5>
                     </div>
                     <div class="info-row">
                         <span class="info-label">Email</span>
-                        <span class="info-value">{{ $lead->email }}</span>
+                        <span class="info-value">{{ $lead->email ?? '-' }}</span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Phone</span>
+                        <span class="info-label">Phone 1</span>
                         <span class="info-value">{{ $lead->phone }}</span>
                     </div>
+                    @if($lead->phone_alternative)
+                    <div class="info-row">
+                        <span class="info-label">Phone 2</span>
+                        <span class="info-value">{{ $lead->phone_alternative }}</span>
+                    </div>
+                    @endif
                     @if($lead->address)
                     <div class="info-row">
                         <span class="info-label">Address</span>
                         <span class="info-value">{{ $lead->address }}</span>
+                    </div>
+                    @endif
+                    @if($lead->district)
+                    <div class="info-row">
+                        <span class="info-label">District</span>
+                        <span class="info-value">{{ $lead->district }}</span>
                     </div>
                     @endif
                 </div>
@@ -350,12 +562,39 @@
                 <!-- Lead Details -->
                 <div class="info-card">
                     <div class="info-card-header">
-                        <h5><i class="las la-info-circle me-2"></i>Lead Details</h5>
+                        <h5><i class="las la-info-circle"></i>Lead Details</h5>
                     </div>
+
+                    @if($lead->property_type)
                     <div class="info-row">
-                        <span class="info-label">Service</span>
-                        <span class="info-value">{{ $lead->service->name ?? 'N/A' }}</span>
+                        <span class="info-label">Property Type</span>
+                        <span class="info-value">{{ ucfirst($lead->property_type) }}</span>
                     </div>
+                    @endif
+
+                    @if($lead->sqft)
+                    <div class="info-row">
+                        <span class="info-label">SQFT</span>
+                        <span class="info-value">{{ $lead->sqft }} sq.ft</span>
+                    </div>
+                    @endif
+
+                    <div class="info-row">
+                        <span class="info-label">Service Type</span>
+                        <span class="info-value">{{ $lead->service_type ? ucfirst(str_replace('_', ' ', $lead->service_type)) : 'N/A' }}</span>
+                    </div>
+
+                    @if($lead->services->count() > 0)
+                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
+                        <span class="info-label mb-2">Services</span>
+                        <div class="services-badges">
+                            @foreach($lead->services as $service)
+                                <span class="service-badge">{{ $service->name }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
                     <div class="info-row">
                         <span class="info-label">Source</span>
                         <span class="info-value">{{ $lead->source->name ?? 'N/A' }}</span>
@@ -372,42 +611,29 @@
                         <span class="info-label">Assigned To</span>
                         <span class="info-value">{{ $lead->assignedTo->name ?? 'Unassigned' }}</span>
                     </div>
-                </div>
 
-                <!-- Amount Card -->
-                @if($lead->amount)
-                <div class="amount-card">
-                    <p class="mb-1 opacity-90"><strong>Lead Amount:</strong></p>
-                    <div class="amount-value">₹{{ number_format($lead->amount, 2) }}</div>
-                    @if($lead->amountUpdatedBy && $lead->amount_updated_at)
-                    <hr style="border-color: rgba(255,255,255,0.3);">
-                    <small class="opacity-75 d-block">
-                        <strong>Updated by</strong> {{ $lead->amountUpdatedBy->name }}<br>
-                        {{ $lead->amount_updated_at->format('d M Y, h:i A') }}
-                    </small>
+                    @if($lead->description)
+                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
+                        <span class="info-label mb-2">Description</span>
+                        <span class="info-value" style="text-align: left;">{{ $lead->description }}</span>
+                    </div>
                     @endif
                 </div>
-                @else
-                <div class="info-card text-center">
-                    <i class="las la-money-bill-wave" style="font-size: 3rem; opacity: 0.2;"></i>
-                    <p class="text-muted mb-0">Amount not set</p>
-                </div>
-                @endif
-
 
             </div>
 
             <!-- Right Column -->
             <div class="col-lg-8">
+
                 <!-- Scheduled Followups -->
                 <div class="info-card">
                     <div class="info-card-header">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5><i class="las la-calendar-check me-2"></i>Scheduled Followups</h5>
-                            @if($lead->status === 'pending')
-                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
-                                <i class="las la-plus me-1"></i>Add Followup
-                            </button>
+                            <h5><i class="las la-calendar-check"></i>Scheduled Followups</h5>
+                            @if(!in_array($lead->status, ['approved', 'rejected']))
+                                <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
+                                    <i class="las la-plus me-1"></i>Add Followup
+                                </button>
                             @endif
                         </div>
                     </div>
@@ -415,67 +641,76 @@
                     @if($lead->followups && $lead->followups->count() > 0)
                         <div class="followup-timeline">
                             @foreach($lead->followups as $followup)
-                            <div class="followup-item {{ $followup->followup_date->isToday() ? 'today' : '' }} {{ $followup->followup_date->isPast() && $followup->status === 'pending' ? 'overdue' : '' }} {{ $followup->status === 'completed' ? 'completed' : '' }}">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <span class="badge bg-{{ $followup->priority === 'high' ? 'danger' : ($followup->priority === 'medium' ? 'warning' : 'info') }}">
-                                            <i class="las la-flag me-1"></i>{{ ucfirst($followup->priority) }} Priority
-                                        </span>
-                                        @if($followup->followup_date->isToday())
-                                            <span class="badge bg-warning ms-2">Today</span>
-                                        @endif
-                                        @if($followup->followup_date->isPast() && $followup->status === 'pending')
-                                            <span class="badge bg-danger ms-2">Overdue</span>
-                                        @endif
-                                    </div>
-                                    <span class="badge bg-{{ $followup->status === 'completed' ? 'success' : ($followup->status === 'cancelled' ? 'secondary' : 'primary') }}">
-                                        {{ ucfirst($followup->status) }}
-                                    </span>
-                                </div>
-
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p class="mb-1">
-                                            <strong><i class="las la-calendar me-1"></i>Date:</strong>
-                                            {{ $followup->followup_date->format('d M Y') }}
-                                            @if($followup->followup_time)
-                                                <br><strong><i class="las la-clock me-1"></i>Time:</strong>
-                                                {{ \Carbon\Carbon::parse($followup->followup_time)->format('h:i A') }}
+                                <div class="followup-item {{ $followup->followup_date->isToday() ? 'today' : '' }} {{ $followup->followup_date->isPast() && $followup->status === 'pending' ? 'overdue' : '' }} {{ $followup->status === 'completed' ? 'completed' : '' }}">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <span class="badge bg-{{ $followup->priority === 'high' ? 'danger' : ($followup->priority === 'medium' ? 'warning' : 'info') }}">
+                                                <i class="las la-flag me-1"></i>{{ ucfirst($followup->priority) }}
+                                            </span>
+                                            @if($followup->followup_date->isToday())
+                                                <span class="badge bg-warning ms-2">Today</span>
                                             @endif
-                                        </p>
+                                            @if($followup->followup_date->isPast() && $followup->status === 'pending')
+                                                <span class="badge bg-danger ms-2">Overdue</span>
+                                            @endif
+                                        </div>
+                                        <span class="badge bg-{{ $followup->status === 'completed' ? 'success' : ($followup->status === 'cancelled' ? 'secondary' : 'primary') }}">
+                                            {{ ucfirst($followup->status) }}
+                                        </span>
                                     </div>
-                                    <div class="col-md-6">
-                                        <p class="mb-1">
-                                            <strong><i class="las la-user me-1"></i>Assigned To:</strong>
-                                            {{ $followup->assignedToUser->name ?? 'N/A' }}
-                                        </p>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="mb-1">
+                                                <strong><i class="las la-calendar me-1"></i>Date:</strong>
+                                                {{ $followup->followup_date->format('d M Y') }}
+                                                @if($followup->followup_time)
+                                                    <br><strong><i class="las la-clock me-1"></i>Time:</strong>
+                                                    {{ \Carbon\Carbon::parse($followup->followup_time)->format('h:i A') }}
+                                                @endif
+                                            </p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-1">
+                                                <strong><i class="las la-user me-1"></i>Assigned To:</strong>
+                                                {{ $followup->assignedToUser->name ?? 'N/A' }}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
 
-                                @if($followup->notes)
-                                <div class="mt-2 p-2 bg-white rounded">
-                                    <small class="text-muted">{{ $followup->notes }}</small>
-                                </div>
-                                @endif
+                                    @if($followup->callback_time_preference)
+                                    <div class="mt-2">
+                                        <span class="badge bg-info">
+                                            <i class="las la-phone me-1"></i>Best Time: {{ $followup->callback_time_preference_label }}
+                                        </span>
+                                    </div>
+                                    @endif
 
-                                @if($followup->status === 'pending' && (auth()->user()->role === 'super_admin' || $followup->assigned_to == auth()->id()))
-                                <div class="mt-3">
-                                    <button class="btn btn-sm btn-success markFollowupComplete" data-id="{{ $followup->id }}">
-                                        <i class="las la-check me-1"></i>Mark Complete
-                                    </button>
-                                </div>
-                                @endif
+                                    @if($followup->notes)
+                                        <div class="mt-2 p-2 bg-light rounded">
+                                            <small class="text-muted">{{ $followup->notes }}</small>
+                                        </div>
+                                    @endif
 
-                                @if($followup->status === 'completed' && $followup->completed_at)
-                                <div class="mt-2">
-                                    <small class="text-success">
-                                        <i class="las la-check-circle me-1"></i>
-                                        Completed on {{ $followup->completed_at->format('d M Y, h:i A') }}
-                                    </small>
+                                    @if($followup->status === 'pending' && (auth()->user()->role === 'super_admin' || $followup->assigned_to === auth()->id()))
+                                        <div class="mt-3">
+                                            <button class="btn btn-sm btn-success markFollowupComplete" data-id="{{ $followup->id }}">
+                                                <i class="las la-check me-1"></i>Mark Complete
+                                            </button>
+                                        </div>
+                                    @endif
+
+                                    @if($followup->status === 'completed' && $followup->completed_at)
+                                        <div class="mt-2">
+                                            <small class="text-success">
+                                                <i class="las la-check-circle me-1"></i>
+                                                Completed on {{ $followup->completed_at->format('d M Y, h:i A') }}
+                                            </small>
+                                        </div>
+                                    @endif
                                 </div>
-                                @endif
-                            </div>
                             @endforeach
+
                         </div>
                     @else
                         <div class="empty-state">
@@ -489,34 +724,36 @@
                 <div class="info-card">
                     <div class="info-card-header">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5><i class="las la-phone me-2"></i>Call Logs</h5>
-                            @if($lead->status === 'pending')
-                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addCallModal">
-                                <i class="las la-plus me-1"></i>Add Call
-                            </button>
+                            <h5><i class="las la-phone"></i>Call Logs</h5>
+                            @if(!in_array($lead->status, ['approved', 'rejected']))
+                                <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addCallModal">
+                                    <i class="las la-plus me-1"></i>Add Call
+                                </button>
                             @endif
                         </div>
                     </div>
 
                     @if($lead->calls && $lead->calls->count() > 0)
                         @foreach($lead->calls as $call)
-                        <div class="call-log-item">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <strong>{{ $call->user->name }}</strong>
-                                    <span class="badge bg-{{ $call->outcome === 'interested' ? 'success' : ($call->outcome === 'not_interested' ? 'danger' : 'warning') }} ms-2">
-                                        {{ ucfirst(str_replace('_', ' ', $call->outcome)) }}
-                                    </span>
-                                    <p class="text-muted small mb-1 mt-1">
-                                        {{ \Carbon\Carbon::parse($call->call_date)->format('d M Y') }}
-                                        @if($call->duration) | Duration: {{ $call->duration }} min @endif
-                                    </p>
-                                    @if($call->notes)
-                                    <p class="mb-0 small">{{ $call->notes }}</p>
-                                    @endif
+                            <div class="call-log-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong>{{ $call->user->name }}</strong>
+                                        <span class="badge bg-{{ $call->outcome === 'interested' ? 'success' : ($call->outcome === 'not_interested' ? 'danger' : 'warning') }} ms-2">
+                                            {{ ucfirst(str_replace('_', ' ', $call->outcome)) }}
+                                        </span>
+                                        <p class="text-muted small mb-1 mt-1">
+                                            {{ \Carbon\Carbon::parse($call->call_date)->format('d M Y') }}
+                                            @if($call->duration)
+                                                • Duration: {{ $call->duration }} min
+                                            @endif
+                                        </p>
+                                        @if($call->notes)
+                                            <p class="mb-0 small">{{ $call->notes }}</p>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
-                        </div>
                         @endforeach
                     @else
                         <div class="empty-state">
@@ -530,24 +767,24 @@
                 <div class="info-card">
                     <div class="info-card-header">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5><i class="las la-sticky-note me-2"></i>Notes</h5>
-                            @if($lead->status === 'pending')
-                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addNoteModal">
-                                <i class="las la-plus me-1"></i>Add Note
-                            </button>
+                            <h5><i class="las la-sticky-note"></i>Notes</h5>
+                            @if(!in_array($lead->status, ['approved', 'rejected']))
+                                <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                                    <i class="las la-plus me-1"></i>Add Note
+                                </button>
                             @endif
                         </div>
                     </div>
 
                     @if($lead->notes && $lead->notes->count() > 0)
                         @foreach($lead->notes as $note)
-                        <div class="note-item">
-                            <div class="d-flex justify-content-between">
-                                <strong>{{ $note->createdBy->name }}</strong>
-                                <small class="text-muted">{{ $note->created_at->diffForHumans() }}</small>
+                            <div class="note-item">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ $note->createdBy->name }}</strong>
+                                    <small class="text-muted">{{ $note->created_at->diffForHumans() }}</small>
+                                </div>
+                                <p class="mb-0 mt-2">{{ $note->note }}</p>
                             </div>
-                            <p class="mb-0 mt-2">{{ $note->note }}</p>
-                        </div>
                         @endforeach
                     @else
                         <div class="empty-state">
@@ -556,88 +793,8 @@
                         </div>
                     @endif
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Edit Lead Modal -->
-<div class="modal fade" id="editLeadModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="las la-edit me-2"></i>Edit Lead</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="editLeadForm">
-                @csrf
-                @method('PUT')
-                <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Name *</label>
-                            <input type="text" class="form-control" id="edit_name" name="name" value="{{ $lead->name }}" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Email *</label>
-                            <input type="email" class="form-control" id="edit_email" name="email" value="{{ $lead->email }}" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Phone *</label>
-                            <input type="text" class="form-control" id="edit_phone" name="phone" value="{{ $lead->phone }}" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Service *</label>
-                            <select class="form-select" id="edit_service_id" name="service_id" required>
-                                @foreach(\App\Models\Service::where('is_active', true)->get() as $service)
-                                    <option value="{{ $service->id }}" {{ $lead->service_id == $service->id ? 'selected' : '' }}>{{ $service->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Lead Source *</label>
-                            <select class="form-select" id="edit_lead_source_id" name="lead_source_id" required>
-                                @foreach(\App\Models\LeadSource::where('is_active', true)->get() as $source)
-                                    <option value="{{ $source->id }}" {{ $lead->lead_source_id == $source->id ? 'selected' : '' }}>{{ $source->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Amount (₹)</label>
-                            <input type="number" class="form-control" id="edit_amount" name="amount" value="{{ $lead->amount }}" step="0.01" min="0">
-                        </div>
-                        @if(auth()->user()->role === 'super_admin')
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Branch *</label>
-                            <select class="form-select" id="edit_branch_id" name="branch_id" required>
-                                @foreach(\App\Models\Branch::where('is_active', true)->get() as $branch)
-                                    <option value="{{ $branch->id }}" {{ $lead->branch_id == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        @endif
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Assigned To</label>
-                            <select class="form-select" id="edit_assigned_to" name="assigned_to">
-                                <option value="">Unassigned</option>
-                                @foreach(\App\Models\User::where('role', 'telecallers')->where('is_active', true)->get() as $user)
-                                    <option value="{{ $user->id }}" {{ $lead->assigned_to == $user->id ? 'selected' : '' }}>{{ $user->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-12 mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" id="edit_description" name="description" rows="3">{{ $lead->description }}</textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="las la-save me-2"></i>Update Lead
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -655,7 +812,7 @@
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label class="form-label">Followup Date *</label>
+                            <label class="form-label">Followup Date <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" name="followup_date" required min="{{ date('Y-m-d') }}">
                         </div>
                         <div class="col-md-6 mb-3">
@@ -663,17 +820,30 @@
                             <input type="time" class="form-control" name="followup_time">
                         </div>
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Priority *</label>
+                        <label class="form-label">Time Preference for Callback</label>
+                        <select class="form-select" name="callback_time_preference">
+                            <option value="anytime">Anytime</option>
+                            <option value="morning">Morning (9 AM - 12 PM)</option>
+                            <option value="afternoon">Afternoon (12 PM - 4 PM)</option>
+                            <option value="evening">Evening (4 PM - 8 PM)</option>
+                        </select>
+                        <small class="text-muted">Best time to reach the customer</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Priority <span class="text-danger">*</span></label>
                         <select class="form-select" name="priority" required>
                             <option value="medium">Medium</option>
                             <option value="high">High</option>
                             <option value="low">Low</option>
                         </select>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
-                        <textarea class="form-control" name="notes" rows="3"></textarea>
+                        <textarea class="form-control" name="notes" rows="3" placeholder="Add notes about this followup..."></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -698,11 +868,10 @@
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="call_date" class="form-label">Call Date & Time <span class="text-danger">*</span></label>
+                            <label for="call_date" class="form-label">Call Date Time <span class="text-danger">*</span></label>
                             <input type="datetime-local" class="form-control" id="call_date" name="call_date" required>
                             <span class="error-text call_date_error text-danger d-block mt-1"></span>
                         </div>
-
                         <div class="col-md-6 mb-3">
                             <label for="duration" class="form-label">Duration (minutes)</label>
                             <input type="number" class="form-control" id="duration" name="duration" min="0" placeholder="e.g., 5">
@@ -728,23 +897,33 @@
                         <textarea class="form-control" id="call_notes" name="notes" rows="3" placeholder="Enter call details..."></textarea>
                     </div>
 
-                    <!-- Followup Section - Shows when outcome is 'callback' or 'interested' -->
+                    <!-- Followup Section -->
                     <div id="followupSection" style="display: none;">
                         <hr>
                         <h6 class="mb-3"><i class="las la-calendar-plus"></i> Schedule Followup</h6>
-
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="followup_date" class="form-label">Followup Date <span class="text-danger">*</span></label>
                                 <input type="date" class="form-control" id="followup_date" name="followup_date">
                                 <span class="error-text followup_date_error text-danger d-block mt-1"></span>
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label for="followup_time" class="form-label">Followup Time</label>
                                 <input type="time" class="form-control" id="followup_time" name="followup_time">
                                 <span class="error-text followup_time_error text-danger d-block mt-1"></span>
                             </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="callback_time_preference" class="form-label">Time Preference for Callback</label>
+                            <select class="form-select" id="callback_time_preference" name="callback_time_preference">
+                                <option value="anytime">Anytime</option>
+                                <option value="morning">Morning (9 AM - 12 PM)</option>
+                                <option value="afternoon">Afternoon (12 PM - 4 PM)</option>
+                                <option value="evening">Evening (4 PM - 8 PM)</option>
+                            </select>
+                            <small class="text-muted">Best time to reach the customer</small>
+                            <span class="error-text callback_time_preference_error text-danger d-block mt-1"></span>
                         </div>
 
                         <div class="mb-3">
@@ -762,6 +941,7 @@
                             <textarea class="form-control" id="followup_notes" name="followup_notes" rows="2" placeholder="What needs to be discussed in the followup?"></textarea>
                         </div>
                     </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -801,387 +981,323 @@
 @endsection
 
 @section('extra-scripts')
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <script>
-        $(document).ready(function() {
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
+<script>
+$(document).ready(function() {
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
 
-            // Set current datetime for call_date
-            let now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            $('#call_date').val(now.toISOString().slice(0,16));
+    // Set current datetime for call_date
+    let now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    $('#call_date').val(now.toISOString().slice(0,16));
 
-            // Set default followup date to tomorrow
+    // Show/Hide followup section based on outcome
+    $('#outcome').on('change', function() {
+        let outcome = $(this).val();
+        if (outcome === 'callback' || outcome === 'interested') {
+            $('#followupSection').slideDown();
             let tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
-            $('#manual_followup_date').val(tomorrow.toISOString().split('T')[0]);
-            $('#manual_followup_date').attr('min', new Date().toISOString().split('T')[0]);
-
-            // Show/Hide followup section based on outcome
-            $('#outcome').on('change', function() {
-                let outcome = $(this).val();
-                if (outcome === 'callback' || outcome === 'interested') {
-                    $('#followupSection').slideDown();
-
-                    // Set default followup date to tomorrow
-                    let tomorrow = new Date();
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    $('#followup_date').val(tomorrow.toISOString().split('T')[0]);
-
-                    // Make followup fields required
-                    $('#followup_date').prop('required', true);
-                } else {
-                    $('#followupSection').slideUp();
-                    // Remove required attribute
-                    $('#followup_date').prop('required', false);
-                    // Clear followup fields
-                    $('#followup_date').val('');
-                    $('#followup_time').val('');
-                    $('#followup_notes').val('');
-                }
-            });
-
-            // Mark followup as complete
-            $(document).on('click', '.markFollowupComplete', function() {
-                var followupId = $(this).data('id');
-                Swal.fire({
-                    title: 'Complete Followup?',
-                    text: 'Mark this followup as completed',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, Complete',
-                    confirmButtonColor: '#28a745'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: '/lead-followups/' + followupId + '/complete',
-                            type: 'POST',
-                            success: function(response) {
-                                if(response.success) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Completed!',
-                                        text: response.message,
-                                        timer: 2000,
-                                        showConfirmButton: false
-                                    }).then(() => {
-                                        location.reload();
-                                    });
-                                }
-                            },
-                            error: function(xhr) {
-                                Swal.fire('Error', 'Could not update followup', 'error');
-                            }
-                        });
-                    }
-                });
-            });
-
-            // Submit Add Call Form with Followup
-            $('#addCallForm').on('submit', function(e) {
-                e.preventDefault();
-
-                let formData = new FormData(this);
-                $('.error-text').text('');
-
-                $.ajax({
-                    url: '/leads/{{ $lead->id }}/calls',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        $('#addCallModal').modal('hide');
-
-                        let message = response.message;
-                        if (response.followup_created) {
-                            message += '<br><small class="text-success">Followup scheduled successfully!</small>';
-                        }
-
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            html: message,
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => {
-                            location.reload();
-                        });
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            let errors = xhr.responseJSON.errors;
-                            $.each(errors, function(key, value) {
-                                $('.' + key + '_error').text(value[0]);
-                            });
-                        } else {
-                            Swal.fire('Error!', 'Failed to log call', 'error');
-                        }
-                    }
-                });
-            });
-
-            // Submit Add Note Form
-            $('#addNoteForm').on('submit', function(e) {
-                e.preventDefault();
-
-                let formData = new FormData(this);
-                $('.error-text').text('');
-
-                $.ajax({
-                    url: '/leads/{{ $lead->id }}/notes',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        $('#addNoteModal').modal('hide');
-                        $('#note').val('');
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: response.message,
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => {
-                            location.reload();
-                        });
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            let errors = xhr.responseJSON.errors;
-                            $.each(errors, function(key, value) {
-                                $('.' + key + '_error').text(value[0]);
-                            });
-                        } else {
-                            Swal.fire('Error!', 'Failed to add note', 'error');
-                        }
-                    }
-                });
-            });
-
-            // Submit Manual Followup Form
-            $('#addFollowupForm').on('submit', function(e) {
-                e.preventDefault();
-
-                let formData = new FormData(this);
-                $('.error-text').text('');
-
-                $.ajax({
-                    url: '/leads/{{ $lead->id }}/followups',
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        $('#addFollowupModal').modal('hide');
-                        $('#addFollowupForm')[0].reset();
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: response.message,
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => {
-                            location.reload();
-                        });
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            let errors = xhr.responseJSON.errors;
-                            $.each(errors, function(key, value) {
-                                $('.' + key + '_error').text(value[0]);
-                            });
-                        } else {
-                            Swal.fire('Error!', 'Failed to schedule followup', 'error');
-                        }
-                    }
-                });
-            });
-        });
-
-        // Edit Lead from Show Page
-        function editLeadFromShow() {
-            $('#edit_name').val('{{ $lead->name }}');
-            $('#edit_email').val('{{ $lead->email }}');
-            $('#edit_phone').val('{{ $lead->phone }}');
-            $('#edit_service_id').val('{{ $lead->service_id }}');
-            $('#edit_lead_source_id').val('{{ $lead->lead_source_id }}');
-            $('#edit_assigned_to').val('{{ $lead->assigned_to }}');
-            $('#edit_amount').val('{{ $lead->amount }}');
-            $('#edit_description').val(`{{ $lead->description }}`);
-
-            @if(auth()->user()->role === 'super_admin')
-                $('#edit_branch_id').val('{{ $lead->branch_id }}');
-            @endif
-
-            $('.error-text').text('');
-            $('#editLeadModal').modal('show');
+            $('#followup_date').val(tomorrow.toISOString().split('T')[0]);
+            $('#followup_date').prop('required', true);
+        } else {
+            $('#followupSection').slideUp();
+            $('#followup_date').prop('required', false);
+            $('#followup_date').val('');
+            $('#followup_time').val('');
+            $('#followup_notes').val('');
         }
+    });
 
-        // Submit Edit Lead Form
-        $('#editLeadForm').on('submit', function(e) {
-            e.preventDefault();
+    // Mark followup as complete
+    $(document).on('click', '.markFollowupComplete', function() {
+        var followupId = $(this).data('id');
 
-            let formData = new FormData(this);
-            $('.error-text').text('');
-
-            $.ajax({
-                url: '/leads/{{ $lead->id }}',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(response) {
-                    $('#editLeadModal').modal('hide');
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: response.message,
-                        timer: 2000,
-                        showConfirmButton: false
-                    }).then(() => {
-                        location.reload();
-                    });
-                },
-                error: function(xhr) {
-                    if (xhr.status === 422) {
-                        let errors = xhr.responseJSON.errors;
-                        $.each(errors, function(key, value) {
-                            $('.' + key + '_error').text(value[0]);
-                        });
-                    } else {
-                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to update lead', 'error');
-                    }
-                }
-            });
-        });
-
-        // Approve Lead
-        window.approveLead = function() {
-            Swal.fire({
-                title: 'Approve Lead?',
-                html: `
-                    <div class="text-start mt-3">
-                        <label class="form-label fw-semibold">Approval Notes (Optional)</label>
-                        <textarea id="approval_notes" class="form-control" rows="3" placeholder="Add any notes about this approval"></textarea>
-                    </div>
-                `,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: '<i class="las la-check me-2"></i>Yes, Approve',
-                confirmButtonColor: '#28a745',
-                cancelButtonText: 'Cancel',
-                width: '500px',
-                preConfirm: () => {
-                    return {
-                        approval_notes: document.getElementById('approval_notes').value
-                    };
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: '{{ route("leads.approve", $lead->id) }}',
-                        type: 'POST',
-                        data: result.value,
-                        success: function(response) {
+        Swal.fire({
+            title: 'Complete Followup?',
+            text: 'Mark this followup as completed',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Complete',
+            confirmButtonColor: '#10b981'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/lead-followups/${followupId}/complete`,
+                    type: 'POST',
+                    success: function(response) {
+                        if(response.success) {
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Lead Approved!',
-                                html: `
-                                    <p class="mb-3">${response.message}</p>
-                                    <div class="text-start">
-                                        <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-success">${response.customer_code}</span></p>
-                                        <p class="mb-2"><strong>Job Code:</strong> <span class="badge bg-primary">${response.job_code}</span></p>
-                                        <p class="mb-2"><strong>Amount:</strong> <span class="text-success">${response.amount}</span></p>
-                                        <p class="mb-0"><strong>Remaining Budget:</strong> <span class="text-success">${response.remaining_budget}</span></p>
-                                    </div>
-                                `,
-                                confirmButtonColor: '#28a745',
-                                confirmButtonText: 'OK'
-                            }).then(() => location.reload());
-                        },
-                        error: function(xhr) {
-                            let message = xhr.responseJSON?.message || 'Failed to approve lead';
-                            let budgetInfo = xhr.responseJSON?.budget_info || null;
-
-                            let html = `<p>${message}</p>`;
-
-                            if(budgetInfo) {
-                                html += `
-                                    <div class="mt-3 text-start alert alert-danger">
-                                        <p class="mb-1"><strong>Daily Limit:</strong> ${budgetInfo.daily_limit}</p>
-                                        <p class="mb-1"><strong>Used Today:</strong> ${budgetInfo.today_total}</p>
-                                        <p class="mb-1"><strong>Remaining:</strong> ${budgetInfo.remaining}</p>
-                                        <p class="mb-1"><strong>Requested:</strong> ${budgetInfo.requested}</p>
-                                        <p class="mb-0 text-danger"><strong>Excess Amount:</strong> ${budgetInfo.excess}</p>
-                                    </div>
-                                `;
-                            }
-
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Cannot Approve Lead',
-                                html: html,
-                                width: '500px'
+                                title: 'Completed!',
+                                text: response.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
                             });
                         }
-                    });
-                }
-            });
-        };
-
-        // Reject Lead
-        window.rejectLead = function() {
-            Swal.fire({
-                title: 'Reject Lead?',
-                html: `
-                    <div class="text-start mt-3">
-                        <label class="form-label fw-semibold">Rejection Reason *</label>
-                        <textarea id="rejection_reason" class="form-control" rows="3" placeholder="Please provide a reason for rejection" required></textarea>
-                    </div>
-                `,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: '<i class="las la-times me-2"></i>Yes, Reject',
-                confirmButtonColor: '#dc3545',
-                cancelButtonText: 'Cancel',
-                width: '500px',
-                preConfirm: () => {
-                    const val = document.getElementById('rejection_reason').value;
-                    if(!val || val.trim() === '') {
-                        Swal.showValidationMessage('Rejection reason is required');
-                        return false;
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', 'Could not update followup', 'error');
                     }
-                    return { rejection_reason: val };
-                }
-            }).then((result) => {
-                if (result.isConfirmed && result.value) {
-                    $.ajax({
-                        url: '{{ route("leads.reject", $lead->id) }}',
-                        type: 'POST',
-                        data: result.value,
-                        success: function(response) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Lead Rejected',
-                                text: response.message,
-                                confirmButtonColor: '#dc3545'
-                            }).then(() => location.reload());
-                        },
-                        error: function(xhr) {
-                            Swal.fire('Error', xhr.responseJSON?.message || 'Failed to reject lead', 'error');
-                        }
-                    });
-                }
-            });
-        };
+                });
+            }
+        });
+    });
 
-    </script>
+    // Submit Add Call Form with Followup
+    $('#addCallForm').on('submit', function(e) {
+        e.preventDefault();
+        let formData = new FormData(this);
+
+        $('.error-text').text('');
+
+        $.ajax({
+            url: '{{ route("leads.addCall", $lead->id) }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#addCallModal').modal('hide');
+
+                let message = response.message;
+                if(response.followup_created) {
+                    message += '<br><small class="text-success">Followup scheduled successfully!</small>';
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    html: message,
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            },
+            error: function(xhr) {
+                if(xhr.status === 422) {
+                    let errors = xhr.responseJSON.errors;
+                    $.each(errors, function(key, value) {
+                        $('.' + key + '_error').text(value[0]);
+                    });
+                } else {
+                    Swal.fire('Error!', 'Failed to log call', 'error');
+                }
+            }
+        });
+    });
+
+    // Submit Add Note Form
+    $('#addNoteForm').on('submit', function(e) {
+        e.preventDefault();
+        let formData = new FormData(this);
+
+        $('.error-text').text('');
+
+        $.ajax({
+            url: '{{ route("leads.addNote", $lead->id) }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#addNoteModal').modal('hide');
+                $('#note').val('');
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: response.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            },
+            error: function(xhr) {
+                if(xhr.status === 422) {
+                    let errors = xhr.responseJSON.errors;
+                    $.each(errors, function(key, value) {
+                        $('.' + key + '_error').text(value[0]);
+                    });
+                } else {
+                    Swal.fire('Error!', 'Failed to add note', 'error');
+                }
+            }
+        });
+    });
+
+    // Submit Manual Followup Form
+    $('#addFollowupForm').on('submit', function(e) {
+        e.preventDefault();
+        let formData = new FormData(this);
+
+        $('.error-text').text('');
+
+        $.ajax({
+            url: '{{ route("leads.addFollowup", $lead->id) }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                $('#addFollowupModal').modal('hide');
+                $('#addFollowupForm')[0].reset();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: response.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            },
+            error: function(xhr) {
+                if(xhr.status === 422) {
+                    let errors = xhr.responseJSON.errors;
+                    $.each(errors, function(key, value) {
+                        $('.' + key + '_error').text(value[0]);
+                    });
+                } else {
+                    Swal.fire('Error!', 'Failed to schedule followup', 'error');
+                }
+            }
+        });
+    });
+
+    // Approve Lead
+    window.approveLead = function() {
+        Swal.fire({
+            title: 'Approve Lead?',
+            html: `
+                <div class="text-start mt-3">
+                    <label class="form-label fw-semibold">Approval Notes (Optional)</label>
+                    <textarea id="approval_notes" class="form-control" rows="3" placeholder="Add any notes about this approval"></textarea>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '<i class="las la-check me-2"></i>Yes, Approve',
+            confirmButtonColor: '#10b981',
+            cancelButtonText: 'Cancel',
+            width: '500px',
+            preConfirm: () => {
+                return {
+                    approval_notes: document.getElementById('approval_notes').value
+                };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: '{{ route("leads.approve", $lead->id) }}',
+                    type: 'POST',
+                    data: result.value,
+                    success: function(response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Lead Approved!',
+                            html: `
+                                <p class="mb-3">${response.message}</p>
+                                <div class="text-start">
+                                    <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-success">${response.customer_code}</span></p>
+                                    <p class="mb-2"><strong>Job Code:</strong> <span class="badge bg-primary">${response.job_code}</span></p>
+                                    <p class="mb-2"><strong>Amount:</strong> <span class="text-success">${response.amount}</span></p>
+                                    <p class="mb-0"><strong>Remaining Budget:</strong> <span class="text-success">${response.remaining_budget}</span></p>
+                                </div>
+                            `,
+                            confirmButtonColor: '#10b981',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        let message = xhr.responseJSON?.message || 'Failed to approve lead';
+                        let budgetInfo = xhr.responseJSON?.budget_info || null;
+
+                        let html = `<p>${message}</p>`;
+                        if(budgetInfo) {
+                            html += `
+                                <div class="mt-3 text-start alert alert-danger">
+                                    <p class="mb-1"><strong>Daily Limit:</strong> ${budgetInfo.daily_limit}</p>
+                                    <p class="mb-1"><strong>Used Today:</strong> ${budgetInfo.today_total}</p>
+                                    <p class="mb-1"><strong>Remaining:</strong> ${budgetInfo.remaining}</p>
+                                    <p class="mb-1"><strong>Requested:</strong> ${budgetInfo.requested}</p>
+                                    <p class="mb-0 text-danger"><strong>Excess Amount:</strong> ${budgetInfo.excess}</p>
+                                </div>
+                            `;
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Cannot Approve Lead',
+                            html: html,
+                            width: '500px'
+                        });
+                    }
+                });
+            }
+        });
+    };
+
+    // Reject Lead
+    window.rejectLead = function() {
+        Swal.fire({
+            title: 'Reject Lead?',
+            html: `
+                <div class="text-start mt-3">
+                    <label class="form-label fw-semibold">Rejection Reason *</label>
+                    <textarea id="rejection_reason" class="form-control" rows="3" placeholder="Please provide a reason for rejection" required></textarea>
+                </div>
+            `,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '<i class="las la-times me-2"></i>Yes, Reject',
+            confirmButtonColor: '#ef4444',
+            cancelButtonText: 'Cancel',
+            width: '500px',
+            preConfirm: () => {
+                const val = document.getElementById('rejection_reason').value;
+                if(!val || !val.trim()) {
+                    Swal.showValidationMessage('Rejection reason is required');
+                    return false;
+                }
+                return { rejection_reason: val };
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                $.ajax({
+                    url: '{{ route("leads.reject", $lead->id) }}',
+                    type: 'POST',
+                    data: result.value,
+                    success: function(response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Lead Rejected',
+                            text: response.message,
+                            confirmButtonColor: '#ef4444'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error', xhr.responseJSON?.message || 'Failed to reject lead', 'error');
+                    }
+                });
+            }
+        });
+    };
+});
+</script>
 @endsection
