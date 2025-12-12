@@ -710,6 +710,60 @@
                 max-height: 150px;
             }
         }
+
+        /* View Mode Toggle Styles */
+        #viewModeToggle {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #viewModeToggle .btn {
+            font-weight: 500;
+            padding: 10px 20px;
+            border: 1px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        #viewModeToggle .btn:hover:not(.active) {
+            /* background-color: #f8f9fa; */
+            transform: translateY(-2px);
+        }
+
+        #viewModeToggle .btn.active {
+            font-weight: 600;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+
+        /* Active state colors */
+        #viewModeToggle .btn-outline-primary.active {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+        }
+
+        #viewModeToggle .btn-outline-warning.active {
+            background-color: #ffc107;
+            border-color: #ffc107;
+            color: #000;
+        }
+
+        #viewModeToggle .btn-outline-success.active {
+            background-color: #198754;
+            border-color: #198754;
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #viewModeToggle .btn {
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+
+            #viewModeToggle .btn i {
+                display: none; /* Hide icons on mobile */
+            }
+        }
+
     </style>
 @endsection
 
@@ -735,7 +789,6 @@
             <div class="card-body" style="padding: 20px;">
                 <form method="GET" action="{{ route('leads.index') }}" id="filterForm">
                     <div class="row align-items-end g-3">
-                        @if(auth()->user()->role === 'super_admin')
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Status</label>
                             <select class="form-select" id="filterStatus" name="status">
@@ -757,7 +810,6 @@
                                 <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
                             </select>
                         </div>
-                        @endif
 
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Lead Source</label>
@@ -874,6 +926,27 @@
                     </a>
                 </div>
             </div>
+            <!-- VIEW MODE TOGGLE - ADD HERE -->
+            <div class="btn-group w-100" role="group" id="viewModeToggle">
+                <button type="button"
+                        class="btn btn-outline-primary {{ !request('status') && !request('mode') ? 'active' : '' }}"
+                        data-status="" data-mode="">
+                    All Leads
+                </button>
+
+                <button type="button"
+                        class="btn btn-outline-warning {{ request('mode') == 'open' ? 'active' : '' }}"
+                        data-status="" data-mode="open">
+                    <i class="las la-clock me-1"></i> Open Leads
+                </button>
+
+                <button type="button"
+                        class="btn btn-outline-success {{ request('status') == 'approved' ? 'active' : '' }}"
+                        data-status="approved" data-mode="">
+                    <i class="las la-check-circle me-1"></i> Work Orders
+                </button>
+            </div>
+
             <div class="card-body">
                 <div class="table-container">
                     <table class="table table-hover mb-0" id="leadsTable">
@@ -1124,6 +1197,48 @@
                 text: '{{ session("error") }}',
             });
         @endif
+
+        // When status filter changes manually
+        $('#filterStatus').on('change', function () {
+            const value = $(this).val();
+
+            // Reset mode when status is changed directly
+            if (!$('#filterMode').length) {
+                $('#filterForm').append('<input type="hidden" id="filterMode" name="mode">');
+            }
+            $('#filterMode').val('');
+
+            // Sync viewModeToggle visual state
+            $('#viewModeToggle button').removeClass('active');
+
+            if (value === 'approved') {
+                $('#viewModeToggle button[data-status="approved"]').addClass('active');
+            } else if (value === '' && !$('#filterMode').val()) {
+                $('#viewModeToggle button[data-status=""][data-mode=""]').addClass('active'); // All Leads
+            } else if ($('#filterMode').val() === 'open') {
+                $('#viewModeToggle button[data-mode="open"]').addClass('active');
+            }
+
+            // Submit the form to apply filter
+            $('#filterForm').submit();
+        });
+
+        $('#viewModeToggle button').on('click', function () {
+            $('#viewModeToggle button').removeClass('active');
+            $(this).addClass('active');
+
+            let status = $(this).data('status') || '';
+            let mode   = $(this).data('mode') || '';
+
+            $('#filterStatus').val(status);          // existing status select
+            // add a hidden input for mode in the filter form if not present
+            if (!$('#filterMode').length) {
+                $('#filterForm').append('<input type="hidden" id="filterMode" name="mode">');
+            }
+            $('#filterMode').val(mode);
+
+            $('#filterForm').submit();
+        });
 
         $(document).ready(function() {
             $.ajaxSetup({

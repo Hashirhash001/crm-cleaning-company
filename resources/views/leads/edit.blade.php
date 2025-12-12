@@ -85,7 +85,7 @@
                 </h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ route('leads.update', $lead) }}">
+                <form id="UpdateLeadForm" method="POST" action="{{ route('leads.update', $lead) }}">
                     @csrf
                     @method('PUT')
 
@@ -454,7 +454,28 @@ $(document).ready(function() {
         let totalAmount = parseFloat($('#amount').val()) || 0;
         let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
         let balance = totalAmount - advancePaid;
+
+        // Update display
         $('#balance_amount').text('₹ ' + balance.toFixed(2));
+
+        // Add validation styling
+        if (advancePaid > totalAmount && totalAmount > 0) {
+            $('#advance_paid_amount').addClass('is-invalid');
+            $('#balance_amount').removeClass('text-success').addClass('text-danger');
+
+            // Show error message
+            if (!$('#advance_error').length) {
+                $('#advance_paid_amount').after(
+                    '<div id="advance_error" class="invalid-feedback d-block">' +
+                    'Advance paid cannot be greater than total service cost' +
+                    '</div>'
+                );
+            }
+        } else {
+            $('#advance_paid_amount').removeClass('is-invalid');
+            $('#balance_amount').removeClass('text-danger').addClass('text-success');
+            $('#advance_error').remove();
+        }
     }
 
     $('#amount, #advance_paid_amount').on('input', calculateBalance);
@@ -547,6 +568,93 @@ $(document).ready(function() {
 
     $('#service_type').on('change', function() {
         loadServices($(this).val());
+    });
+
+    // Form validation helper
+    function validateForm() {
+        let isValid = true;
+        let errors = [];
+
+        // Required fields
+        if (!$('#name').val().trim()) {
+            errors.push('Client name is required');
+            $('#name').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#phone').val().trim()) {
+            errors.push('Phone number is required');
+            $('#phone').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#service_type').val()) {
+            errors.push('Service type is required');
+            $('#service_type').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#lead_source_id').val()) {
+            errors.push('Lead source is required');
+            $('#lead_source_id').addClass('is-invalid');
+            isValid = false;
+        }
+
+        // Check if at least one service is selected
+        if ($('.service-checkbox:checked').length === 0) {
+            errors.push('Please select at least one service');
+            $('#servicesContainer').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#status').val()) {
+            errors.push('Lead status is required');
+            $('#status').addClass('is-invalid');
+            isValid = false;
+        }
+
+        @if(auth()->user()->role === 'super_admin')
+        if (!$('#branch_id').val()) {
+            errors.push('Branch is required');
+            $('#branch_id').addClass('is-invalid');
+            isValid = false;
+        }
+        @endif
+
+        // Validate advance amount
+        let totalAmount = parseFloat($('#amount').val()) || 0;
+        let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
+
+        if (advancePaid > totalAmount && totalAmount > 0) {
+            errors.push('Advance paid cannot exceed total service cost');
+            $('#advance_paid_amount').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                html: '<ul class="text-start">' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>',
+            });
+        }
+
+        return isValid;
+    }
+
+    // Clear validation errors on input
+    $('input, select, textarea').on('input change', function() {
+        $(this).removeClass('is-invalid');
+    });
+
+    // Regular form submission (Create Lead button)
+    $('#UpdateLeadForm').on('submit', function(e) {
+        // Only validate, don't prevent default unless validation fails
+        if (!validateForm()) {
+            e.preventDefault();
+            return false;
+        }
+        // Let form submit normally if validation passes
     });
 
     // Load services on page load

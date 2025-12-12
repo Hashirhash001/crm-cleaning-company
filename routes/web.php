@@ -60,6 +60,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/leads/{lead}/assign', [LeadController::class, 'assignLead'])->name('leads.assign');
     Route::post('/leads/{lead}/followups', [LeadController::class, 'addFollowup'])->name('leads.addFollowup');
     Route::post('/leads/bulk-assign', [LeadController::class, 'bulkAssign'])->name('leads.bulkAssign');
+    Route::post('/leads/{lead}/status', [LeadController::class, 'updateStatus'])
+        ->name('leads.update-status');
 
     // Lead resource route - MUST BE LAST
     Route::resource('leads', LeadController::class);

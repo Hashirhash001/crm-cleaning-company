@@ -14,7 +14,7 @@
         <!-- Checkbox for bulk selection -->
         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
         <td class="checkbox-col">
-            @if ($lead->status === 'pending')
+            @if ($lead->status !== 'approved')
             <div class="checkbox-wrapper">
                 <input type="checkbox"
                        class="custom-checkbox lead-checkbox"
@@ -45,16 +45,47 @@
 
         <!-- Service -->
         <td>
-            @if($lead->service_type)
-                <span class="badge bg-info">{{ ucfirst($lead->service_type) }}</span>
-            @else
-                <span class="text-muted">-</span>
-            @endif
+            @php
+                $serviceTypes = [
+                    'cleaning' => 'Cleaning',
+                    'pest_control' => 'Pest Control',
+                    '' => 'Not Selected',
+                ];
+            @endphp
+
+            <span class="badge bg-primary">
+                {{ $serviceTypes[$lead->service_type] ?? ucfirst(str_replace('_', ' ', $lead->service_type)) }}
+            </span>
+
         </td>
 
         <!-- Status -->
         <td>
-            <span class="badge badge-{{ $lead->status }}">{{ ucfirst($lead->status) }}</span>
+            @php
+            $statusColors = [
+                'pending' => 'warning',
+                'site_visit' => 'info',
+                'not_accepting_tc' => 'danger',
+                'they_will_confirm' => 'primary',
+                'date_issue' => 'warning',
+                'rate_issue' => 'warning',
+                'service_not_provided' => 'secondary',
+                'just_enquiry' => 'secondary',
+                'immediate_service' => 'success',
+                'no_response' => 'secondary',
+                'location_not_available' => 'secondary',
+                'night_work_demanded' => 'dark',
+                'customisation' => 'info',
+                'approved' => 'success',
+                'rejected' => 'danger',
+            ];
+            $color = $statusColors[$lead->status] ?? 'secondary';
+            @endphp
+
+            <span class="badge bg-{{ $color }}">
+            {{ $lead->status_label }}
+            </span>
+
         </td>
 
         <!-- Source -->
@@ -96,7 +127,7 @@
                     $canApprove = false;
                     $canAssign = false;
 
-                    if ($lead->status === 'pending') {
+                    if ($lead->status !== 'approved') {
                         if ($user->role === 'super_admin') {
                             $canEdit = true;
                             $canDelete = true;

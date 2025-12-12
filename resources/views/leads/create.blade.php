@@ -421,10 +421,16 @@
                         <a href="{{ route('leads.index') }}" class="btn btn-secondary me-2">
                             <i class="las la-times me-1"></i> Cancel
                         </a>
-                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <button type="submit" class="btn btn-primary me-2" id="submitBtn">
                             <i class="las la-save me-1"></i> Create Lead
                         </button>
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                            <button type="button" class="btn btn-success" id="createAndConvertBtn">
+                                <i class="las la-briefcase me-1"></i> Create & Convert to Work Order
+                            </button>
+                        @endif
                     </div>
+
                 </form>
             </div>
         </div>
@@ -451,7 +457,28 @@ $(document).ready(function() {
         let totalAmount = parseFloat($('#amount').val()) || 0;
         let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
         let balance = totalAmount - advancePaid;
+
+        // Update display
         $('#balance_amount').text('₹ ' + balance.toFixed(2));
+
+        // Add validation styling
+        if (advancePaid > totalAmount && totalAmount > 0) {
+            $('#advance_paid_amount').addClass('is-invalid');
+            $('#balance_amount').removeClass('text-success').addClass('text-danger');
+
+            // Show error message
+            if (!$('#advance_error').length) {
+                $('#advance_paid_amount').after(
+                    '<div id="advance_error" class="invalid-feedback d-block">' +
+                    'Advance paid cannot be greater than total service cost' +
+                    '</div>'
+                );
+            }
+        } else {
+            $('#advance_paid_amount').removeClass('is-invalid');
+            $('#balance_amount').removeClass('text-danger').addClass('text-success');
+            $('#advance_error').remove();
+        }
     }
 
     $('#amount, #advance_paid_amount').on('input', calculateBalance);
@@ -550,6 +577,275 @@ $(document).ready(function() {
     @if(old('service_type'))
         $('#service_type').trigger('change');
     @endif
+
+    // Form validation helper
+    function validateForm() {
+        let isValid = true;
+        let errors = [];
+
+        // Required fields
+        if (!$('#name').val().trim()) {
+            errors.push('Client name is required');
+            $('#name').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#phone').val().trim()) {
+            errors.push('Phone number is required');
+            $('#phone').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#service_type').val()) {
+            errors.push('Service type is required');
+            $('#service_type').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#lead_source_id').val()) {
+            errors.push('Lead source is required');
+            $('#lead_source_id').addClass('is-invalid');
+            isValid = false;
+        }
+
+        // Check if at least one service is selected
+        if ($('.service-checkbox:checked').length === 0) {
+            errors.push('Please select at least one service');
+            $('#servicesContainer').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#status').val()) {
+            errors.push('Lead status is required');
+            $('#status').addClass('is-invalid');
+            isValid = false;
+        }
+
+        @if(auth()->user()->role === 'super_admin')
+        if (!$('#branch_id').val()) {
+            errors.push('Branch is required');
+            $('#branch_id').addClass('is-invalid');
+            isValid = false;
+        }
+        @endif
+
+        // Validate advance amount
+        let totalAmount = parseFloat($('#amount').val()) || 0;
+        let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
+
+        if (advancePaid > totalAmount && totalAmount > 0) {
+            errors.push('Advance paid cannot exceed total service cost');
+            $('#advance_paid_amount').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                html: '<ul class="text-start">' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>',
+            });
+        }
+
+        return isValid;
+    }
+
+    // Clear validation errors on input
+    $('input, select, textarea').on('input change', function() {
+        $(this).removeClass('is-invalid');
+    });
+
+    // Regular form submission (Create Lead button)
+    $('#createLeadForm').on('submit', function(e) {
+        // Only validate, don't prevent default unless validation fails
+        if (!validateForm()) {
+            e.preventDefault();
+            return false;
+        }
+        // Let form submit normally if validation passes
+    });
+
+    // Create & Convert to Job button
+    $('#createAndConvertBtn').on('click', function() {
+        // Validate form first
+        if (!validateForm()) {
+            return;
+        }
+
+        // Check if amount is set
+        let amount = parseFloat($('#amount').val());
+        let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
+
+        if (!amount || amount <= 0) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Amount Required',
+                text: 'Please enter the total service cost before converting to Work Order.',
+                confirmButtonColor: '#ef4444'
+            });
+            $('#amount').focus().addClass('is-invalid');
+            return;
+        }
+
+        // Confirm conversion
+        Swal.fire({
+            title: 'Create Lead & Convert to Work Order?',
+            html: `
+                <div class="text-start">
+                    <p class="mb-3">This will:</p>
+                    <ul class="mb-0">
+                        <li>Create the lead</li>
+                        <li>Create a customer record</li>
+                        <li>Create a job/work order</li>
+                    </ul>
+                    <div class="alert alert-info mt-3 mb-0">
+                        <strong>Amount:</strong> ₹${amount.toFixed(2)}
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '<i class="las la-check me-2"></i>Yes, Create & Convert',
+            confirmButtonColor: '#10b981',
+            cancelButtonText: 'Cancel',
+            width: '550px'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Show loading
+                Swal.fire({
+                    title: 'Processing...',
+                    html: 'Creating lead and converting to work order',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Submit form via AJAX
+                let formData = new FormData($('#createLeadForm')[0]);
+
+                $.ajax({
+                    url: '{{ route("leads.store") }}',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        // Lead created successfully, now convert to job
+                        let leadId = response.lead_id || response.id;
+
+                        if (!leadId) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Lead created but failed to get lead ID',
+                            });
+                            return;
+                        }
+
+                        // Call approve endpoint to convert to job
+                        $.ajax({
+                            url: `/leads/${leadId}/approve`,
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                approval_notes: 'Auto-converted during lead creation'
+                            },
+                            success: function(approveResponse) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Success!',
+                                    html: `
+                                        <div class="text-start">
+                                            <p class="mb-3">Lead created and converted to work order successfully!</p>
+                                            <div class="alert alert-success mb-3">
+                                                <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-success">${approveResponse.customer_code}</span></p>
+                                                <p class="mb-2"><strong>Job Code:</strong> <span class="badge bg-primary">${approveResponse.job_code}</span></p>
+                                                <p class="mb-0"><strong>Amount:</strong> <span class="text-success fw-bold">${approveResponse.amount}</span></p>
+                                            </div>
+                                            <div class="d-flex gap-2 mt-3">
+                                                <a href="/jobs/${approveResponse.job_id}" class="btn btn-primary btn-sm flex-fill">
+                                                    <i class="las la-briefcase me-1"></i> View Job
+                                                </a>
+                                                <a href="/customers/${approveResponse.customer_id}" class="btn btn-success btn-sm flex-fill">
+                                                    <i class="las la-user me-1"></i> View Customer
+                                                </a>
+                                            </div>
+                                        </div>
+                                    `,
+                                    confirmButtonText: 'Go to Jobs',
+                                    confirmButtonColor: '#10b981',
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Create Another Lead',
+                                    width: '600px'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        window.location.href = '/jobs';
+                                    } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                        window.location.href = '{{ route("leads.create") }}';
+                                    }
+                                });
+                            },
+                            error: function(xhr) {
+                                let message = xhr.responseJSON?.message || 'Failed to convert to work order';
+                                let budgetInfo = xhr.responseJSON?.budget_info || null;
+
+                                let html = `<p class="mb-3">${message}</p>`;
+                                if (budgetInfo) {
+                                    html += `
+                                        <div class="alert alert-danger text-start mb-0">
+                                            <p class="mb-1"><strong>Daily Limit:</strong> ${budgetInfo.daily_limit}</p>
+                                            <p class="mb-1"><strong>Used Today:</strong> ${budgetInfo.today_total}</p>
+                                            <p class="mb-1"><strong>Remaining:</strong> ${budgetInfo.remaining}</p>
+                                            <p class="mb-0 text-danger"><strong>Excess:</strong> ${budgetInfo.excess}</p>
+                                        </div>
+                                    `;
+                                }
+
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Lead Created but Conversion Failed',
+                                    html: html + `
+                                        <div class="mt-3">
+                                            <p class="text-muted mb-0">The lead was created successfully but couldn't be converted to a work order. You can convert it manually from the leads page.</p>
+                                        </div>
+                                    `,
+                                    confirmButtonText: 'Go to Leads',
+                                    confirmButtonColor: '#3b82f6',
+                                    width: '550px'
+                                }).then(() => {
+                                    window.location.href = '{{ route("leads.index") }}';
+                                });
+                            }
+                        });
+                    },
+                    error: function(xhr) {
+                        let message = 'Failed to create lead';
+                        let errors = [];
+
+                        if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                            Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
+                                errors = errors.concat(errorArray);
+                            });
+                            message = '<ul class="text-start">' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>';
+                        } else if (xhr.responseJSON?.message) {
+                            message = xhr.responseJSON.message;
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error Creating Lead',
+                            html: message,
+                            confirmButtonColor: '#ef4444'
+                        });
+                    }
+                });
+            }
+        });
+    });
 });
 </script>
 @endsection
+

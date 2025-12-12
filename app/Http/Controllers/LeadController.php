@@ -52,6 +52,11 @@ class LeadController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Open leads = anything not approved
+        if ($request->input('mode') === 'open') {
+            $query->where('status', '!=', 'approved');
+        }
+
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
         }
@@ -170,7 +175,7 @@ class LeadController extends Controller
                 'lead_source_id' => 'required|exists:lead_sources,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
-                'advance_paid_amount' => 'nullable|numeric|min:0',
+                'advance_paid_amount' => 'nullable|numeric|min:0|lte:amount',
                 'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
@@ -221,9 +226,21 @@ class LeadController extends Controller
                 'created_by' => $user->id,
             ]);
 
+            // Check if this is an AJAX request (from "Create & Convert" button)
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Lead created successfully',
+                    'lead_id' => $lead->id,
+                    'lead_code' => $lead->lead_code,
+                    'name' => $lead->name,
+                ]);
+            }
+
             return redirect()->route('leads.index')
                 ->with('success', json_encode([
                     'title' => 'Lead Created Successfully!',
+                    'lead_id' => $lead->id,
                     'message' => "Lead {$lead->lead_code} has been created.",
                     'leadcode' => $lead->lead_code,
                     'name' => $lead->name
@@ -243,7 +260,7 @@ class LeadController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        if (!in_array($lead->status, ['pending', 'site_visit', 'not_accepting_tc', 'they_will_confirm', 'date_issue', 'rate_issue', 'customisation'])) {
+        if (!in_array($lead->status, ['pending', 'site_visit', 'not_accepting_tc', 'they_will_confirm', 'date_issue', 'rate_issue', 'customisation', 'service_not_provided', 'just_enquiry', 'immediate_service', 'no_response', 'location_not_available', 'night_work_demanded'])) {
             return redirect()->route('leads.index')
                 ->with('error', 'Can only edit active leads');
         }
@@ -313,7 +330,7 @@ class LeadController extends Controller
                 'lead_source_id' => 'required|exists:lead_sources,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
-                'advance_paid_amount' => 'nullable|numeric|min:0',
+                'advance_paid_amount' => 'nullable|numeric|min:0|lte:amount',
                 'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
@@ -725,20 +742,22 @@ class LeadController extends Controller
     public function approve(Request $request, Lead $lead)
     {
         try {
-            // Security check: Only super_admin and lead_manager can approve
-            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager'])) {
+            $user = auth()->user();
+
+            // Allow super_admin, lead_manager, and telecallers
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Only Super Admin or Lead Manager can approve leads.'
+                    'message' => 'Unauthorized. Only Super Admin, Lead Manager, or Telecaller can approve leads.'
                 ], 403);
             }
 
-            // Check if lead is pending
-            if ($lead->status !== 'pending') {
+            // If telecaller, only allow approval of their own assigned leads
+            if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This lead has already been processed'
-                ], 400);
+                    'message' => 'You can only approve leads assigned to you.'
+                ], 403);
             }
 
             // Check if amount is set
@@ -840,7 +859,7 @@ class LeadController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Lead approved successfully! Customer and Job created.',
+                    'message' => 'Lead converted successfully! Customer and Work order created.',
                     'customer_id' => $customer->id,
                     'customer_code' => $customer->customer_code,
                     'job_id' => $job->id,
@@ -865,6 +884,35 @@ class LeadController extends Controller
                 'message' => 'Error approving lead: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function updateStatus(Request $request, Lead $lead)
+    {
+        $user = auth()->user();
+
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
+            return response()->json(['message' => 'You can only update status of your assigned leads'], 403);
+        }
+
+        $validated = $request->validate([
+            'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected',
+        ]);
+
+        if ($validated['status'] === 'approved') {
+            return response()->json(['message' => 'Not allowed to approve leads'], 403);
+        }
+
+        $lead->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'success' => true,
+            'status' => $lead->status,
+            'status_label' => $lead->status_label,
+        ]);
     }
 
     /**

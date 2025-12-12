@@ -346,406 +346,430 @@ class LeadBulkImportController extends Controller
     }
 
     public function processBulkImport(Request $request)
-{
-    $request->validate([
-        'csv_file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
-    ]);
-
-    try {
-        DB::beginTransaction();
-
-        // Create import record
-        $import = LeadImport::create([
-            'user_id' => auth()->id(),
-            'filename' => $request->file('csv_file')->getClientOriginalName(),
-            'status' => 'processing',
+    {
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
         ]);
 
-        $file = $request->file('csv_file');
-        $extension = $file->getClientOriginalExtension();
+        try {
+            DB::beginTransaction();
 
-        $records = [];
+            // Create import record
+            $import = LeadImport::create([
+                'user_id' => auth()->id(),
+                'filename' => $request->file('csv_file')->getClientOriginalName(),
+                'status' => 'processing',
+            ]);
 
-        // Handle both CSV and Excel files
-        if (in_array($extension, ['xlsx', 'xls'])) {
-            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
-            $worksheet = $spreadsheet->getSheetByName('Lead Data') ?? $spreadsheet->getActiveSheet();
-            $highestRow = $worksheet->getHighestRow();
+            $file = $request->file('csv_file');
+            $extension = $file->getClientOriginalExtension();
 
-            // Get headers from first row
-            $headers = [];
-            $headerRow = $worksheet->rangeToArray('A1:O1')[0];
-            foreach ($headerRow as $index => $header) {
-                $cleanHeader = strtolower(trim(str_replace('*', '', $header)));
-                $cleanHeader = str_replace(' ', '_', $cleanHeader);
-                $headers[$index] = $cleanHeader;
-            }
+            $records = [];
 
-            // Read data rows
-            for ($row = 2; $row <= $highestRow; $row++) {
-                $rawRowData = [];
+            // Handle both CSV and Excel files
+            if (in_array($extension, ['xlsx', 'xls'])) {
+                $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());
+                $worksheet = $spreadsheet->getSheetByName('Lead Data') ?? $spreadsheet->getActiveSheet();
+                $highestRow = $worksheet->getHighestRow();
 
-                foreach ($headers as $colIndex => $headerName) {
-                    $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
-                    $cell = $worksheet->getCell($colLetter . $row);
+                // Get headers from first row
+                $headers = [];
+                $headerRow = $worksheet->rangeToArray('A1:O1')[0];
+                foreach ($headerRow as $index => $header) {
+                    $cleanHeader = strtolower(trim(str_replace('*', '', $header)));
+                    $cleanHeader = str_replace(' ', '_', $cleanHeader);
+                    $headers[$index] = $cleanHeader;
+                }
 
-                    // Special handling for phone numbers
-                    if (in_array($headerName, ['phone', 'alternative_phone'])) {
-                        try {
-                            $cellValue = $cell->getValue();
+                // Read data rows
+                for ($row = 2; $row <= $highestRow; $row++) {
+                    $rawRowData = [];
 
-                            if (is_numeric($cellValue)) {
-                                $phoneNumber = sprintf('%.0f', $cellValue);
-                                $rawRowData[$headerName] = $phoneNumber;
-                            } else {
-                                $rawRowData[$headerName] = preg_replace('/[^0-9]/', '', $cellValue);
+                    foreach ($headers as $colIndex => $headerName) {
+                        $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+                        $cell = $worksheet->getCell($colLetter . $row);
+
+                        // Special handling for phone numbers
+                        if (in_array($headerName, ['phone', 'alternative_phone'])) {
+                            try {
+                                $cellValue = $cell->getValue();
+
+                                if (is_numeric($cellValue)) {
+                                    $phoneNumber = sprintf('%.0f', $cellValue);
+                                    $rawRowData[$headerName] = $phoneNumber;
+                                } else {
+                                    $rawRowData[$headerName] = preg_replace('/[^0-9]/', '', $cellValue);
+                                }
+                            } catch (\Exception $e) {
+                                $rawRowData[$headerName] = '';
                             }
-                        } catch (\Exception $e) {
-                            $rawRowData[$headerName] = '';
+                        } else {
+                            $rawRowData[$headerName] = trim($cell->getFormattedValue());
                         }
-                    } else {
-                        $rawRowData[$headerName] = trim($cell->getFormattedValue());
+                    }
+
+                    // Skip empty rows
+                    $hasData = false;
+                    foreach ($rawRowData as $val) {
+                        if (!empty(trim($val))) {
+                            $hasData = true;
+                            break;
+                        }
+                    }
+
+                    if (!$hasData) {
+                        continue;
+                    }
+
+                    // Skip example row
+                    if (!empty($rawRowData['name']) && !empty($rawRowData['email'])) {
+                        $nameLower = strtolower(trim($rawRowData['name']));
+                        $emailLower = strtolower(trim($rawRowData['email']));
+
+                        if ($nameLower === 'john doe' && $emailLower === 'john@example.com') {
+                            continue;
+                        }
+                    }
+
+                    if (!empty($rawRowData['name'])) {
+                        $records[] = $rawRowData;
                     }
                 }
+            } else {
+                // CSV handling
+                $csvContent = file_get_contents($file->getRealPath());
+                $csv = Reader::fromString($csvContent);
+                $csv->setHeaderOffset(0);
+                $csvRecords = iterator_to_array($csv->getRecords());
 
-                // Skip empty rows
-                $hasData = false;
-                foreach ($rawRowData as $val) {
-                    if (!empty(trim($val))) {
-                        $hasData = true;
-                        break;
-                    }
-                }
+                foreach ($csvRecords as $row) {
+                    if (empty($row['name'])) continue;
 
-                if (!$hasData) {
-                    continue;
-                }
-
-                // Skip example row
-                if (!empty($rawRowData['name']) && !empty($rawRowData['email'])) {
-                    $nameLower = strtolower(trim($rawRowData['name']));
-                    $emailLower = strtolower(trim($rawRowData['email']));
+                    $nameLower = strtolower(trim($row['name']));
+                    $emailLower = !empty($row['email']) ? strtolower(trim($row['email'])) : '';
 
                     if ($nameLower === 'john doe' && $emailLower === 'john@example.com') {
                         continue;
                     }
-                }
 
-                if (!empty($rawRowData['name'])) {
-                    $records[] = $rawRowData;
+                    $records[] = $row;
                 }
             }
-        } else {
-            // CSV handling
-            $csvContent = file_get_contents($file->getRealPath());
-            $csv = Reader::createFromString($csvContent);
-            $csv->setHeaderOffset(0);
-            $csvRecords = iterator_to_array($csv->getRecords());
 
-            foreach ($csvRecords as $row) {
-                if (empty($row['name'])) continue;
+            $totalRows = count($records);
 
-                $nameLower = strtolower(trim($row['name']));
-                $emailLower = !empty($row['email']) ? strtolower(trim($row['email'])) : '';
-
-                if ($nameLower === 'john doe' && $emailLower === 'john@example.com') {
-                    continue;
-                }
-
-                $records[] = $row;
+            if ($totalRows === 0) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No valid data rows found. Please add leads below the header row.',
+                ], 400);
             }
-        }
 
-        $totalRows = count($records);
+            $import->update(['total_rows' => $totalRows]);
 
-        if ($totalRows === 0) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'No valid data rows found. Please add leads below the header row.',
-            ], 400);
-        }
+            $processedRows = 0;
+            $successfulRows = 0;
+            $failedRows = 0;
+            $errors = [];
 
-        $import->update(['total_rows' => $totalRows]);
+            foreach ($records as $index => $row) {
+                try {
+                    $rowNumber = $index + 2;
 
-        $processedRows = 0;
-        $successfulRows = 0;
-        $failedRows = 0;
-        $errors = [];
+                    // Normalize keys
+                    $row = array_combine(
+                        array_map(fn($k) => strtolower(str_replace([' ', '*'], ['_', ''], trim($k))), array_keys($row)),
+                        $row
+                    );
 
-        foreach ($records as $index => $row) {
-            try {
-                $rowNumber = $index + 2;
-
-                // Normalize keys
-                $row = array_combine(
-                    array_map(fn($k) => strtolower(str_replace([' ', '*'], ['_', ''], trim($k))), array_keys($row)),
-                    $row
-                );
-
-                // Clean phone numbers
-                if (!empty($row['phone'])) {
-                    $row['phone'] = preg_replace('/[^0-9]/', '', $row['phone']);
-                    if (strlen($row['phone']) > 10) {
-                        $row['phone'] = substr($row['phone'], -10);
+                    // Clean phone numbers
+                    if (!empty($row['phone'])) {
+                        $row['phone'] = preg_replace('/[^0-9]/', '', $row['phone']);
+                        if (strlen($row['phone']) > 10) {
+                            $row['phone'] = substr($row['phone'], -10);
+                        }
                     }
-                }
 
-                if (!empty($row['alternative_phone'])) {
-                    $row['alternative_phone'] = preg_replace('/[^0-9]/', '', $row['alternative_phone']);
-                    if (strlen($row['alternative_phone']) > 10) {
-                        $row['alternative_phone'] = substr($row['alternative_phone'], -10);
+                    if (!empty($row['alternative_phone'])) {
+                        $row['alternative_phone'] = preg_replace('/[^0-9]/', '', $row['alternative_phone']);
+                        if (strlen($row['alternative_phone']) > 10) {
+                            $row['alternative_phone'] = substr($row['alternative_phone'], -10);
+                        }
                     }
-                }
 
-                // Validate
-                $validator = Validator::make($row, [
-                    'name' => 'required|string|max:255',
-                    'email' => 'nullable|email|max:255',
-                    'phone' => 'required|digits:10',
-                    'alternative_phone' => 'nullable|digits:10',
-                    'property_type' => 'nullable|in:Residential,Commercial,Industrial,residential,commercial,industrial',
-                    'sqft' => 'nullable|numeric',
-                    'service_type' => 'nullable|in:Commercial,Residential,commercial,residential,cleaning,pest_control',
-                    'services' => 'nullable|string',
-                    'source' => 'nullable|string',
-                    'amount' => 'nullable|numeric|min:0',
-                    'advance_paid' => 'nullable|numeric|min:0',
-                    'payment_mode' => 'nullable|in:Cash,Card,UPI,Bank Transfer,cash,card,upi,bank_transfer,neft',
-                ]);
+                    // Validate
+                    $validator = Validator::make($row, [
+                        'name' => 'required|string|max:255',
+                        'email' => 'nullable|email|max:255',
+                        'phone' => 'required|digits:10',
+                        'alternative_phone' => 'nullable|digits:10',
+                        'property_type' => 'nullable|in:Residential,Commercial,Industrial,residential,commercial,industrial',
+                        'sqft' => 'nullable|numeric',
+                        'service_type' => 'nullable|in:Commercial,Residential,commercial,residential,cleaning,pest_control',
+                        'services' => 'nullable|string',
+                        'source' => 'nullable|string',
+                        'amount' => 'nullable|numeric|min:0',
+                        'advance_paid' => 'nullable|numeric|min:0',
+                        'payment_mode' => 'nullable|in:Cash,Card,UPI,Bank Transfer,cash,card,upi,bank_transfer,neft',
+                    ]);
 
-                if ($validator->fails()) {
+                    if ($validator->fails()) {
+                        $errors[] = [
+                            'row' => $rowNumber,
+                            'data' => $row['name'],
+                            'errors' => $validator->errors()->all(),
+                        ];
+                        $failedRows++;
+                        $processedRows++;
+                        continue;
+                    }
+
+                    // Check duplicates - phone
+                    if (!empty($row['phone'])) {
+                        $existingLead = Lead::where('phone', $row['phone'])->first();
+                        if ($existingLead) {
+                            $errors[] = [
+                                'row' => $rowNumber,
+                                'data' => $row['name'],
+                                'errors' => ["Duplicate phone: {$row['phone']} (Lead: {$existingLead->lead_code})"],
+                            ];
+                            $failedRows++;
+                            $processedRows++;
+                            continue;
+                        }
+
+                        $existingCustomer = Customer::where('phone', $row['phone'])->first();
+                        if ($existingCustomer) {
+                            $errors[] = [
+                                'row' => $rowNumber,
+                                'data' => $row['name'],
+                                'errors' => ["Phone {$row['phone']} belongs to customer: {$existingCustomer->customer_code}"],
+                            ];
+                            $failedRows++;
+                            $processedRows++;
+                            continue;
+                        }
+                    }
+
+                    // Check duplicates - email
+                    if (!empty($row['email'])) {
+                        if (Lead::where('email', $row['email'])->exists()) {
+                            $errors[] = [
+                                'row' => $rowNumber,
+                                'data' => $row['name'],
+                                'errors' => ["Duplicate email: {$row['email']}"],
+                            ];
+                            $failedRows++;
+                            $processedRows++;
+                            continue;
+                        }
+
+                        if (Customer::where('email', $row['email'])->exists()) {
+                            $errors[] = [
+                                'row' => $rowNumber,
+                                'data' => $row['name'],
+                                'errors' => ["Email {$row['email']} belongs to existing customer"],
+                            ];
+                            $failedRows++;
+                            $processedRows++;
+                            continue;
+                        }
+                    }
+
+                    // Find service by name or code (case-insensitive)
+                    $serviceId = null;
+                    if (!empty($row['services'])) {
+                        $serviceName = trim($row['services']);
+
+                        $service = Service::where('is_active', true)
+                            ->where(function($q) use ($serviceName) {
+                                $q->whereRaw('LOWER(name) = ?', [strtolower($serviceName)])
+                                ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($serviceName) . '%']);
+                            })
+                            ->first();
+
+                        if ($service) {
+                            $serviceId = $service->id;
+                        } else {
+                            $errors[] = [
+                                'row' => $rowNumber,
+                                'data' => $row['name'],
+                                'errors' => ["Service '{$serviceName}' not found. Available services in Reference Data sheet."],
+                            ];
+                            $failedRows++;
+                            $processedRows++;
+                            continue;
+                        }
+                    }
+
+                    // Find lead source by name OR code (case-insensitive) - THIS IS THE KEY FIX
+                    $leadSourceId = null;
+                    if (!empty($row['source'])) {
+                        $sourceName = trim($row['source']);
+
+                        // Try to match by name first, then by code
+                        $leadSource = LeadSource::where('is_active', true)
+                            ->where(function($q) use ($sourceName) {
+                                $q->whereRaw('LOWER(name) = ?', [strtolower($sourceName)])
+                                ->orWhereRaw('LOWER(code) = ?', [strtolower($sourceName)])
+                                ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($sourceName) . '%']);
+                            })
+                            ->first();
+
+                        if ($leadSource) {
+                            $leadSourceId = $leadSource->id;
+                        } else {
+                            $errors[] = [
+                                'row' => $rowNumber,
+                                'data' => $row['name'],
+                                'errors' => ["Source '{$sourceName}' not found. Please use exact name from Reference Data sheet (e.g., 'Website', 'Google Ads', 'WhatsApp')."],
+                            ];
+                            $failedRows++;
+                            $processedRows++;
+                            continue;
+                        }
+                    } else {
+                        // Source is required!
+                        $errors[] = [
+                            'row' => $rowNumber,
+                            'data' => $row['name'],
+                            'errors' => ["Source is required. Please select from dropdown in column K."],
+                        ];
+                        $failedRows++;
+                        $processedRows++;
+                        continue;
+                    }
+
+                    // Normalize values
+                    $propertyType = !empty($row['property_type']) ? strtolower($row['property_type']) : null;
+
+                    // Map service type values
+                    $serviceType = null;
+                    if (!empty($row['service_type'])) {
+                        $serviceTypeInput = strtolower(trim($row['service_type']));
+                        // Map "Commercial" or "Residential" to "cleaning" or "pest_control"
+                        if (in_array($serviceTypeInput, ['commercial', 'residential'])) {
+                            $serviceType = 'cleaning'; // Default to cleaning
+                        } elseif (in_array($serviceTypeInput, ['cleaning', 'pest_control'])) {
+                            $serviceType = $serviceTypeInput;
+                        }
+                    }
+
+                    $paymentMode = !empty($row['payment_mode']) ? strtolower(str_replace(' ', '_', $row['payment_mode'])) : null;
+
+                    $user = auth()->user();
+
+                    $assignedTo = null;
+
+                    if ($user->role === 'telecallers') {
+                        $assignedTo = $user->id;          // auto-assign to telecaller
+                    } else {
+                        $assignedTo = null;          // current behaviour; adjust if needed
+                    }
+
+                    // Create lead
+                    $leadData = [
+                        'name' => $row['name'],
+                        'email' => $row['email'] ?? null,
+                        'phone' => $row['phone'],
+                        'phone_alternative' => $row['alternative_phone'] ?? null,
+                        'address' => $row['address'] ?? null,
+                        'district' => $row['district'] ?? null,
+                        'property_type' => $propertyType,
+                        'sqft' => $row['sqft'] ?? null,
+                        'service_type' => $serviceType,
+                        'lead_source_id' => $leadSourceId, // Required
+                        'service_id' => $serviceId, // Optional
+                        'description' => $row['description'] ?? null,
+                        'amount' => $row['amount'] ?? null,
+                        'advance_paid_amount' => $row['advance_paid'] ?? null,
+                        'payment_mode' => $paymentMode,
+                        'status' => 'pending',
+                        'branch_id' => auth()->user()->branch_id,
+                        'created_by' => auth()->id(),
+                        'assigned_to' => $assignedTo,
+                    ];
+
+                    $lead = Lead::create($leadData);
+
+                    // Attach services to pivot table if service_id is set
+                    if ($serviceId) {
+                        $lead->services()->sync([$serviceId]);
+                    }
+
+                    $successfulRows++;
+                    $processedRows++;
+
+                    Log::info("✓ Imported: {$lead->lead_code} - {$lead->name}");
+
+                    $import->update([
+                        'processed_rows' => $processedRows,
+                        'successful_rows' => $successfulRows,
+                        'failed_rows' => $failedRows,
+                    ]);
+
+                } catch (\Exception $e) {
+                    $errorMsg = $e->getMessage();
+
+                    // Simplify common errors
+                    if (str_contains($errorMsg, "lead_source_id")) {
+                        $errorMsg = "Source is required and must be selected from dropdown.";
+                    } elseif (str_contains($errorMsg, "Duplicate entry")) {
+                        if (str_contains($errorMsg, "phone")) {
+                            $errorMsg = "Duplicate phone number detected.";
+                        } elseif (str_contains($errorMsg, "email")) {
+                            $errorMsg = "Duplicate email detected.";
+                        } else {
+                            $errorMsg = "Duplicate entry detected.";
+                        }
+                    } else {
+                        $errorMsg = substr($errorMsg, 0, 200);
+                    }
+
                     $errors[] = [
                         'row' => $rowNumber,
-                        'data' => $row['name'],
-                        'errors' => $validator->errors()->all(),
+                        'data' => $row['name'] ?? 'Unknown',
+                        'errors' => [$errorMsg],
                     ];
                     $failedRows++;
                     $processedRows++;
-                    continue;
+
+                    Log::error("Row {$rowNumber} error:", [
+                        'error' => $e->getMessage(),
+                        'data' => $row
+                    ]);
                 }
+            }
 
-                // Check duplicates - phone
-                if (!empty($row['phone'])) {
-                    $existingLead = Lead::where('phone', $row['phone'])->first();
-                    if ($existingLead) {
-                        $errors[] = [
-                            'row' => $rowNumber,
-                            'data' => $row['name'],
-                            'errors' => ["Duplicate phone: {$row['phone']} (Lead: {$existingLead->lead_code})"],
-                        ];
-                        $failedRows++;
-                        $processedRows++;
-                        continue;
-                    }
+            $import->update([
+                'status' => $failedRows === $totalRows ? 'failed' : 'completed',
+                'processed_rows' => $processedRows,
+                'successful_rows' => $successfulRows,
+                'failed_rows' => $failedRows,
+                'errors' => $errors,
+            ]);
 
-                    $existingCustomer = Customer::where('phone', $row['phone'])->first();
-                    if ($existingCustomer) {
-                        $errors[] = [
-                            'row' => $rowNumber,
-                            'data' => $row['name'],
-                            'errors' => ["Phone {$row['phone']} belongs to customer: {$existingCustomer->customer_code}"],
-                        ];
-                        $failedRows++;
-                        $processedRows++;
-                        continue;
-                    }
-                }
+            DB::commit();
 
-                // Check duplicates - email
-                if (!empty($row['email'])) {
-                    if (Lead::where('email', $row['email'])->exists()) {
-                        $errors[] = [
-                            'row' => $rowNumber,
-                            'data' => $row['name'],
-                            'errors' => ["Duplicate email: {$row['email']}"],
-                        ];
-                        $failedRows++;
-                        $processedRows++;
-                        continue;
-                    }
-
-                    if (Customer::where('email', $row['email'])->exists()) {
-                        $errors[] = [
-                            'row' => $rowNumber,
-                            'data' => $row['name'],
-                            'errors' => ["Email {$row['email']} belongs to existing customer"],
-                        ];
-                        $failedRows++;
-                        $processedRows++;
-                        continue;
-                    }
-                }
-
-                // Find service by name or code (case-insensitive)
-                $serviceId = null;
-                if (!empty($row['services'])) {
-                    $serviceName = trim($row['services']);
-
-                    $service = Service::where('is_active', true)
-                        ->where(function($q) use ($serviceName) {
-                            $q->whereRaw('LOWER(name) = ?', [strtolower($serviceName)])
-                              ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($serviceName) . '%']);
-                        })
-                        ->first();
-
-                    if ($service) {
-                        $serviceId = $service->id;
-                    } else {
-                        $errors[] = [
-                            'row' => $rowNumber,
-                            'data' => $row['name'],
-                            'errors' => ["Service '{$serviceName}' not found. Available services in Reference Data sheet."],
-                        ];
-                        $failedRows++;
-                        $processedRows++;
-                        continue;
-                    }
-                }
-
-                // Find lead source by name OR code (case-insensitive) - THIS IS THE KEY FIX
-                $leadSourceId = null;
-                if (!empty($row['source'])) {
-                    $sourceName = trim($row['source']);
-
-                    // Try to match by name first, then by code
-                    $leadSource = LeadSource::where('is_active', true)
-                        ->where(function($q) use ($sourceName) {
-                            $q->whereRaw('LOWER(name) = ?', [strtolower($sourceName)])
-                              ->orWhereRaw('LOWER(code) = ?', [strtolower($sourceName)])
-                              ->orWhereRaw('LOWER(name) LIKE ?', ['%' . strtolower($sourceName) . '%']);
-                        })
-                        ->first();
-
-                    if ($leadSource) {
-                        $leadSourceId = $leadSource->id;
-                    } else {
-                        $errors[] = [
-                            'row' => $rowNumber,
-                            'data' => $row['name'],
-                            'errors' => ["Source '{$sourceName}' not found. Please use exact name from Reference Data sheet (e.g., 'Website', 'Google Ads', 'WhatsApp')."],
-                        ];
-                        $failedRows++;
-                        $processedRows++;
-                        continue;
-                    }
-                } else {
-                    // Source is required!
-                    $errors[] = [
-                        'row' => $rowNumber,
-                        'data' => $row['name'],
-                        'errors' => ["Source is required. Please select from dropdown in column K."],
-                    ];
-                    $failedRows++;
-                    $processedRows++;
-                    continue;
-                }
-
-                // Normalize values
-                $propertyType = !empty($row['property_type']) ? strtolower($row['property_type']) : null;
-
-                // Map service type values
-                $serviceType = null;
-                if (!empty($row['service_type'])) {
-                    $serviceTypeInput = strtolower(trim($row['service_type']));
-                    // Map "Commercial" or "Residential" to "cleaning" or "pest_control"
-                    if (in_array($serviceTypeInput, ['commercial', 'residential'])) {
-                        $serviceType = 'cleaning'; // Default to cleaning
-                    } elseif (in_array($serviceTypeInput, ['cleaning', 'pest_control'])) {
-                        $serviceType = $serviceTypeInput;
-                    }
-                }
-
-                $paymentMode = !empty($row['payment_mode']) ? strtolower(str_replace(' ', '_', $row['payment_mode'])) : null;
-
-                // Create lead
-                $leadData = [
-                    'name' => $row['name'],
-                    'email' => $row['email'] ?? null,
-                    'phone' => $row['phone'],
-                    'phone_alternative' => $row['alternative_phone'] ?? null,
-                    'address' => $row['address'] ?? null,
-                    'district' => $row['district'] ?? null,
-                    'property_type' => $propertyType,
-                    'sqft' => $row['sqft'] ?? null,
-                    'service_type' => $serviceType,
-                    'lead_source_id' => $leadSourceId, // Required
-                    'service_id' => $serviceId, // Optional
-                    'description' => $row['description'] ?? null,
-                    'amount' => $row['amount'] ?? null,
-                    'advance_paid_amount' => $row['advance_paid'] ?? null,
-                    'payment_mode' => $paymentMode,
-                    'status' => 'pending',
-                    'branch_id' => auth()->user()->branch_id,
-                    'created_by' => auth()->id(),
-                    'assigned_to' => auth()->id(),
-                ];
-
-                $lead = Lead::create($leadData);
-
-                // Attach services to pivot table if service_id is set
-                if ($serviceId) {
-                    $lead->services()->sync([$serviceId]);
-                }
-
-                $successfulRows++;
-                $processedRows++;
-
-                Log::info("✓ Imported: {$lead->lead_code} - {$lead->name}");
-
-                $import->update([
-                    'processed_rows' => $processedRows,
-                    'successful_rows' => $successfulRows,
-                    'failed_rows' => $failedRows,
-                ]);
-
-            } catch (\Exception $e) {
-                $errorMsg = $e->getMessage();
-
-                // Simplify common errors
-                if (str_contains($errorMsg, "lead_source_id")) {
-                    $errorMsg = "Source is required and must be selected from dropdown.";
-                } elseif (str_contains($errorMsg, "Duplicate entry")) {
-                    if (str_contains($errorMsg, "phone")) {
-                        $errorMsg = "Duplicate phone number detected.";
-                    } elseif (str_contains($errorMsg, "email")) {
-                        $errorMsg = "Duplicate email detected.";
-                    } else {
-                        $errorMsg = "Duplicate entry detected.";
-                    }
-                } else {
-                    $errorMsg = substr($errorMsg, 0, 200);
-                }
-
-                $errors[] = [
-                    'row' => $rowNumber,
-                    'data' => $row['name'] ?? 'Unknown',
-                    'errors' => [$errorMsg],
-                ];
-                $failedRows++;
-                $processedRows++;
-
-                Log::error("Row {$rowNumber} error:", [
-                    'error' => $e->getMessage(),
-                    'data' => $row
+            if ($successfulRows === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Import failed! All {$failedRows} rows had errors.",
+                    'import_id' => $import->id,
+                    'stats' => [
+                        'total' => $totalRows,
+                        'processed' => $processedRows,
+                        'successful' => $successfulRows,
+                        'failed' => $failedRows,
+                    ],
+                    'errors' => $errors,
                 ]);
             }
-        }
 
-        $import->update([
-            'status' => $failedRows === $totalRows ? 'failed' : 'completed',
-            'processed_rows' => $processedRows,
-            'successful_rows' => $successfulRows,
-            'failed_rows' => $failedRows,
-            'errors' => $errors,
-        ]);
-
-        DB::commit();
-
-        if ($successfulRows === 0) {
             return response()->json([
-                'success' => false,
-                'message' => "Import failed! All {$failedRows} rows had errors.",
+                'success' => true,
+                'message' => "Successfully imported {$successfulRows} leads!" . ($failedRows > 0 ? " {$failedRows} rows failed." : ""),
                 'import_id' => $import->id,
                 'stats' => [
                     'total' => $totalRows,
@@ -755,42 +779,28 @@ class LeadBulkImportController extends Controller
                 ],
                 'errors' => $errors,
             ]);
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => "Successfully imported {$successfulRows} leads!" . ($failedRows > 0 ? " {$failedRows} rows failed." : ""),
-            'import_id' => $import->id,
-            'stats' => [
-                'total' => $totalRows,
-                'processed' => $processedRows,
-                'successful' => $successfulRows,
-                'failed' => $failedRows,
-            ],
-            'errors' => $errors,
-        ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
 
-    } catch (\Exception $e) {
-        DB::rollBack();
+            if (isset($import)) {
+                $import->update([
+                    'status' => 'failed',
+                    'errors' => [['message' => $e->getMessage()]],
+                ]);
+            }
 
-        if (isset($import)) {
-            $import->update([
-                'status' => 'failed',
-                'errors' => [['message' => $e->getMessage()]],
+            Log::error('Bulk import failed:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed: ' . $e->getMessage(),
+            ], 500);
         }
-
-        Log::error('Bulk import failed:', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Import failed: ' . $e->getMessage(),
-        ], 500);
     }
-}
 
     public function getImportProgress($importId)
     {

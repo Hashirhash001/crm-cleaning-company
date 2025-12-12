@@ -44,6 +44,7 @@
         padding: 0.5rem 1.2rem;
         border-radius: 6px;
         font-weight: 600;
+        color: #fff;
         /* font-size: 0.85rem; */
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -202,7 +203,7 @@
     /* Buttons - Clean & Professional */
     .action-button {
         border-radius: 8px;
-        padding: 0.65rem 1.5rem;
+        padding: 0.50rem 1rem;
         font-weight: 600;
         border: none;
         font-size: 0.9rem;
@@ -379,28 +380,36 @@
                 <div class="col-md-4">
                     <div class="d-flex align-items-center mb-2">
                         <h2 class="mb-0 me-3">{{ $lead->name }}</h2>
-                        @php
-                            $statusColors = [
-                                'pending' => 'warning',
-                                'site_visit' => 'info',
-                                'not_accepting_tc' => 'danger',
-                                'they_will_confirm' => 'primary',
-                                'date_issue' => 'warning',
-                                'rate_issue' => 'warning',
-                                'service_not_provided' => 'secondary',
-                                'just_enquiry' => 'light text-dark',
-                                'immediate_service' => 'success',
-                                'no_response' => 'secondary',
-                                'location_not_available' => 'secondary',
-                                'night_work_demanded' => 'dark',
-                                'customisation' => 'info',
-                                'approved' => 'success',
-                                'rejected' => 'danger',
-                            ];
-                            $color = $statusColors[$lead->status] ?? 'secondary';
-                        @endphp
-                        <span class="lead-status-badge">{{ $lead->status_label }}</span>
+
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-light lead-status-badge dropdown-toggle d-flex align-items-center gap-2"
+                                    type="button"
+                                    id="leadStatusDropdown"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                <span>{{ $lead->status_label }}</span>
+                                <i class="las la-pen fs-6 opacity-75"></i> {{-- edit icon --}}
+                            </button>
+
+                            <ul class="dropdown-menu" aria-labelledby="leadStatusDropdown">
+                                @foreach(\App\Models\Lead::getStatusLabels() as $key => $label)
+                                    @if($key === 'approved')
+                                        @continue
+                                    @endif
+
+                                    <li>
+                                        <a href="#"
+                                           class="dropdown-item lead-status-option {{ $lead->status === $key ? 'active fw-bold' : '' }}"
+                                           data-status="{{ $key }}">
+                                            {{ $label }}
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+
+                        </div>
                     </div>
+
                     <p class="mb-0" style="opacity: 0.95; font-weight: 500;">
                         <i class="las la-tag me-2"></i>{{ $lead->lead_code }}
                         <i class="las la-calendar ms-3 me-2"></i>{{ $lead->created_at->format('d M Y') }}
@@ -418,9 +427,9 @@
                             </a>
                         @endif
 
-                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
                             <button type="button" class="btn btn-success action-button me-2" onclick="approveLead()">
-                                <i class="las la-check me-2"></i>Approve
+                                <i class="las la-check me-2"></i>Convert to Work Order
                             </button>
 
                             @if(auth()->user()->role === 'super_admin')
@@ -500,7 +509,7 @@
                 @if($lead->status === 'approved' && $lead->jobs && $lead->jobs->count() > 0)
                     @php $job = $lead->jobs->first(); @endphp
                     <div class="related-job-card">
-                        <h6><i class="las la-briefcase me-2"></i>Related Job</h6>
+                        <h6><i class="las la-briefcase me-2"></i>Related Job (Work Order)</h6>
                         <div class="mb-2">
                             <strong>Job Code:</strong>
                             <span class="badge bg-primary ms-2">{{ $job->job_code }}</span>
@@ -1052,6 +1061,52 @@ $(document).ready(function() {
         });
     });
 
+    $(document).on('click', '.lead-status-option', function (e) {
+        e.preventDefault();
+
+        const newStatus = $(this).data('status');
+        const leadId = {{ $lead->id }};
+        const $btn = $('#leadStatusDropdown');
+        const newLabel = $(this).text().trim();
+
+        Swal.fire({
+            title: 'Change status?',
+            text: 'Update lead status to "' + newLabel + '"',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, update',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            $.ajax({
+                url: '{{ route('leads.update-status', $lead->id) }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    status: newStatus
+                },
+                success: function (response) {
+                    $btn.find('span:first').text(response.status_label);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Status updated',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                },
+                error: function (xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: xhr.responseJSON?.message || 'Failed to update status'
+                    });
+                }
+            });
+        });
+    });
+
+
     // Submit Add Call Form with Followup
     $('#addCallForm').on('submit', function(e) {
         e.preventDefault();
@@ -1179,16 +1234,16 @@ $(document).ready(function() {
     // Approve Lead
     window.approveLead = function() {
         Swal.fire({
-            title: 'Approve Lead?',
+            title: 'Convert Lead?',
             html: `
                 <div class="text-start mt-3">
-                    <label class="form-label fw-semibold">Approval Notes (Optional)</label>
+                    <label class="form-label fw-semibold">Convert Notes (Optional)</label>
                     <textarea id="approval_notes" class="form-control" rows="3" placeholder="Add any notes about this approval"></textarea>
                 </div>
             `,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: '<i class="las la-check me-2"></i>Yes, Approve',
+            confirmButtonText: '<i class="las la-check me-2"></i>Yes, Convert',
             confirmButtonColor: '#10b981',
             cancelButtonText: 'Cancel',
             width: '500px',
@@ -1206,7 +1261,7 @@ $(document).ready(function() {
                     success: function(response) {
                         Swal.fire({
                             icon: 'success',
-                            title: 'Lead Approved!',
+                            title: 'Lead Converted!',
                             html: `
                                 <p class="mb-3">${response.message}</p>
                                 <div class="text-start">
