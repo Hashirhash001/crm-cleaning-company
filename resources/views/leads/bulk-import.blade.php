@@ -386,6 +386,20 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
             // Update progress bar to 100%
             updateProgress(100, `Completed! ${result.stats.successful} leads imported successfully.`);
 
+            // Show skipped sheets warning if any
+            if (result.skipped_sheets && result.skipped_sheets.length > 0) {
+                let skippedHtml = '<div class="alert alert-warning mt-3">';
+                skippedHtml += '<h6 class="alert-heading"><i class="las la-exclamation-triangle me-2"></i>Skipped Sheets</h6>';
+                skippedHtml += '<p class="mb-2">The following sheets were skipped due to incorrect format:</p>';
+                skippedHtml += '<ul class="mb-0">';
+                result.skipped_sheets.forEach(function(sheet) {
+                    skippedHtml += `<li><strong>${sheet.name}</strong>: ${sheet.reason}</li>`;
+                });
+                skippedHtml += '</ul></div>';
+
+                document.getElementById('progressContainer').insertAdjacentHTML('beforeend', skippedHtml);
+            }
+
             // Show errors if any
             if (result.errors && result.errors.length > 0) {
                 showErrors(result.errors);
@@ -397,6 +411,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
                 html: `
                     <p><strong>Successfully imported:</strong> ${result.stats.successful} leads</p>
                     ${result.stats.failed > 0 ? `<p class="text-danger"><strong>Failed:</strong> ${result.stats.failed} rows (see details below)</p>` : ''}
+                    ${result.skipped_sheets && result.skipped_sheets.length > 0 ? `<p class="text-warning"><strong>Skipped sheets:</strong> ${result.skipped_sheets.length} (${result.skipped_sheets.map(s => s.name).join(', ')})</p>` : ''}
                 `,
                 confirmButtonText: 'Go to Leads',
                 showCancelButton: true,

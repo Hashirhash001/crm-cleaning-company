@@ -381,39 +381,33 @@
                     <div class="d-flex align-items-center mb-2">
                         <h2 class="mb-0 me-3">{{ $lead->name }}</h2>
 
-                        @if($lead->status === 'approved')
-                            {{-- Static badge for approved leads --}}
-                            <span class="lead-status-badge">
-                                {{ $lead->status_label }}
-                            </span>
-                        @else
-                            {{-- Editable dropdown for non-approved leads --}}
-                            <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-light lead-status-badge dropdown-toggle d-flex align-items-center gap-2"
-                                        type="button"
-                                        id="leadStatusDropdown"
-                                        data-bs-toggle="dropdown"
-                                        aria-expanded="false">
-                                    <span>{{ $lead->status_label }}</span>
-                                    <i class="las la-pen fs-6 opacity-75"></i>
-                                </button>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-light lead-status-badge dropdown-toggle d-flex align-items-center gap-2"
+                                    type="button"
+                                    id="leadStatusDropdown"
+                                    data-bs-toggle="dropdown"
+                                    aria-expanded="false">
+                                <span>{{ $lead->status_label }}</span>
+                                <i class="las la-pen fs-6 opacity-75"></i> {{-- edit icon --}}
+                            </button>
 
-                                <ul class="dropdown-menu" aria-labelledby="leadStatusDropdown">
-                                    @foreach(\App\Models\Lead::getStatusLabels() as $key => $label)
-                                        @if($key === 'approved')
-                                            @continue
-                                        @endif
-                                        <li>
-                                            <a href="#"
-                                               class="dropdown-item lead-status-option {{ $lead->status === $key ? 'active fw-bold' : '' }}"
-                                               data-status="{{ $key }}">
-                                                {{ $label }}
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        @endif
+                            <ul class="dropdown-menu" aria-labelledby="leadStatusDropdown">
+                                @foreach(\App\Models\Lead::getStatusLabels() as $key => $label)
+                                    @if($key === 'approved')
+                                        @continue
+                                    @endif
+
+                                    <li>
+                                        <a href="#"
+                                           class="dropdown-item lead-status-option {{ $lead->status === $key ? 'active fw-bold' : '' }}"
+                                           data-status="{{ $key }}">
+                                            {{ $label }}
+                                        </a>
+                                    </li>
+                                @endforeach
+                            </ul>
+
+                        </div>
                     </div>
 
                     <p class="mb-0" style="opacity: 0.95; font-weight: 500;">
@@ -421,49 +415,30 @@
                         <i class="las la-calendar ms-3 me-2"></i>{{ $lead->created_at->format('d M Y') }}
                     </p>
                 </div>
-
                 <div class="col-md-8 text-md-end mt-3 mt-md-0">
                     <a href="{{ route('leads.index') }}" class="btn btn-light action-button me-2">
                         <i class="las la-arrow-left me-2"></i>Back to Leads
                     </a>
 
-                    @php
-                        $user = auth()->user();
-                    @endphp
-
-                    {{-- EDIT button --}}
-                    @if(
-                        // Super admin can edit all leads
-                        $user->role === 'super_admin'
-                        // Other roles can edit only if lead is not approved/rejected
-                        || (
-                            !in_array($lead->status, ['approved', 'rejected'])
-                            && (
-                                $user->role === 'lead_manager'
-                                || ($user->role === 'telecallers' && $lead->assigned_to === $user->id)
-                            )
-                        )
-                    )
-                        <a href="{{ route('leads.edit', $lead->id) }}" class="btn btn-primary action-button me-2">
-                            <i class="las la-edit me-2"></i>Edit
-                        </a>
-                    @endif
-
-                    {{-- Convert / Reject buttons: only when not approved/rejected --}}
                     @if(!in_array($lead->status, ['approved', 'rejected']))
-                        @if(in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']))
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']) || (auth()->user()->role === 'telecallers' && $lead->assigned_to === auth()->id()))
+                            <a href="{{ route('leads.edit', $lead->id) }}" class="btn btn-primary action-button me-2">
+                                <i class="las la-edit me-2"></i>Edit
+                            </a>
+                        @endif
+
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
                             <button type="button" class="btn btn-success action-button me-2" onclick="approveLead()">
                                 <i class="las la-check me-2"></i>Convert to Work Order
                             </button>
 
-                            @if($user->role === 'super_admin')
+                            @if(auth()->user()->role === 'super_admin')
                                 <button type="button" class="btn btn-danger action-button" onclick="rejectLead()">
                                     <i class="las la-times me-2"></i>Reject
                                 </button>
                             @endif
                         @endif
                     @endif
-
                 </div>
             </div>
         </div>
@@ -664,9 +639,11 @@
                     <div class="info-card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5><i class="las la-calendar-check"></i>Scheduled Followups</h5>
-                            <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
-                                <i class="las la-plus me-1"></i>Add Followup
-                            </button>
+                            @if(!in_array($lead->status, ['approved', 'rejected']))
+                                <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
+                                    <i class="las la-plus me-1"></i>Add Followup
+                                </button>
+                            @endif
                         </div>
                     </div>
 
@@ -757,9 +734,11 @@
                     <div class="info-card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5><i class="las la-phone"></i>Call Logs</h5>
-                            <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addCallModal">
-                                <i class="las la-plus me-1"></i>Add Call
-                            </button>
+                            @if(!in_array($lead->status, ['approved', 'rejected']))
+                                <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addCallModal">
+                                    <i class="las la-plus me-1"></i>Add Call
+                                </button>
+                            @endif
                         </div>
                     </div>
 
@@ -798,9 +777,11 @@
                     <div class="info-card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5><i class="las la-sticky-note"></i>Notes</h5>
-                            <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addNoteModal">
-                                <i class="las la-plus me-1"></i>Add Note
-                            </button>
+                            @if(!in_array($lead->status, ['approved', 'rejected']))
+                                <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                                    <i class="las la-plus me-1"></i>Add Note
+                                </button>
+                            @endif
                         </div>
                     </div>
 

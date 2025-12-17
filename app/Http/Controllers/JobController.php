@@ -20,6 +20,12 @@ class JobController extends Controller
 
     public function index(Request $request)
     {
+        $user = auth()->user();
+
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff'])) {
+            return back()->with('error', 'Unauthorized');
+        }
+
         $query = Job::with(['customer', 'service', 'branch', 'assignedTo', 'createdBy']);
 
         // Filter by status
@@ -146,6 +152,12 @@ class JobController extends Controller
 
     public function show(Job $job)
     {
+        $user = auth()->user();
+
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff'])) {
+            return back()->with('error', 'Unauthorized');
+        }
+
         $job->load([
             'branch',
             'lead',

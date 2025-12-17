@@ -273,7 +273,7 @@
             <div class="card">
                 <div class="card-body py-3">
                     <div class="row align-items-end g-2">
-                        <div class="col-lg-10 col-md-9">
+                        <div class="col-lg-7 col-md-6">
                             <label for="telecallerQuickSearch" class="form-label fw-semibold mb-2">
                                 <i class="las la-search me-1"></i>Quick Search for Customers and Leads
                             </label>
@@ -294,7 +294,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-2 col-md-3">
+                        <div class="col-lg-5 col-md-6">
                             <a href="{{ route('leads.create') }}" class="btn btn-primary w-100">
                                 <i class="las la-plus me-1"></i> Create Lead
                             </a>
@@ -744,7 +744,7 @@
                             <div class="flex-grow-1">
                                 <p class="text-muted text-uppercase mb-1 fw-medium fs-12">Confirmed</p>
                                 <h4 class="mt-0 mb-0 fw-semibold">{{ $telecallerStats['confirmed'] ?? 0 }}</h4>
-                                <small class="text-success">They will confirm</small>
+                                <small class="text-success">Converted to work orders</small>
                             </div>
                             <div class="avatar-sm flex-shrink-0">
                                 <span class="avatar-title bg-soft-success text-success rounded">

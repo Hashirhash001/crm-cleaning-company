@@ -15,8 +15,8 @@ class Lead extends Model
         'assigned_to',
         'created_by',
         'lead_source_id',
-        'service_id', // Keep for backward compatibility
-        'service_type', // New: cleaning or pest_control
+        'service_id',
+        'service_type',
         'name',
         'email',
         'phone',
@@ -48,9 +48,16 @@ class Lead extends Model
     ];
 
     // Many-to-many relationship with services
+    // public function services()
+    // {
+    //     return $this->belongsToMany(Service::class, 'lead_service')->withTimestamps();
+    // }
+
     public function services()
     {
-        return $this->belongsToMany(Service::class, 'lead_service')->withTimestamps();
+        return $this->belongsToMany(Service::class, 'lead_service')
+            ->using(LeadService::class)
+            ->withTimestamps();
     }
 
     // Get all service names as comma-separated string
@@ -184,15 +191,47 @@ class Lead extends Model
         return $this->status === 'rejected';
     }
 
-    // Boot method for auto-generating lead code
+    // Boot method for auto-generating lead code and cascading deletes
     protected static function boot()
     {
         parent::boot();
 
+        // Auto-generate lead_code
         static::creating(function ($lead) {
             if (empty($lead->lead_code)) {
                 $lead->lead_code = self::generateLeadCode();
             }
+        });
+
+        // Clean up related data on delete (works with soft deletes too)
+        static::deleting(function ($lead) {
+            // Load FULL collections (bypassing latest() scope)
+            $lead->load(['calls', 'notes', 'followups', 'approvals']);
+
+            // Delete calls
+            $lead->calls->each->delete();
+
+            // Delete notes
+            $lead->notes->each->delete();
+
+            // Delete followups
+            $lead->followups->each->delete();
+
+            // Delete approvals
+            $lead->approvals->each->delete();
+
+            // Delete lead_service pivot records
+            LeadService::where('lead_id', $lead->id)->delete();
+
+            // Delete customer if exists and not used elsewhere
+            if ($lead->customer) {
+                if ($lead->customer->jobs()->count() === 0) {
+                    $lead->customer->delete();
+                }
+            }
+
+            // Delete pending jobs
+            $lead->jobs()->where('status', 'pending')->delete();
         });
     }
 

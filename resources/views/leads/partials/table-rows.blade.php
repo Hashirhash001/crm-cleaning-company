@@ -127,28 +127,28 @@
                     $canApprove = false;
                     $canAssign = false;
 
-                    if ($lead->status !== 'approved') {
-                        if ($user->role === 'super_admin') {
-                            $canEdit = true;
-                            $canDelete = true;
-                            $canApprove = true;
-                            $canAssign = true;
-                        }
-                        elseif ($user->role === 'lead_manager' && $lead->created_by === $user->id) {
-                            $canEdit = true;
-                            $canDelete = true;
-                            $canApprove = true;
-                            $canAssign = true;
-                        }
-                        elseif ($user->role === 'telecallers' && $lead->assigned_to === $user->id) {
-                            $canEdit = true;
-                        }
+                    // Super admin: can always edit/assign; approve only if not yet approved
+                    if ($user->role === 'super_admin') {
+                        $canEdit = true;          // even for approved
+                        $canAssign = true;        // even for approved
+                        $canDelete = $lead->status !== 'approved'; // or true if you want
+                        $canApprove = $lead->status !== 'approved';
+                    }
+                    // Lead manager: only on non-approved
+                    elseif ($lead->status !== 'approved' && $user->role === 'lead_manager' && $lead->created_by === $user->id) {
+                        $canEdit = true;
+                        $canDelete = true;
+                        $canApprove = true;
+                        $canAssign = true;
+                    }
+                    // Telecaller: only edit own non-approved leads
+                    elseif ($lead->status !== 'approved' && $user->role === 'telecallers' && $lead->assigned_to === $user->id) {
+                        $canEdit = true;
                     }
 
-                    if ($lead->status === 'rejected') {
-                        if ($user->role === 'super_admin') {
-                            $canDelete = true;
-                        }
+                    // Rejected: delete allowed for super admin
+                    if ($lead->status === 'rejected' && $user->role === 'super_admin') {
+                        $canDelete = true;
                     }
                 @endphp
 

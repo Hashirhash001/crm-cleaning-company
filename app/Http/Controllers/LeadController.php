@@ -168,15 +168,15 @@ class LeadController extends Controller
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
                 'property_type' => 'nullable|in:commercial,residential',
-                'sqft' => 'nullable|integer|min:0',
-                'service_type' => 'required|in:cleaning,pest_control',
+                'sqft' => 'nullable|string|max:100',
+                'service_type' => 'required|in:cleaning,pest_control,other',
                 'service_ids' => 'required|array|min:1',
                 'service_ids.*' => 'exists:services,id',
                 'lead_source_id' => 'required|exists:lead_sources,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
                 'advance_paid_amount' => 'nullable|numeric|min:0|lte:amount',
-                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft',
+                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
                 'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation',
@@ -260,11 +260,6 @@ class LeadController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        if (!in_array($lead->status, ['pending', 'site_visit', 'not_accepting_tc', 'they_will_confirm', 'date_issue', 'rate_issue', 'customisation', 'service_not_provided', 'just_enquiry', 'immediate_service', 'no_response', 'location_not_available', 'night_work_demanded'])) {
-            return redirect()->route('leads.index')
-                ->with('error', 'Can only edit active leads');
-        }
-
         if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
             abort(403, 'You can only edit your own leads');
         }
@@ -303,12 +298,28 @@ class LeadController extends Controller
                 return back()->with('error', 'Unauthorized');
             }
 
-            if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
-                return back()->with('error', 'You can only edit your assigned leads');
+            // Non-admins can edit only active (non-approved/rejected) leads
+            if ($user->role !== 'super_admin'
+                && !in_array($lead->status, [
+                    'pending',
+                    'site_visit',
+                    'not_accepting_tc',
+                    'they_will_confirm',
+                    'date_issue',
+                    'rate_issue',
+                    'customisation',
+                    'service_not_provided',
+                    'just_enquiry',
+                    'immediate_service',
+                    'no_response',
+                    'location_not_available',
+                    'night_work_demanded',
+                ])) {
+                return back()->with('error', 'Can only edit active leads');
             }
 
-            if (!in_array($lead->status, ['pending', 'site_visit', 'not_accepting_tc', 'they_will_confirm', 'date_issue', 'rate_issue', 'customisation'])) {
-                return back()->with('error', 'Can only edit active leads');
+            if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
+                return back()->with('error', 'You can only edit your assigned leads');
             }
 
             if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
@@ -323,22 +334,32 @@ class LeadController extends Controller
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
                 'property_type' => 'nullable|in:commercial,residential',
-                'sqft' => 'nullable|integer|min:0',
-                'service_type' => 'required|in:cleaning,pest_control',
+                'sqft' => 'nullable|string|max:100',
+                'service_type' => 'required|in:cleaning,pest_control,other',
                 'service_ids' => 'required|array|min:1',
                 'service_ids.*' => 'exists:services,id',
                 'lead_source_id' => 'required|exists:lead_sources,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
                 'advance_paid_amount' => 'nullable|numeric|min:0|lte:amount',
-                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft',
+                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
                 'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation',
             ]);
 
+            // Force telecaller self-assignment
+            if ($user->role === 'telecallers') {
+                $validated['assigned_to'] = $user->id;
+            }
+
             $branchId = $user->role === 'super_admin' ? $validated['branch_id'] : $user->branch_id;
             $amountChanged = isset($validated['amount']) && $validated['amount'] != $lead->amount;
+
+            // If lead is already approved, force status to stay approved
+            $newStatus = $lead->status === 'approved'
+                ? $lead->status
+                : $validated['status'];
 
             $lead->update([
                 'name' => $validated['name'],
@@ -359,10 +380,9 @@ class LeadController extends Controller
                 'amount_updated_by' => $amountChanged ? $user->id : $lead->amount_updated_by,
                 'branch_id' => $branchId,
                 'description' => $validated['description'] ?? null,
-                'status' => $validated['status'],
+                'status' => $newStatus,
             ]);
 
-            // Sync services
             $lead->services()->sync($validated['service_ids']);
 
             Log::info('Lead updated', [
@@ -507,14 +527,14 @@ class LeadController extends Controller
             foreach ($validated['lead_ids'] as $leadId) {
                 $lead = Lead::find($leadId);
 
-                if ($lead && $lead->status === 'pending') {
+                // Update all selected leads, no status restriction
+                if ($lead) {
                     $lead->update(['assigned_to' => $validated['assigned_to']]);
 
-                    // Add note if provided
                     if ($request->filled('notes')) {
                         LeadNote::create([
                             'lead_id' => $lead->id,
-                            'created_by' => auth()->id(),
+                            'created_by' => $user->id,
                             'note' => 'Bulk Assignment Note: ' . $validated['notes']
                         ]);
                     }
@@ -699,21 +719,28 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
-            if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
                 ], 403);
             }
 
-            if (!in_array($lead->status, ['pending', 'rejected'])) {
+            if (in_array($lead->status, ['approved'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Can only delete pending or rejected leads'
+                    'message' => 'Can only delete unapproved leads'
                 ], 403);
             }
 
             if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only delete your own leads'
+                ], 403);
+            }
+
+            if ($user->role === 'telecallers' && $lead->created_by !== $user->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You can only delete your own leads'

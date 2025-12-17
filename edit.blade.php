@@ -4,12 +4,6 @@
 
 @section('extra-css')
 <style>
-    .select2-container--bootstrap-5 .select2-selection {
-        font-size: 0.8rem !important;
-    }
-    .select2-container--bootstrap-5 .select2-dropdown .select2-results__options .select2-results__option {
-        font-size: 0.8rem !important;
-    }
     .form-section {
         background: #f8f9fa;
         padding: 20px;
@@ -173,26 +167,12 @@
 
                             <div class="col-md-4">
                                 <label for="district" class="form-label">District</label>
-                                <select class="form-select @error('district') is-invalid @enderror"
-                                        id="district"
-                                        name="district"
-                                        data-placeholder="Select District">
-                                    <option value="">Select District</option>
-                                    <option value="Thiruvananthapuram" {{ old('district') == 'Thiruvananthapuram' ? 'selected' : '' }}>Thiruvananthapuram</option>
-                                    <option value="Kollam" {{ old('district') == 'Kollam' ? 'selected' : '' }}>Kollam</option>
-                                    <option value="Pathanamthitta" {{ old('district') == 'Pathanamthitta' ? 'selected' : '' }}>Pathanamthitta</option>
-                                    <option value="Alappuzha" {{ old('district') == 'Alappuzha' ? 'selected' : '' }}>Alappuzha</option>
-                                    <option value="Kottayam" {{ old('district') == 'Kottayam' ? 'selected' : '' }}>Kottayam</option>
-                                    <option value="Idukki" {{ old('district') == 'Idukki' ? 'selected' : '' }}>Idukki</option>
-                                    <option value="Ernakulam" {{ old('district') == 'Ernakulam' ? 'selected' : '' }}>Ernakulam</option>
-                                    <option value="Thrissur" {{ old('district') == 'Thrissur' ? 'selected' : '' }}>Thrissur</option>
-                                    <option value="Palakkad" {{ old('district') == 'Palakkad' ? 'selected' : '' }}>Palakkad</option>
-                                    <option value="Malappuram" {{ old('district') == 'Malappuram' ? 'selected' : '' }}>Malappuram</option>
-                                    <option value="Kozhikode" {{ old('district') == 'Kozhikode' ? 'selected' : '' }}>Kozhikode</option>
-                                    <option value="Wayanad" {{ old('district') == 'Wayanad' ? 'selected' : '' }}>Wayanad</option>
-                                    <option value="Kannur" {{ old('district') == 'Kannur' ? 'selected' : '' }}>Kannur</option>
-                                    <option value="Kasaragod" {{ old('district') == 'Kasaragod' ? 'selected' : '' }}>Kasaragod</option>
-                                </select>
+                                <input type="text"
+                                       class="form-control @error('district') is-invalid @enderror"
+                                       id="district"
+                                       name="district"
+                                       value="{{ old('district', $lead->district) }}"
+                                       placeholder="Enter district">
                                 @error('district')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -221,15 +201,13 @@
 
                             <div class="col-md-6">
                                 <label for="sqft" class="form-label">SQFT Details</label>
-                                <select class="form-select @error('sqft') is-invalid @enderror" id="sqft" name="sqft">
-                                    <option value="0">Select SQFT</option>
-                                    <option value="0-700" {{ old('sqft') == '0-700' ? 'selected' : '' }}>0-700</option>
-                                    <option value="700-2000" {{ old('sqft') == '700-2000' ? 'selected' : '' }}>700-2000</option>
-                                    <option value="2100-3000" {{ old('sqft') == '2100-3000' ? 'selected' : '' }}>2100-3000</option>
-                                    <option value="3100-4000" {{ old('sqft') == '3100-4000' ? 'selected' : '' }}>3100-4000</option>
-                                    <option value="4100-5000" {{ old('sqft') == '4100-5000' ? 'selected' : '' }}>4100-5000</option>
-                                    <option value="5100-6000" {{ old('sqft') == '5100-6000' ? 'selected' : '' }}>5100-6000</option>
-                                </select>
+                                <input type="number"
+                                       class="form-control @error('sqft') is-invalid @enderror"
+                                       id="sqft"
+                                       name="sqft"
+                                       value="{{ old('sqft', $lead->sqft) }}"
+                                       min="0"
+                                       placeholder="Enter square feet">
                                 @error('sqft')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -246,7 +224,6 @@
                                     <option value="">Select Service Type</option>
                                     <option value="cleaning" {{ old('service_type', $lead->service_type) == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
                                     <option value="pest_control" {{ old('service_type', $lead->service_type) == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
-                                    <option value="other" {{ old('service_type') == 'other' ? 'selected' : '' }}>Other</option>
                                 </select>
                                 @error('service_type')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -346,10 +323,6 @@
                                         id="payment_mode"
                                         name="payment_mode">
                                     <option value="">Select Payment Mode</option>
-                                    <option value="gpay" {{ old('payment_mode') == 'gpay' ? 'selected' : '' }}>Gpay</option>
-                                    <option value="phonepe" {{ old('payment_mode') == 'phonepe' ? 'selected' : '' }}>Phonepe</option>
-                                    <option value="paytm" {{ old('payment_mode') == 'paytm' ? 'selected' : '' }}>Paytm</option>
-                                    <option value="amazonpay" {{ old('payment_mode') == 'amazonpay' ? 'selected' : '' }}>Amazonpay</option>
                                     <option value="cash" {{ old('payment_mode', $lead->payment_mode) == 'cash' ? 'selected' : '' }}>Cash</option>
                                     <option value="upi" {{ old('payment_mode', $lead->payment_mode) == 'upi' ? 'selected' : '' }}>UPI</option>
                                     <option value="card" {{ old('payment_mode', $lead->payment_mode) == 'card' ? 'selected' : '' }}>Card</option>
@@ -376,42 +349,30 @@
                         <h5><i class="las la-tasks me-2"></i>Status of Lead & Assignment</h5>
 
                         <div class="row mb-3">
-                            @if($lead->status !== 'approved')
-                                <div class="col-md-6">
-                                    <label for="status" class="form-label required-field">Lead Status</label>
-                                    <select class="form-select @error('status') is-invalid @enderror"
-                                            id="status"
-                                            name="status"
-                                            required>
-                                        <option value="pending" {{ old('status', $lead->status) == 'pending' ? 'selected' : '' }}>Pending</option>
-                                        <option value="site_visit" {{ old('status', $lead->status) == 'site_visit' ? 'selected' : '' }}>Site Visit</option>
-                                        <option value="not_accepting_tc" {{ old('status', $lead->status) == 'not_accepting_tc' ? 'selected' : '' }}>Not Accepting T&C</option>
-                                        <option value="they_will_confirm" {{ old('status', $lead->status) == 'they_will_confirm' ? 'selected' : '' }}>They Will Confirm</option>
-                                        <option value="date_issue" {{ old('status', $lead->status) == 'date_issue' ? 'selected' : '' }}>Date Issue</option>
-                                        <option value="rate_issue" {{ old('status', $lead->status) == 'rate_issue' ? 'selected' : '' }}>Rate Issue</option>
-                                        <option value="service_not_provided" {{ old('status', $lead->status) == 'service_not_provided' ? 'selected' : '' }}>Service We Do Not Provide</option>
-                                        <option value="just_enquiry" {{ old('status', $lead->status) == 'just_enquiry' ? 'selected' : '' }}>Just Enquiry</option>
-                                        <option value="immediate_service" {{ old('status', $lead->status) == 'immediate_service' ? 'selected' : '' }}>Immediate Service</option>
-                                        <option value="no_response" {{ old('status', $lead->status) == 'no_response' ? 'selected' : '' }}>No Response</option>
-                                        <option value="location_not_available" {{ old('status', $lead->status) == 'location_not_available' ? 'selected' : '' }}>Location Not Available</option>
-                                        <option value="night_work_demanded" {{ old('status', $lead->status) == 'night_work_demanded' ? 'selected' : '' }}>Night Work Demanded</option>
-                                        <option value="customisation" {{ old('status', $lead->status) == 'customisation' ? 'selected' : '' }}>Customisation</option>
-                                    </select>
-                                    @error('status')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                                @else
-                                {{-- Approved lead: show read‑only status label --}}
-                                <div class="col-md-6">
-                                    <label class="form-label">Lead Status</label>
-                                    <div class="form-control-plaintext fw-semibold">
-                                        {{ $lead->status_label }}
-                                    </div>
-                                </div>
-                                {{-- keep the status value so validation passes --}}
-                                <input type="hidden" name="status" value="{{ $lead->status }}">
-                            @endif
+                            <div class="col-md-6">
+                                <label for="status" class="form-label required-field">Lead Status</label>
+                                <select class="form-select @error('status') is-invalid @enderror"
+                                        id="status"
+                                        name="status"
+                                        required>
+                                    <option value="pending" {{ old('status', $lead->status) == 'pending' ? 'selected' : '' }}>Pending</option>
+                                    <option value="site_visit" {{ old('status', $lead->status) == 'site_visit' ? 'selected' : '' }}>Site Visit</option>
+                                    <option value="not_accepting_tc" {{ old('status', $lead->status) == 'not_accepting_tc' ? 'selected' : '' }}>Not Accepting T&C</option>
+                                    <option value="they_will_confirm" {{ old('status', $lead->status) == 'they_will_confirm' ? 'selected' : '' }}>They Will Confirm</option>
+                                    <option value="date_issue" {{ old('status', $lead->status) == 'date_issue' ? 'selected' : '' }}>Date Issue</option>
+                                    <option value="rate_issue" {{ old('status', $lead->status) == 'rate_issue' ? 'selected' : '' }}>Rate Issue</option>
+                                    <option value="service_not_provided" {{ old('status', $lead->status) == 'service_not_provided' ? 'selected' : '' }}>Service We Do Not Provide</option>
+                                    <option value="just_enquiry" {{ old('status', $lead->status) == 'just_enquiry' ? 'selected' : '' }}>Just Enquiry</option>
+                                    <option value="immediate_service" {{ old('status', $lead->status) == 'immediate_service' ? 'selected' : '' }}>Immediate Service</option>
+                                    <option value="no_response" {{ old('status', $lead->status) == 'no_response' ? 'selected' : '' }}>No Response</option>
+                                    <option value="location_not_available" {{ old('status', $lead->status) == 'location_not_available' ? 'selected' : '' }}>Location Not Available</option>
+                                    <option value="night_work_demanded" {{ old('status', $lead->status) == 'night_work_demanded' ? 'selected' : '' }}>Night Work Demanded</option>
+                                    <option value="customisation" {{ old('status', $lead->status) == 'customisation' ? 'selected' : '' }}>Customisation</option>
+                                </select>
+                                @error('status')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
 
                             @if(auth()->user()->role === 'super_admin')
                             <div class="col-md-6">
@@ -437,34 +398,22 @@
                         </div>
 
                         <div class="row mb-3">
-                            @php $user = auth()->user(); @endphp
-
                             <div class="col-md-6">
                                 <label for="assigned_to" class="form-label">Assign To Telecaller</label>
-
-                                @if($user->role === 'telecallers')
-                                    {{-- Telecaller: always self, no dropdown --}}
-                                    <input type="text" class="form-control" value="{{ $user->name }}" disabled>
-                                    <input type="hidden" name="assigned_to" value="{{ $user->id }}">
-                                @else
-                                    {{-- Admin / Lead manager: can choose telecaller --}}
-                                    <select class="form-select @error('assigned_to') is-invalid @enderror"
-                                            id="assigned_to"
-                                            name="assigned_to">
-                                        <option value="">Select Telecaller (Optional)</option>
-                                        @foreach($telecallers as $telecaller)
-                                            <option value="{{ $telecaller->id }}"
-                                                {{ old('assigned_to', $lead->assigned_to ?? null) == $telecaller->id ? 'selected' : '' }}>
-                                                {{ $telecaller->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('assigned_to')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                @endif
+                                <select class="form-select @error('assigned_to') is-invalid @enderror"
+                                        id="assigned_to"
+                                        name="assigned_to">
+                                    <option value="">Select Telecaller (Optional)</option>
+                                    @foreach($telecallers as $telecaller)
+                                        <option value="{{ $telecaller->id }}" {{ old('assigned_to', $lead->assigned_to) == $telecaller->id ? 'selected' : '' }}>
+                                            {{ $telecaller->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('assigned_to')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
-
                         </div>
                     </div>
 
@@ -487,9 +436,6 @@
 @section('extra-scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
 $(document).ready(function() {
@@ -497,14 +443,6 @@ $(document).ready(function() {
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         }
-    });
-
-    // Initialize Select2 on district dropdown
-    $('#district').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Search and select district',
-        allowClear: true,
-        width: '100%'
     });
 
     const allTelecallers = @json($telecallers);
