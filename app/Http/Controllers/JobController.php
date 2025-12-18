@@ -22,13 +22,14 @@ class JobController extends Controller
     {
         $user = auth()->user();
 
-        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff'])) {
+        // Allow telecallers, lead_manager, super_admin, and field_staff to view jobs
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers'])) {
             return back()->with('error', 'Unauthorized');
         }
 
-        $query = Job::with(['customer', 'service', 'branch', 'assignedTo', 'createdBy']);
+        $query = Job::with(['customer', 'services', 'service', 'branch', 'assignedTo', 'createdBy', 'lead']);
 
-        // Filter by status
+        // Filter by status (including 'confirmed')
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
@@ -38,13 +39,17 @@ class JobController extends Controller
             $query->where('branch_id', $request->branch_id);
         }
 
-        // Filter by assigned to
-        if ($request->filled('assigned_to')) {
-            if ($request->assigned_to === 'unassigned') {
-                $query->whereNull('assigned_to');
-            } else {
-                $query->where('assigned_to', $request->assigned_to);
-            }
+        // Filter by service - check both single service and multiple services
+        if ($request->filled('service_id')) {
+            $serviceId = $request->service_id;
+            $query->where(function($q) use ($serviceId) {
+                // Check single service_id field
+                $q->where('service_id', $serviceId)
+                // OR check in the many-to-many relationship
+                ->orWhereHas('services', function($subQuery) use ($serviceId) {
+                    $subQuery->where('services.id', $serviceId);
+                });
+            });
         }
 
         // Filter by scheduled date range
@@ -66,35 +71,53 @@ class JobController extends Controller
         }
 
         // If user is field staff, only show their jobs
-        if (auth()->user()->role === 'field_staff') {
-            $query->where('assigned_to', auth()->id());
+        if ($user->role === 'field_staff') {
+            $query->where('assigned_to', $user->id);
+        }
+
+        // If user is telecaller, show jobs from their assigned leads
+        if ($user->role === 'telecallers') {
+            $query->whereHas('lead', function($q) use ($user) {
+                $q->where('assigned_to', $user->id);
+            });
         }
 
         // Paginate instead of get()
         $jobs = $query->orderBy('created_at', 'desc')->paginate(15);
 
         // Get data for filters
-        $branches = \App\Models\Branch::all();
-        $customers = \App\Models\Customer::all();
-        $services = \App\Models\Service::all();
-        $field_staff = \App\Models\User::where('role', 'field_staff')->get();
+        $branches = Branch::all();
+        $customers = Customer::all();
+        $services = Service::orderBy('name')->get();
+
+        // Fetch telecallers and field staff separately
+        $telecallers = User::where('role', 'telecallers')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id']);
+
+        $field_staff = User::where('role', 'field_staff')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id']);
 
         // Return JSON for AJAX requests
         if ($request->ajax()) {
             return response()->json([
                 'html' => view('jobs.partials.table-rows', compact('jobs'))->render(),
-                'pagination' => $jobs->links('pagination::bootstrap-5')->render()
+                'pagination' => $jobs->links('pagination::bootstrap-5')->render(),
+                'total' => $jobs->total()
             ]);
         }
 
-        return view('jobs.index', compact('jobs', 'branches', 'customers', 'services', 'field_staff'));
+        return view('jobs.index', compact('jobs', 'branches', 'customers', 'services', 'field_staff', 'telecallers'));
     }
-
 
     public function store(Request $request)
     {
         try {
-            if (auth()->user()->role !== 'super_admin') {
+            // Allow super_admin, lead_manager, and telecallers to create jobs
+            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
@@ -104,7 +127,9 @@ class JobController extends Controller
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'customer_id' => 'nullable|exists:customers,id',
-                'service_id' => 'nullable|exists:services,id',
+                'service_type' => 'required|in:cleaning,pest_control,other',
+                'service_ids' => 'required|array|min:1',
+                'service_ids.*' => 'exists:services,id',
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
                 'branch_id' => 'required|exists:branches,id',
@@ -116,13 +141,13 @@ class JobController extends Controller
 
             // Generate unique job code
             $jobCount = Job::count();
-            $jobCode = 'JOB' . str_pad($jobCount + 1, 3, '0', STR_PAD_LEFT);
+            $jobCode = 'JOB' . str_pad($jobCount + 1, 4, '0', STR_PAD_LEFT);
 
             $job = Job::create([
                 'job_code' => $jobCode,
                 'title' => $validated['title'],
                 'customer_id' => $validated['customer_id'] ?? null,
-                'service_id' => $validated['service_id'] ?? null,
+                'service_id' => $validated['service_ids'][0] ?? null, // First service for backward compatibility
                 'description' => $validated['description'] ?? null,
                 'customer_instructions' => $validated['customer_instructions'] ?? null,
                 'branch_id' => $validated['branch_id'],
@@ -133,6 +158,9 @@ class JobController extends Controller
                 'created_by' => auth()->id(),
                 'status' => 'pending',
             ]);
+
+            // Attach selected services
+            $job->services()->sync($validated['service_ids']);
 
             Log::info('Job created', ['job_id' => $job->id, 'job_code' => $jobCode]);
 
@@ -154,21 +182,34 @@ class JobController extends Controller
     {
         $user = auth()->user();
 
-        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff'])) {
+        // Allow telecallers to view jobs
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers'])) {
             return back()->with('error', 'Unauthorized');
         }
 
         $job->load([
             'branch',
-            'lead',
+            'lead.services',
             'customer.customerNotes.createdBy',
             'customer.customerNotes.job',
+            'services', // Load job services
             'service',
             'assignedTo',
             'createdBy'
         ]);
 
-        return view('jobs.show', compact('job'));
+        // Fetch telecallers and field staff separately for assignment
+        $telecallers = User::where('role', 'telecallers')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id']);
+
+        $field_staff = User::where('role', 'field_staff')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'branch_id']);
+
+        return view('jobs.show', compact('job', 'telecallers', 'field_staff'));
     }
 
     public function edit(Job $job)
@@ -176,7 +217,8 @@ class JobController extends Controller
         try {
             $user = auth()->user();
 
-            if ($user->role !== 'super_admin' && $user->role !== 'branch_manager') {
+            // Allow telecallers, lead_manager, and super_admin to edit jobs
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
@@ -195,6 +237,20 @@ class JobController extends Controller
             if ($job->scheduled_time) {
                 $jobData['scheduled_time'] = substr($job->scheduled_time, 0, 5); // Get HH:MM
             }
+
+            // Get service type from lead or job
+            if ($job->lead && $job->lead->service_type) {
+                $jobData['service_type'] = $job->lead->service_type;
+            } else {
+                // Try to infer from services
+                $firstService = $job->services->first();
+                if ($firstService) {
+                    $jobData['service_type'] = $firstService->service_type;
+                }
+            }
+
+            // Get service IDs
+            $jobData['service_ids'] = $job->services->pluck('id')->toArray();
 
             return response()->json([
                 'success' => true,
@@ -215,8 +271,8 @@ class JobController extends Controller
         try {
             $user = auth()->user();
 
-            // Super admin has full access, no restrictions
-            if ($user->role !== 'super_admin' && $user->role !== 'branch_manager') {
+            // Allow telecallers, lead_manager, and super_admin to edit jobs
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized'
@@ -226,7 +282,6 @@ class JobController extends Controller
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'customer_id' => 'nullable|exists:customers,id',
-                'service_id' => 'nullable|exists:services,id',
                 'branch_id' => 'required|exists:branches,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'scheduled_date' => 'nullable|date',
@@ -235,15 +290,117 @@ class JobController extends Controller
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
                 'amount' => 'nullable|numeric|min:0',
+                'service_type' => 'nullable|in:cleaning,pest_control,other',
+                'service_ids' => 'nullable|array',
+                'service_ids.*' => 'exists:services,id',
+                'status' => 'nullable|in:pending,confirmed,in_progress,completed,cancelled',
             ]);
 
-            $job->update($validated);
+            // Track if amount or services changed
+            $amountChanged = isset($validated['amount']) && $validated['amount'] != $job->amount;
 
-            Log::info('Job updated', ['job_id' => $job->id, 'updated_by' => $user->id]);
+            // Track if services changed
+            $servicesChanged = false;
+            if (isset($validated['service_ids'])) {
+                $oldServiceIds = $job->services->pluck('id')->sort()->values()->toArray();
+                $newServiceIds = collect($validated['service_ids'])->sort()->values()->toArray();
+                $servicesChanged = $oldServiceIds != $newServiceIds;
+            }
+
+            // Determine new status
+            $newStatus = $validated['status'] ?? $job->status;
+
+            // If amount or services changed and job has a lead and is confirmed, set to pending
+            if (($amountChanged || $servicesChanged) && $job->lead_id && $job->status === 'confirmed') {
+                $newStatus = 'pending';
+            }
+
+            // Prepare update data
+            $updateData = [
+                'title' => $validated['title'],
+                'customer_id' => $validated['customer_id'] ?? $job->customer_id,
+                'branch_id' => $validated['branch_id'],
+                'location' => $validated['location'] ?? null,
+                'description' => $validated['description'] ?? null,
+                'customer_instructions' => $validated['customer_instructions'] ?? null,
+                'status' => $newStatus,
+            ];
+
+            // Add optional fields if provided
+            if (isset($validated['assigned_to'])) {
+                $updateData['assigned_to'] = $validated['assigned_to'];
+            }
+
+            if (isset($validated['scheduled_date'])) {
+                $updateData['scheduled_date'] = $validated['scheduled_date'];
+            }
+
+            if (isset($validated['scheduled_time'])) {
+                $updateData['scheduled_time'] = $validated['scheduled_time'];
+            }
+
+            if (isset($validated['amount'])) {
+                $updateData['amount'] = $validated['amount'];
+            }
+
+            $job->update($updateData);
+
+            // Sync services if provided
+            if (isset($validated['service_ids']) && count($validated['service_ids']) > 0) {
+                $job->services()->sync($validated['service_ids']);
+
+                // Update single service_id field (use first service for backward compatibility)
+                $job->update(['service_id' => $validated['service_ids'][0]]);
+            }
+
+            // If job has a related lead, sync changes back to the lead
+            if ($job->lead_id && ($amountChanged || $servicesChanged)) {
+                $lead = $job->lead;
+
+                $leadUpdateData = [];
+
+                // Update lead amount if job amount changed
+                if ($amountChanged && isset($validated['amount'])) {
+                    $leadUpdateData['amount'] = $validated['amount'];
+                    $leadUpdateData['amount_updated_at'] = now();
+                    $leadUpdateData['amount_updated_by'] = $user->id;
+                }
+
+                // Update lead if there are changes
+                if (!empty($leadUpdateData)) {
+                    $lead->update($leadUpdateData);
+                }
+
+                // Sync lead services if job services changed
+                if ($servicesChanged && isset($validated['service_ids'])) {
+                    $lead->services()->sync($validated['service_ids']);
+                    $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
+                }
+
+                Log::info('Job edited - related lead updated', [
+                    'job_id' => $job->id,
+                    'lead_id' => $lead->id,
+                    'amount_changed' => $amountChanged,
+                    'services_changed' => $servicesChanged,
+                ]);
+            }
+
+            Log::info('Job updated', [
+                'job_id' => $job->id,
+                'updated_by' => $user->id,
+                'amount_changed' => $amountChanged,
+                'services_changed' => $servicesChanged,
+                'status_changed_to_pending' => $newStatus === 'pending',
+            ]);
+
+            $message = 'Job updated successfully!';
+            if (($amountChanged || $servicesChanged) && $job->lead_id) {
+                $message .= ' Job status changed to pending for admin approval. Related lead has also been updated.';
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Job updated successfully!'
+                'message' => $message
             ]);
 
         } catch (\Exception $e) {
@@ -307,7 +464,6 @@ class JobController extends Controller
             $job->update([
                 'assigned_to' => $validated['assigned_to'],
                 'assigned_at' => now(),
-                'status' => 'assigned'
             ]);
 
             $assignedUser = User::find($validated['assigned_to']);
@@ -328,6 +484,44 @@ class JobController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error assigning job'
+            ], 500);
+        }
+    }
+
+    // Confirm job status (admin only)
+    public function confirmStatus(Job $job)
+    {
+        try {
+            $user = auth()->user();
+
+            if ($user->role !== 'super_admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only admin can confirm job status'
+                ], 403);
+            }
+
+            $job->update([
+                'status' => 'confirmed',
+                'confirmed_at' => now(),
+                'confirmed_by' => $user->id,
+            ]);
+
+            Log::info('Job status confirmed', [
+                'job_id' => $job->id,
+                'confirmed_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Job status confirmed successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Job confirm status error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error confirming job status'
             ], 500);
         }
     }
@@ -420,7 +614,9 @@ class JobController extends Controller
 
             $validated = $request->validate([
                 'customer_id' => 'required|exists:customers,id',
-                'service_id' => 'required|exists:services,id',
+                'service_type' => 'required|in:cleaning,pest_control,other',
+                'service_ids' => 'required|array|min:1',
+                'service_ids.*' => 'exists:services,id',
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
@@ -433,12 +629,12 @@ class JobController extends Controller
 
             // Generate unique job code
             $jobCount = Job::count();
-            $jobCode = 'JOB' . str_pad($jobCount + 1, 3, '0', STR_PAD_LEFT);
+            $jobCode = 'JOB' . str_pad($jobCount + 1, 4, '0', STR_PAD_LEFT);
 
             $job = Job::create([
                 'job_code' => $jobCode,
                 'customer_id' => $validated['customer_id'],
-                'service_id' => $validated['service_id'],
+                'service_id' => $validated['service_ids'][0] ?? null,
                 'title' => $validated['title'],
                 'description' => $validated['description'] ?? null,
                 'customer_instructions' => $validated['customer_instructions'] ?? null,
@@ -450,6 +646,9 @@ class JobController extends Controller
                 'created_by' => auth()->id(),
                 'status' => 'pending',
             ]);
+
+            // Attach selected services
+            $job->services()->sync($validated['service_ids']);
 
             Log::info('Job created for existing customer', [
                 'job_id' => $job->id,

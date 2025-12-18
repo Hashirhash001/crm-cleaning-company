@@ -135,15 +135,15 @@
                         $canApprove = $lead->status !== 'approved';
                     }
                     // Lead manager: only on non-approved
-                    elseif ($lead->status !== 'approved' && $user->role === 'lead_manager' && $lead->created_by === $user->id) {
-                        $canEdit = true;
-                        $canDelete = true;
-                        $canApprove = true;
-                        $canAssign = true;
+                    elseif ($user->role === 'lead_manager' && $lead->created_by === $user->id) {
+                        $canEdit = $lead->status !== 'approved'; // can't edit approved
+                        $canDelete = $lead->status !== 'approved';
+                        $canApprove = $lead->status !== 'approved';
+                        $canAssign = $lead->status !== 'approved';
                     }
-                    // Telecaller: only edit own non-approved leads
-                    elseif ($lead->status !== 'approved' && $user->role === 'telecallers' && $lead->assigned_to === $user->id) {
-                        $canEdit = true;
+                    // Telecaller: can edit own assigned leads (EVEN APPROVED)
+                    elseif ($user->role === 'telecallers' && $lead->assigned_to === $user->id) {
+                        $canEdit = true; // NOW INCLUDES APPROVED LEADS
                     }
 
                     // Rejected: delete allowed for super admin
@@ -155,12 +155,12 @@
                 <!-- Assign Button -->
                 @if($canAssign)
                     <a href="javascript:void(0)"
-                       class="assignLeadBtn"
-                       data-id="{{ $lead->id }}"
-                       data-name="{{ $lead->name }}"
-                       data-code="{{ $lead->lead_code }}"
-                       data-branch="{{ $lead->branch_id }}"
-                       title="Assign Lead">
+                    class="assignLeadBtn"
+                    data-id="{{ $lead->id }}"
+                    data-name="{{ $lead->name }}"
+                    data-code="{{ $lead->lead_code }}"
+                    data-branch="{{ $lead->branch_id }}"
+                    title="Assign Lead">
                         <i class="las la-user-plus text-primary fs-18"></i>
                     </a>
                 @endif
@@ -191,6 +191,7 @@
                 @endif
             </div>
         </td>
+
     </tr>
 @empty
     <tr>

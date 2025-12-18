@@ -9,6 +9,10 @@
             background-color: #ffc107;
             color: #000;
         }
+        .badge-confirmed {
+            background-color: #8b5cf6;
+            color: #fff;
+        }
         .badge-assigned {
             background-color: #17a2b8;
             color: #fff;
@@ -197,6 +201,69 @@
         .card-body form {
             margin: 0;
         }
+
+        #serviceFilter {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .select2-container .select2-selection--single .select2-selection__rendered{
+            padding-left: 8px !important;
+            padding-right: 20px !important;
+        }
+
+        /* Services Badges */
+        .services-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .service-badge {
+            background: var(--primary-blue);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .service-checkbox-item {
+            padding: 8px 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .service-checkbox-item:hover {
+            background: #f8f9fa;
+        }
+
+        .service-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .service-checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .service-select-box {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+            min-height: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 @endsection
 
@@ -225,12 +292,12 @@
                         <!-- First Row - Filters -->
                         <div class="row align-items-end g-3">
                             <!-- Status Filter -->
-                            <div class="col-auto">
+                            <div class="col-3">
                                 <label class="form-label fw-semibold mb-2">Filter by Status</label>
                                 <select class="form-select" id="statusFilter" name="status" style="min-width: 140px;">
                                     <option value="">All Status</option>
                                     <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                                    <option value="assigned" {{ request('status') == 'assigned' ? 'selected' : '' }}>Assigned</option>
+                                    <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
                                     <option value="in_progress" {{ request('status') == 'in_progress' ? 'selected' : '' }}>In Progress</option>
                                     <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
                                     <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
@@ -238,7 +305,7 @@
                             </div>
 
                             <!-- Branch Filter -->
-                            <div class="col-auto">
+                            <div class="col-3">
                                 <label class="form-label fw-semibold mb-2">Filter by Branch</label>
                                 <select id="branchFilter" name="branch_id" class="form-select" style="min-width: 140px;">
                                     <option value="">All Branches</option>
@@ -250,32 +317,38 @@
                                 </select>
                             </div>
 
-                            <!-- Assigned To Filter -->
-                            <div class="col-auto">
-                                <label class="form-label fw-semibold mb-2">Filter by Assigned To</label>
-                                <select id="assignedToFilter" name="assigned_to" class="form-select" style="min-width: 150px;">
-                                    <option value="">All Staff</option>
-                                    <option value="unassigned" {{ request('assigned_to') == 'unassigned' ? 'selected' : '' }}>Unassigned</option>
-                                    @foreach(\App\Models\User::where('role', 'field_staff')->orderBy('name')->get() as $staff)
-                                        <option value="{{ $staff->id }}" {{ request('assigned_to') == $staff->id ? 'selected' : '' }}>
-                                            {{ $staff->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
                             <!-- Date From -->
-                            <div class="col-auto">
+                            <div class="col-3">
                                 <label class="form-label fw-semibold mb-2">Scheduled Date From</label>
                                 <input type="date" id="dateFrom" name="date_from" class="form-control" value="{{ request('date_from') }}" style="min-width: 150px;">
                             </div>
 
                             <!-- Date To -->
-                            <div class="col-auto">
+                            <div class="col-3">
                                 <label class="form-label fw-semibold mb-2">Scheduled Date To</label>
                                 <input type="date" id="dateTo" name="date_to" class="form-control" value="{{ request('date_to') }}" style="min-width: 150px;">
                             </div>
+                        </div>
 
+                        <!-- Second Row - Search and Add Job -->
+                        <div class="row align-items-end g-3 mt-2">
+                            <!-- Service Filter -->
+                            <div class="col-3">
+                                <label class="form-label fw-semibold mb-2">Filter by Service</label>
+                                <select id="serviceFilter" name="service_id" class="form-select" style="min-width: 160px;">
+                                    <option value="">All Services</option>
+                                    @foreach($services as $service)
+                                        <option value="{{ $service->id }}" {{ request('service_id') == $service->id ? 'selected' : '' }}>
+                                            {{ $service->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <!-- Search -->
+                            <div class="col">
+                                <label class="form-label fw-semibold mb-2">Search</label>
+                                <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search by title or job code..." value="{{ request('search') }}">
+                            </div>
                             <!-- Filter Button -->
                             <div class="col-auto ms-auto">
                                 <button type="submit" class="btn btn-success">
@@ -290,24 +363,6 @@
                                 </a>
                             </div>
                         </div>
-
-                        <!-- Second Row - Search and Add Job -->
-                        <div class="row align-items-end g-3">
-                            <!-- Search -->
-                            <div class="col">
-                                <label class="form-label fw-semibold mb-2">Search</label>
-                                <input type="text" id="searchInput" name="search" class="form-control" placeholder="Search by title or job code..." value="{{ request('search') }}">
-                            </div>
-
-                            <!-- Add Job Button -->
-                            @if(auth()->user()->role === 'super_admin')
-                            <div class="col-auto">
-                                <button type="button" class="btn btn-primary" id="addJobBtn">
-                                    <i class="las la-plus me-1"></i> Add Job
-                                </button>
-                            </div>
-                            @endif
-                        </div>
                     </form>
                 </div>
             </div>
@@ -318,8 +373,16 @@
     <div class="row">
         <div class="col-lg-12">
             <div class="card jobs-card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">Jobs List (<span id="jobCount">{{ $jobs->total() }}</span> total)</h4>
+                    <!-- Add Job Button -->
+                    {{-- @if(auth()->user()->role === 'super_admin')
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-primary" id="addJobBtn">
+                            <i class="las la-plus me-1"></i> Add Job
+                        </button>
+                    </div>
+                    @endif --}}
                 </div>
                 <div class="card-body">
                     <div class="table-container">
@@ -395,14 +458,28 @@
                             <span class="error-text amount_error text-danger d-block mt-1"></span>
                         </div>
                         <div class="col-md-6">
-                            <label for="service_id" class="form-label">Service</label>
-                            <select class="form-select" id="service_id" name="service_id">
-                                <option value="">Select Service</option>
-                                @foreach($services as $service)
-                                    <option value="{{ $service->id }}">{{ $service->name }}</option>
-                                @endforeach
+                            <label for="service_type" class="form-label">Service Type <span class="text-danger">*</span></label>
+                            <select class="form-select" id="service_type" name="service_type" required>
+                                <option value="">Select Service Type</option>
+                                <option value="cleaning">Cleaning</option>
+                                <option value="pest_control">Pest Control</option>
+                                <option value="other">Other</option>
                             </select>
-                            <span class="error-text service_id_error text-danger d-block mt-1"></span>
+                            <span class="error-text service_type_error text-danger d-block mt-1"></span>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Select Services (Multiple Selection Allowed) <span class="text-danger">*</span></label>
+                            <div class="service-select-box" id="servicesContainer">
+                                <p class="text-muted text-center my-3">
+                                    <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
+                                    Please select a service type first
+                                </p>
+                            </div>
+                            <small class="text-muted">Check all services that apply to this job</small>
+                            <span class="error-text service_ids_error text-danger d-block mt-1"></span>
                         </div>
                     </div>
 
@@ -476,27 +553,76 @@
             <form id="assignJobForm">
                 @csrf
                 <input type="hidden" id="assign_job_id" name="assign_job_id">
+
                 <div class="modal-body">
+                    <!-- Job Information -->
+                    <div class="alert alert-info mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="las la-info-circle fs-20 me-2"></i>
+                            <div>
+                                <strong>Job Code:</strong> <span id="assign_job_code"></span><br>
+                                <strong>Title:</strong> <span id="assign_job_title"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assign To Dropdown with grouped options -->
                     <div class="mb-3">
-                        <label for="assigned_to" class="form-label">Assign To <span class="text-danger">*</span></label>
+                        <label for="assigned_to" class="form-label fw-semibold">
+                            <i class="las la-user-check me-1"></i>Assign To
+                            <span class="text-danger">*</span>
+                        </label>
                         <select class="form-select" id="assigned_to" name="assigned_to" required>
-                            <option value="">Select Field Staff</option>
-                            @foreach(\App\Models\User::where('role', 'field_staff')->get() as $staff)
-                                <option value="{{ $staff->id }}">{{ $staff->name }}</option>
-                            @endforeach
+                            <option value="">Select Staff Member</option>
+
+                            <!-- Telecallers Group -->
+                            @if($telecallers->count() > 0)
+                            <optgroup label="📞 Telecallers">
+                                @foreach($telecallers as $telecaller)
+                                    <option value="{{ $telecaller->id }}">
+                                        {{ $telecaller->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                            @endif
+
+                            <!-- Field Staff Group -->
+                            @if($field_staff->count() > 0)
+                            <optgroup label="🔧 Field Staff">
+                                @foreach($field_staff as $staff)
+                                    <option value="{{ $staff->id }}">
+                                        {{ $staff->name }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                            @endif
                         </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i> Select a staff member to assign this job to
+                        </small>
                         <span class="error-text assigned_to_error text-danger d-block mt-1"></span>
                     </div>
+
+                    <!-- Notes (Optional) -->
+                    <div class="mb-3">
+                        <label for="assign_notes" class="form-label">Assignment Notes (Optional)</label>
+                        <textarea class="form-control" id="assign_notes" name="assign_notes" rows="2"
+                                  placeholder="Add any notes about this assignment..."></textarea>
+                    </div>
                 </div>
+
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Assign</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="las la-times me-1"></i>Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="las la-check me-1"></i>Assign Job
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
-
 
 @endsection
 
@@ -504,6 +630,9 @@
     <script src="{{ asset('assets/libs/simple-datatables/umd/simple-datatables.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script>
         $(document).ready(function() {
@@ -513,9 +642,86 @@
                 }
             });
 
+            // Initialize Select2 on service filter (optional - for better UX with many services)
+            $('#serviceFilter').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'search and select service',
+                allowClear: true,
+                width: '100%'
+            });
+
+            // Initialize Select2 on assign dropdown
+            $('#assigned_to').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Search and select staff member',
+                allowClear: true,
+                dropdownParent: $('#assignJobModal'),
+                width: '100%'
+            });
+
+            // Store all telecallers and field staff data
+            const allTelecallers = @json($telecallers);
+            const allFieldStaff = @json($field_staff);
+
+            let currentJobServiceIds = []; // Store current job services for editing
+
             // Set minimum date for scheduled_date to today
             let today = new Date().toISOString().split('T')[0];
             $('#scheduled_date').attr('min', today);
+
+            // Load services when service type is selected
+            function loadServices(serviceType, preselectedIds = []) {
+                let container = $('#servicesContainer');
+
+                if (!serviceType) {
+                    container.html(`
+                        <p class="text-muted text-center my-3">
+                            <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
+                            Please select a service type first
+                        </p>
+                    `);
+                    return;
+                }
+
+                container.html('<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>');
+
+                $.ajax({
+                    url: '{{ route("leads.servicesByType") }}',
+                    type: 'GET',
+                    data: { service_type: serviceType },
+                    success: function(services) {
+                        if (services.length === 0) {
+                            container.html('<p class="text-muted text-center my-3">No services available for this type</p>');
+                            return;
+                        }
+
+                        let html = '';
+                        services.forEach(function(service) {
+                            let isChecked = preselectedIds.includes(service.id);
+                            html += `
+                                <div class="service-checkbox-item">
+                                    <input type="checkbox"
+                                        name="service_ids[]"
+                                        value="${service.id}"
+                                        id="service_${service.id}"
+                                        class="service-checkbox"
+                                        ${isChecked ? 'checked' : ''}>
+                                    <label for="service_${service.id}">${service.name}</label>
+                                </div>
+                            `;
+                        });
+
+                        container.html(html);
+                    },
+                    error: function() {
+                        container.html('<p class="text-danger text-center my-3">Error loading services. Please try again.</p>');
+                    }
+                });
+            }
+
+            $('#service_type').on('change', function() {
+                loadServices($(this).val(), currentJobServiceIds);
+            });
 
             // AJAX Form Submit Function
             function loadJobs(url = null) {
@@ -567,9 +773,18 @@
                 $('#jobModalLabel').text('Add Job');
                 $('.error-text').text('');
                 $('#branch_id').val('');
+                currentJobServiceIds = [];
 
                 let today = new Date().toISOString().split('T')[0];
                 $('#scheduled_date').attr('min', today);
+
+                // Reset services container
+                $('#servicesContainer').html(`
+                    <p class="text-muted text-center my-3">
+                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
+                        Please select a service type first
+                    </p>
+                `);
 
                 $('#jobModal').modal('show');
             });
@@ -586,12 +801,24 @@
                         $('#jobModalLabel').text('Edit Job');
                         $('#title').val(response.job.title || '');
                         $('#customer_id').val(response.job.customer_id || '');
-                        $('#service_id').val(response.job.service_id || '');
                         $('#description').val(response.job.description || '');
                         $('#customer_instructions').val(response.job.customer_instructions || '');
                         $('#branch_id').val(response.job.branch_id || '');
                         $('#location').val(response.job.location || '');
                         $('#amount').val(response.job.amount || '');
+
+                        // Set service type (get from job)
+                        if (response.job.service_type) {
+                            $('#service_type').val(response.job.service_type);
+                        }
+
+                        // Store current service IDs
+                        currentJobServiceIds = response.job.service_ids || [];
+
+                        // Load services with preselected ones
+                        if (response.job.service_type) {
+                            loadServices(response.job.service_type, currentJobServiceIds);
+                        }
 
                         let today = new Date().toISOString().split('T')[0];
                         $('#scheduled_date').attr('min', today);
@@ -639,6 +866,16 @@
                 let jobId = $('#job_id').val();
                 let url = jobId ? '/jobs/' + jobId : '/jobs';
 
+                // Validate at least one service is selected
+                if ($('.service-checkbox:checked').length === 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'Please select at least one service'
+                    });
+                    return;
+                }
+
                 let formData = new FormData(this);
 
                 if (jobId) {
@@ -682,27 +919,63 @@
             // Assign Job
             $(document).on('click', '.assignJobBtn', function() {
                 let jobId = $(this).data('id');
-                $('#assign_job_id').val(jobId);
 
                 $.ajax({
-                    url: '/jobs/' + jobId + '/edit',
+                    url: `/jobs/${jobId}/edit`,
                     type: 'GET',
                     success: function(response) {
-                        $('#assigned_to').val('');
+                        if (response.success) {
+                            // Set job ID
+                            $('#assign_job_id').val(response.job.id);
+                            $('#assign_job_code').text(response.job.job_code);
+                            $('#assign_job_title').text(response.job.title);
 
-                        if (response.job.assigned_to) {
-                            let assignedId = String(response.job.assigned_to);
-                            setTimeout(function() {
-                                $('#assigned_to').val(assignedId);
-                            }, 100);
+                            // Reset and populate assigned_to dropdown
+                            let assignedToSelect = $('#assigned_to');
+                            assignedToSelect.html('<option value="">Select Staff Member</option>');
+
+                            // Add Telecallers group
+                            if (allTelecallers.length > 0) {
+                                let telecallersOptgroup = $('<optgroup label="📞 Telecallers"></optgroup>');
+                                allTelecallers.forEach(function(telecaller) {
+                                    let isSelected = response.job.assigned_to == telecaller.id;
+                                    telecallersOptgroup.append(
+                                        $('<option>', {
+                                            value: telecaller.id,
+                                            text: telecaller.name,
+                                            selected: isSelected
+                                        })
+                                    );
+                                });
+                                assignedToSelect.append(telecallersOptgroup);
+                            }
+
+                            // Add Field Staff group
+                            if (allFieldStaff.length > 0) {
+                                let fieldStaffOptgroup = $('<optgroup label="🔧 Field Staff"></optgroup>');
+                                allFieldStaff.forEach(function(staff) {
+                                    let isSelected = response.job.assigned_to == staff.id;
+                                    fieldStaffOptgroup.append(
+                                        $('<option>', {
+                                            value: staff.id,
+                                            text: staff.name,
+                                            selected: isSelected
+                                        })
+                                    );
+                                });
+                                assignedToSelect.append(fieldStaffOptgroup);
+                            }
+
+                            // Clear notes
+                            $('#assign_notes').val('');
+
+                            // Show modal
+                            $('#assignJobModal').modal('show');
                         }
-
-                        $('#assignJobModal').modal('show');
                     },
                     error: function(xhr) {
                         console.error('Error loading assignment:', xhr);
-                        $('#assigned_to').val('');
-                        $('#assignJobModal').modal('show');
+                        Swal.fire('Error!', 'Failed to load job data', 'error');
                     }
                 });
             });
@@ -715,7 +988,7 @@
                 let formData = new FormData(this);
 
                 $.ajax({
-                    url: '/jobs/' + jobId + '/assign',
+                    url: `/jobs/${jobId}/assign`,
                     type: 'POST',
                     data: formData,
                     processData: false,
@@ -728,7 +1001,7 @@
                     },
                     error: function(xhr) {
                         console.error('Assign error:', xhr);
-                        Swal.fire('Error!', 'Failed to assign job', 'error');
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to assign job', 'error');
                     }
                 });
             });
@@ -813,6 +1086,44 @@
                             },
                             error: function() {
                                 Swal.fire('Error!', 'Failed to complete job', 'error');
+                            }
+                        });
+                    }
+                });
+            });
+
+            $(document).on('click', '.confirmJobBtn', function() {
+                let jobId = $(this).data('id');
+
+                Swal.fire({
+                    title: 'Confirm Job Status?',
+                    text: 'This will change the job status to confirmed.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Confirm',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/jobs/${jobId}/confirm-status`,
+                            type: 'POST',
+                            success: function(response) {
+                                if(response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Confirmed!',
+                                        text: response.message,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        location.reload();
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not confirm job.', 'error');
                             }
                         });
                     }

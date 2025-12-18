@@ -764,6 +764,16 @@
             }
         }
 
+        #serviceFilter {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .select2-container .select2-selection--single .select2-selection__rendered{
+            padding-left: 8px !important;
+            padding-right: 20px !important;
+        }
+
     </style>
 @endsection
 
@@ -789,6 +799,7 @@
             <div class="card-body" style="padding: 20px;">
                 <form method="GET" action="{{ route('leads.index') }}" id="filterForm">
                     <div class="row align-items-end g-3">
+                        <!-- Status Filter -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Status</label>
                             <select class="form-select" id="filterStatus" name="status">
@@ -811,37 +822,48 @@
                             </select>
                         </div>
 
+                        <!-- Lead Source Filter -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Lead Source</label>
-                            <select class="form-select" name="leadsourceid" id="sourceFilter">
+                            <select class="form-select" name="lead_source_id" id="sourceFilter">
                                 <option value="">All Sources</option>
                                 @foreach($lead_sources as $source)
-                                    <option value="{{ $source->id }}" {{ request('leadsourceid') == $source->id ? 'selected' : '' }}>
+                                    <option value="{{ $source->id }}" {{ request('lead_source_id') == $source->id ? 'selected' : '' }}>
                                         {{ $source->name }}
                                     </option>
                                 @endforeach
                             </select>
                         </div>
 
+                        <!-- Date From -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Date From</label>
-                            <input type="date"
-                                   class="form-control"
-                                   name="date_from"
-                                   id="dateFromFilter"
-                                   value="{{ request('date_from') }}">
+                            <input type="date" class="form-control" name="date_from" id="dateFromFilter" value="{{ request('date_from') }}">
                         </div>
-
+                        <!-- Date To -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Date To</label>
-                            <input type="date"
-                                   class="form-control"
-                                   name="date_to"
-                                   id="dateToFilter"
-                                   value="{{ request('date_to') }}">
+                            <input type="date" class="form-control" name="date_to" id="dateToFilter" value="{{ request('date_to') }}">
+                        </div>
+                    </div>
+
+                    <div class="row align-items-end g-3 mt-1">
+
+                        <!-- Service Filter -->
+                        <div class="col-3">
+                            <label class="form-label fw-semibold mb-2">Service</label>
+                            <select class="form-select" name="service_id" id="serviceFilter">
+                                <option value="">All Services</option>
+                                @foreach($services as $service)
+                                    <option value="{{ $service->id }}" {{ request('service_id') == $service->id ? 'selected' : '' }}>
+                                        {{ $service->name }}
+                                    </option>
+                                @endforeach
+                            </select>
                         </div>
 
                         @if(auth()->user()->role === 'super_admin')
+                        <!-- Branch Filter -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Branch</label>
                             <select class="form-select" name="branch_id" id="branchFilter">
@@ -856,11 +878,12 @@
                         @endif
 
                         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                        <!-- Assigned To Filter -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Assigned To</label>
-                            <select class="form-select" name="assigned_to" id="filter_assigned_to">
+                            <select class="form-select" name="assigned_to" id="filterassignedto">
                                 <option value="">All Telecallers</option>
-                                <option value="unassigned" {{ request('assigned_to') === 'unassigned' ? 'selected' : '' }}>Unassigned</option>
+                                <option value="unassigned" {{ request('assigned_to') == 'unassigned' ? 'selected' : '' }}>Unassigned</option>
                                 @foreach($telecallers as $telecaller)
                                     <option value="{{ $telecaller->id }}" {{ request('assigned_to') == $telecaller->id ? 'selected' : '' }}>
                                         {{ $telecaller->name }}
@@ -870,24 +893,22 @@
                         </div>
                         @endif
 
+                        <!-- Search -->
                         <div class="col-3">
                             <label class="form-label fw-semibold mb-2">Search</label>
                             <div class="d-flex gap-2 align-items-end">
-                                <input type="text"
-                                       class="form-control"
-                                       name="search"
-                                       id="searchInput"
+                                <input type="text" class="form-control" name="search" id="searchInput"
                                        placeholder="Search by name, email, phone..."
                                        value="{{ request('search') }}"
                                        style="max-width: 400px;">
                             </div>
                         </div>
 
-                        <div class="col-3 mt-1">
+                        <!-- Filter Buttons -->
+                        <div class="col-3 mt-3">
                             <button type="submit" class="btn btn-primary">
                                 <i class="las la-filter me-1"></i> Apply Filters
                             </button>
-
                             <a href="{{ route('leads.index') }}" class="btn btn-secondary" id="resetBtn">
                                 <i class="las la-redo-alt me-1"></i> Reset
                             </a>
@@ -1174,6 +1195,9 @@
     <script src="{{ asset('assets/libs/simple-datatables/umd/simple-datatables.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <script>
         @if(session('success'))
@@ -1245,6 +1269,13 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
+            });
+
+            $('#serviceFilter').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Search and select service',
+                allowClear: true,
+                width: '100%'
             });
 
             // Data from server

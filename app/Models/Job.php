@@ -106,4 +106,14 @@ class Job extends Model
     {
         return $this->hasMany(CustomerNote::class);
     }
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'job_service')->withTimestamps();
+    }
+
+    // Helper to get comma-separated service names
+    public function getServicesListAttribute()
+    {
+        return $this->services->pluck('name')->join(', ');
+    }
 }

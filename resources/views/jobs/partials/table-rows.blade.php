@@ -15,7 +15,20 @@
                 <span class="text-muted">No Customer</span>
             @endif
         </td>
-        <td><span class="badge bg-info">{{ $job->service->name ?? 'N/A' }}</span></td>
+        <td>
+            @if($job->services && $job->services->count() > 0)
+                @foreach($job->services->take(2) as $service)
+                    <span class="badge bg-info">{{ $service->name }}</span>
+                @endforeach
+                @if($job->services->count() > 2)
+                    <span class="badge bg-secondary">+{{ $job->services->count() - 2 }} more</span>
+                @endif
+            @elseif($job->service)
+                <span class="badge bg-info">{{ $job->service->name }}</span>
+            @else
+                <span class="text-muted">N/A</span>
+            @endif
+        </td>
         <td>
             @if($job->amount)
                 <strong class="text-success">₹{{ number_format($job->amount, 2) }}</strong>
@@ -40,10 +53,18 @@
         @endif
         <td style="text-align: center;">
             <div class="action-icons" style="justify-content: center;">
-                @if(auth()->user()->role === 'super_admin')
+                @php
+                    $user = auth()->user();
+                    $canEdit = in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']);
+                @endphp
+
+                @if($canEdit)
                     <a href="javascript:void(0)" class="editJobBtn" data-id="{{ $job->id }}" title="Edit">
                         <i class="las la-pen text-secondary fs-18"></i>
                     </a>
+                @endif
+
+                @if(auth()->user()->role === 'super_admin')
                     <a href="javascript:void(0)" class="deleteJobBtn" data-id="{{ $job->id }}" title="Delete">
                         <i class="las la-trash-alt text-danger fs-18"></i>
                     </a>
@@ -52,8 +73,18 @@
                     </a>
                 @endif
 
+                @if(auth()->user()->role === 'super_admin' && $job->status === 'pending')
+                <button type="button"
+                        class="btn btn-sm confirmJobBtn"
+                        data-id="{{ $job->id }}"
+                        title="Confirm Job"
+                        style="padding: 0; border: none; background: transparent;">
+                    <i class="las la-check-circle text-success fs-18"></i>
+                </button>
+                @endif
+
                 @if(auth()->user()->role === 'field_staff' && auth()->id() === $job->assigned_to)
-                    @if($job->status === 'assigned')
+                    @if($job->status === 'assigned' || $job->status === 'confirmed')
                         <a href="javascript:void(0)" class="startJobBtn" data-id="{{ $job->id }}" title="Start Job">
                             <i class="las la-play text-success fs-18"></i>
                         </a>
@@ -70,7 +101,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="{{ auth()->user()->role === 'super_admin' ? '9' : '7' }}" class="text-center py-4">
+        <td colspan="{{ auth()->user()->role === 'super_admin' ? '10' : '8' }}" class="text-center py-4">
             <p class="text-muted mb-0">No jobs found matching your filters</p>
         </td>
     </tr>

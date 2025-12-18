@@ -62,6 +62,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/leads/bulk-assign', [LeadController::class, 'bulkAssign'])->name('leads.bulkAssign');
     Route::post('/leads/{lead}/status', [LeadController::class, 'updateStatus'])
         ->name('leads.update-status');
+    Route::delete('leads/followup/{followup}', [LeadController::class, 'deleteFollowup'])->name('leads.deleteFollowup');
+    Route::delete('leads/call/{call}', [LeadController::class, 'deleteCall'])->name('leads.deleteCall');
+    Route::delete('leads/note/{note}', [LeadController::class, 'deleteNote'])->name('leads.deleteNote');
 
     // Lead resource route - MUST BE LAST
     Route::resource('leads', LeadController::class);
@@ -70,6 +73,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/lead-followups/{followup}/complete', [LeadController::class, 'complete'])->name('lead-followups.complete');
 
     // Job Management
+    Route::post('/jobs/{job}/confirm-status', [JobController::class, 'confirmStatus'])
+    ->name('jobs.confirm-status');
     Route::resource('jobs', JobController::class);
     Route::post('jobs/{job}/assign', [JobController::class, 'assign'])->name('jobs.assign');
     Route::post('jobs/{job}/start', [JobController::class, 'startJob'])->name('jobs.start');

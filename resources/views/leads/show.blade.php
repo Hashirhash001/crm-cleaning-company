@@ -367,6 +367,18 @@
             font-size: 1.3rem;
         }
     }
+
+    .deleteFollowup, .deleteCall, .deleteNote {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .deleteFollowup:hover, .deleteCall:hover, .deleteNote:hover {
+        opacity: 1;
+    }
+
 </style>
 @endsection
 
@@ -686,9 +698,16 @@
                                                 <span class="badge bg-danger ms-2">Overdue</span>
                                             @endif
                                         </div>
-                                        <span class="badge bg-{{ $followup->status === 'completed' ? 'success' : ($followup->status === 'cancelled' ? 'secondary' : 'primary') }}">
-                                            {{ ucfirst($followup->status) }}
-                                        </span>
+                                        <div>
+                                            <span class="badge bg-{{ $followup->status === 'completed' ? 'success' : ($followup->status === 'cancelled' ? 'secondary' : 'primary') }}">
+                                                {{ ucfirst($followup->status) }}
+                                            </span>
+                                            @if(auth()->user()->role === 'super_admin' || $followup->created_by === auth()->id() || $followup->assigned_to === auth()->id())
+                                                <button class="btn btn-sm btn-danger ms-2 deleteFollowup" data-id="{{ $followup->id }}" title="Delete Followup">
+                                                    <i class="las la-trash"></i>
+                                                </button>
+                                            @endif
+                                        </div>
                                     </div>
 
                                     <div class="row">
@@ -764,27 +783,32 @@
                     </div>
 
                     @if($lead->calls && $lead->calls->count() > 0)
-                        @foreach($lead->calls as $call)
-                            <div class="call-log-item">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <strong>{{ $call->user->name }}</strong>
-                                        <span class="badge bg-{{ $call->outcome === 'interested' ? 'success' : ($call->outcome === 'not_interested' ? 'danger' : 'warning') }} ms-2">
-                                            {{ ucfirst(str_replace('_', ' ', $call->outcome)) }}
-                                        </span>
-                                        <p class="text-muted small mb-1 mt-1">
-                                            {{ \Carbon\Carbon::parse($call->call_date)->format('d M Y') }}
-                                            @if($call->duration)
-                                                • Duration: {{ $call->duration }} min
-                                            @endif
-                                        </p>
-                                        @if($call->notes)
-                                            <p class="mb-0 small">{{ $call->notes }}</p>
+                    @foreach($lead->calls as $call)
+                        <div class="call-log-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>{{ $call->user->name }}</strong>
+                                    <span class="badge bg-{{ $call->outcome === 'interested' ? 'success' : ($call->outcome === 'not_interested' ? 'danger' : 'warning') }} ms-2">
+                                        {{ ucfirst(str_replace('_', ' ', $call->outcome)) }}
+                                    </span>
+                                    <p class="text-muted small mb-1 mt-1">
+                                        {{ \Carbon\Carbon::parse($call->call_date)->format('d M Y') }}
+                                        @if($call->duration)
+                                            • Duration: {{ $call->duration }} min
                                         @endif
-                                    </div>
+                                    </p>
+                                    @if($call->notes)
+                                        <p class="mb-0 small">{{ $call->notes }}</p>
+                                    @endif
                                 </div>
+                                @if(auth()->user()->role === 'super_admin' || auth()->user()->role === 'lead_manager' || $call->user_id === auth()->id())
+                                    <button class="btn btn-sm btn-danger deleteCall" data-id="{{ $call->id }}" title="Delete Call">
+                                        <i class="las la-trash"></i>
+                                    </button>
+                                @endif
                             </div>
-                        @endforeach
+                        </div>
+                    @endforeach
                     @else
                         <div class="empty-state">
                             <i class="las la-phone-slash"></i>
@@ -807,13 +831,23 @@
                     @if($lead->notes && $lead->notes->count() > 0)
                         @foreach($lead->notes as $note)
                             <div class="note-item">
-                                <div class="d-flex justify-content-between">
-                                    <strong>{{ $note->createdBy->name }}</strong>
-                                    <small class="text-muted">{{ $note->created_at->diffForHumans() }}</small>
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-content-between">
+                                            <strong>{{ $note->createdBy->name }}</strong>
+                                            <small class="text-muted">{{ $note->created_at->diffForHumans() }}</small>
+                                        </div>
+                                        <p class="mb-0 mt-2">{{ $note->note }}</p>
+                                    </div>
+                                    @if(auth()->user()->role === 'super_admin' || auth()->user()->role === 'lead_manager' || $note->created_by === auth()->id())
+                                        <button class="btn btn-sm btn-danger ms-2 deleteNote" data-id="{{ $note->id }}" title="Delete Note">
+                                            <i class="las la-trash"></i>
+                                        </button>
+                                    @endif
                                 </div>
-                                <p class="mb-0 mt-2">{{ $note->note }}</p>
                             </div>
                         @endforeach
+
                     @else
                         <div class="empty-state">
                             <i class="las la-comment-slash"></i>
@@ -1249,6 +1283,121 @@ $(document).ready(function() {
             }
         });
     });
+
+    // Delete Followup
+    $(document).on('click', '.deleteFollowup', function() {
+        var followupId = $(this).data('id');
+
+        Swal.fire({
+            title: 'Delete Followup?',
+            text: 'This action cannot be undone',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Delete',
+            confirmButtonColor: '#ef4444',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/leads/followup/${followupId}`,
+                    type: 'DELETE',
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Deleted!',
+                                text: response.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete followup', 'error');
+                    }
+                });
+            }
+        });
+    });
+
+    // Delete Call Log
+    $(document).on('click', '.deleteCall', function() {
+        var callId = $(this).data('id');
+
+        Swal.fire({
+            title: 'Delete Call Log?',
+            text: 'This action cannot be undone',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Delete',
+            confirmButtonColor: '#ef4444',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/leads/call/${callId}`,
+                    type: 'DELETE',
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Deleted!',
+                                text: response.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete call log', 'error');
+                    }
+                });
+            }
+        });
+    });
+
+    // Delete Note
+    $(document).on('click', '.deleteNote', function() {
+        var noteId = $(this).data('id');
+
+        Swal.fire({
+            title: 'Delete Note?',
+            text: 'This action cannot be undone',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Delete',
+            confirmButtonColor: '#ef4444',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/leads/note/${noteId}`,
+                    type: 'DELETE',
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Deleted!',
+                                text: response.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete note', 'error');
+                    }
+                });
+            }
+        });
+    });
+
 
     // Approve Lead
     window.approveLead = function() {

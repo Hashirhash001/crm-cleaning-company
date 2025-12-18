@@ -250,6 +250,25 @@
                                 </a>
                             </li>
 
+                            <!-- Jobs Menu for Telecallers -->
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
+                                    <i class="iconoir-task-list menu-icon"></i>
+                                    <span>Jobs
+                                        @php
+                                            // Count jobs from leads created by this telecaller
+                                            $myJobsCount = \App\Models\Job::whereHas('lead', function($query) {
+                                                $query->where('assigned_to', auth()->id());
+                                            })->whereIn('status', ['pending', 'confirmed'])->count();
+                                        @endphp
+                                        @if($myJobsCount > 0)
+                                            <span class="badge bg-primary ms-2">{{ $myJobsCount }}</span>
+                                        @endif
+                                    </span>
+                                </a>
+                            </li>
+
+
                         @elseif(auth()->user()->role === 'field_staff')
                             <!-- Field Staff Menu -->
                             <li class="nav-item">

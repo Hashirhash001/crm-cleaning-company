@@ -28,6 +28,7 @@ class LeadController extends Controller
     public function index(Request $request)
     {
         $user = auth()->user();
+
         $query = Lead::with(['branch', 'services', 'source', 'createdBy', 'assignedTo']);
 
         $telecallers = User::where('role', 'telecallers')
@@ -47,12 +48,12 @@ class LeadController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        // Apply filters...
+        // Apply filters
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Open leads = anything not approved
+        // Open leads (anything not approved)
         if ($request->input('mode') === 'open') {
             $query->where('status', '!=', 'approved');
         }
@@ -61,8 +62,16 @@ class LeadController extends Controller
             $query->where('branch_id', $request->branch_id);
         }
 
-        if ($request->filled('lead_source_id') && $request->lead_source_id != '') {
+        if ($request->filled('lead_source_id') && $request->lead_source_id !== '0') {
             $query->where('lead_source_id', $request->lead_source_id);
+        }
+
+        // Filter by service - check the many-to-many relationship
+        if ($request->filled('service_id')) {
+            $serviceId = $request->service_id;
+            $query->whereHas('services', function($subQuery) use ($serviceId) {
+                $subQuery->where('services.id', $serviceId);
+            });
         }
 
         if ($request->filled('date_from')) {
@@ -94,7 +103,7 @@ class LeadController extends Controller
         // Paginate results
         $leads = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        // FIX: Calculate pending count based on role
+        // Calculate pending count based on role
         if ($user->role === 'super_admin') {
             $pendingcount = Lead::where('status', 'pending')->count();
         } elseif ($user->role === 'lead_manager') {
@@ -106,7 +115,7 @@ class LeadController extends Controller
         }
 
         $branches = Branch::where('is_active', true)->get();
-        $services = Service::where('is_active', true)->get();
+        $services = Service::where('is_active', true)->orderBy('name')->get();
         $lead_sources = LeadSource::where('is_active', true)->get();
 
         // Return JSON for AJAX requests
@@ -294,39 +303,26 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
+            // Allow super_admin, lead_manager, and telecallers to edit leads
             if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return back()->with('error', 'Unauthorized');
             }
 
-            // Non-admins can edit only active (non-approved/rejected) leads
-            if ($user->role !== 'super_admin'
-                && !in_array($lead->status, [
-                    'pending',
-                    'site_visit',
-                    'not_accepting_tc',
-                    'they_will_confirm',
-                    'date_issue',
-                    'rate_issue',
-                    'customisation',
-                    'service_not_provided',
-                    'just_enquiry',
-                    'immediate_service',
-                    'no_response',
-                    'location_not_available',
-                    'night_work_demanded',
-                ])) {
-                return back()->with('error', 'Can only edit active leads');
-            }
-
+            // Telecallers can only edit assigned leads
             if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
                 return back()->with('error', 'You can only edit your assigned leads');
             }
 
+            // Lead managers can only edit their own leads
             if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
                 return back()->with('error', 'You can only edit your own leads');
             }
 
-            $validated = $request->validate([
+            // Determine if the lead is currently approved
+            $isApprovedLead = $lead->status === 'approved';
+
+            // Build validation rules
+            $validationRules = [
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email|unique:leads,email,' . $lead->id,
                 'phone' => 'required|string|max:20|unique:leads,phone,' . $lead->id,
@@ -345,8 +341,18 @@ class LeadController extends Controller
                 'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
-                'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation',
-            ]);
+            ];
+
+            // Status validation: required for super_admin or non-approved leads
+            // For telecallers/lead_managers editing approved leads, status is sent as hidden field
+            if ($user->role === 'super_admin' || !$isApprovedLead) {
+                $validationRules['status'] = 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected';
+            } else {
+                // For telecallers/lead_managers, status should be 'approved' (sent as hidden)
+                $validationRules['status'] = 'required|in:approved';
+            }
+
+            $validated = $request->validate($validationRules);
 
             // Force telecaller self-assignment
             if ($user->role === 'telecallers') {
@@ -354,13 +360,22 @@ class LeadController extends Controller
             }
 
             $branchId = $user->role === 'super_admin' ? $validated['branch_id'] : $user->branch_id;
+
+            // Track changes
             $amountChanged = isset($validated['amount']) && $validated['amount'] != $lead->amount;
 
-            // If lead is already approved, force status to stay approved
-            $newStatus = $lead->status === 'approved'
-                ? $lead->status
-                : $validated['status'];
+            // Track if services changed
+            $oldServiceIds = $lead->services->pluck('id')->sort()->values()->toArray();
+            $newServiceIds = collect($validated['service_ids'])->sort()->values()->toArray();
+            $servicesChanged = $oldServiceIds != $newServiceIds;
 
+            // Determine the new status
+            $newStatus = $validated['status'];
+
+            // Track if status actually changed
+            $statusChanged = $newStatus !== $lead->status;
+
+            // Update lead
             $lead->update([
                 'name' => $validated['name'],
                 'email' => $validated['email'] ?? null,
@@ -383,23 +398,88 @@ class LeadController extends Controller
                 'status' => $newStatus,
             ]);
 
+            // Sync lead services
             $lead->services()->sync($validated['service_ids']);
+
+            // Update single service_id field (use first service for backward compatibility)
+            $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
+
+            // If lead was/is approved and has related jobs, sync changes to jobs
+            if (($isApprovedLead || $newStatus === 'approved') && ($amountChanged || $servicesChanged)) {
+                $relatedJobs = $lead->jobs()->whereIn('status', ['confirmed', 'pending', 'assigned', 'in_progress'])->get();
+
+                foreach ($relatedJobs as $job) {
+                    $updateData = [];
+
+                    // Update job amount if changed
+                    if ($amountChanged) {
+                        $updateData['amount'] = $validated['amount'];
+                    }
+
+                    // Change job status to pending if it was confirmed (needs admin re-approval)
+                    if ($job->status === 'confirmed' && ($amountChanged || $servicesChanged)) {
+                        $updateData['status'] = 'pending';
+                    }
+
+                    // Update job if there are changes
+                    if (!empty($updateData)) {
+                        $job->update($updateData);
+                    }
+
+                    // Sync job services if changed
+                    if ($servicesChanged) {
+                        $job->services()->sync($validated['service_ids']);
+
+                        // Update single service_id field
+                        $job->update(['service_id' => $validated['service_ids'][0] ?? null]);
+                    }
+                }
+
+                Log::info('Approved lead edited - related jobs updated', [
+                    'lead_id' => $lead->id,
+                    'jobs_updated' => $relatedJobs->count(),
+                    'amount_changed' => $amountChanged,
+                    'services_changed' => $servicesChanged,
+                ]);
+            }
 
             Log::info('Lead updated', [
                 'lead_id' => $lead->id,
                 'updated_by' => $user->id,
+                'user_role' => $user->role,
                 'amount_changed' => $amountChanged,
+                'services_changed' => $servicesChanged,
+                'status_changed' => $statusChanged,
+                'old_status' => $lead->getOriginal('status'),
+                'new_status' => $newStatus,
             ]);
+
+            // Build success message
+            $message = "Lead {$lead->lead_code} has been updated.";
+            if (($isApprovedLead || $newStatus === 'approved') && ($amountChanged || $servicesChanged)) {
+                $message .= ' Related jobs have been updated and set to pending status for admin approval.';
+            }
 
             return redirect()->route('leads.index')
                 ->with('success', json_encode([
                     'title' => 'Lead Updated Successfully!',
-                    'message' => "Lead {$lead->lead_code} has been updated.",
+                    'message' => $message,
                     'leadcode' => $lead->lead_code,
                 ]));
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Lead update validation error', [
+                'lead_id' => $lead->id,
+                'errors' => $e->errors(),
+                'user_role' => $user->role,
+            ]);
+            return back()->withErrors($e->errors())->withInput();
+
         } catch (\Exception $e) {
-            Log::error('Lead update error: ' . $e->getMessage());
+            Log::error('Lead update error: ' . $e->getMessage(), [
+                'lead_id' => $lead->id,
+                'trace' => $e->getTraceAsString()
+            ]);
             return back()->withInput()->with('error', 'Error updating lead: ' . $e->getMessage());
         }
     }
@@ -772,10 +852,10 @@ class LeadController extends Controller
             $user = auth()->user();
 
             // Allow super_admin, lead_manager, and telecallers
-            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
+            if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized. Only Super Admin, Lead Manager, or Telecaller can approve leads.'
+                    'message' => 'Unauthorized. Only Super Admin and Lead Manager can approve leads.'
                 ], 403);
             }
 
@@ -840,17 +920,22 @@ class LeadController extends Controller
                     'title' => ($lead->service ? $lead->service->name : 'Cleaning Service') . ' - ' . $lead->name,
                     'customer_id' => $customer->id,
                     'lead_id' => $lead->id,
-                    'service_id' => $lead->service_id,
+                    'service_id' => $lead->services->first()->id ?? null, // First service for backward compatibility
                     'branch_id' => $lead->branch_id,
                     'assigned_to' => $lead->assigned_to,
                     'amount' => $lead->amount,
                     'scheduled_date' => null,
-                    'status' => 'pending',
+                    'status' => 'confirmed',
                     'created_by' => auth()->id(),
                     'notes' => 'Auto-created from approved lead: ' . $lead->lead_code . "\n" .
                             'Amount: ₹' . number_format($lead->amount, 2) . "\n" .
                             ($validated['approval_notes'] ?? ''),
                 ]);
+
+                // Sync all services from lead to job
+                if ($lead->services->isNotEmpty()) {
+                    $job->services()->sync($lead->services->pluck('id'));
+                }
 
                 // Update Lead with approval details
                 $lead->update([
@@ -1373,6 +1458,135 @@ class LeadController extends Controller
         }
 
         return view('leads.google-ads', compact('leads', 'pendingcount', 'services'));
+    }
+
+    /**
+     * Delete a followup
+     */
+    public function deleteFollowup(LeadFollowup $followup)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization: super_admin, lead_manager, or creator/assignee
+            if ($user->role !== 'super_admin' &&
+                $user->role !== 'lead_manager' &&
+                $followup->created_by !== $user->id &&
+                $followup->assigned_to !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to delete this followup'
+                ], 403);
+            }
+
+            // Don't allow deletion of completed followups (optional - remove if you want)
+            if ($followup->status === 'completed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete completed followups'
+                ], 400);
+            }
+
+            $followup->delete();
+
+            Log::info('Followup deleted', [
+                'followup_id' => $followup->id,
+                'lead_id' => $followup->lead_id,
+                'deleted_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete followup error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting followup'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a call log
+     */
+    public function deleteCall(LeadCall $call)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization: super_admin, lead_manager, or creator
+            if ($user->role !== 'super_admin' &&
+                $user->role !== 'lead_manager' &&
+                $call->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to delete this call log'
+                ], 403);
+            }
+
+            $call->delete();
+
+            Log::info('Call log deleted', [
+                'call_id' => $call->id,
+                'lead_id' => $call->lead_id,
+                'deleted_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Call log deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete call error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting call log'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a note
+     */
+    public function deleteNote(LeadNote $note)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization: super_admin, lead_manager, or creator
+            if ($user->role !== 'super_admin' &&
+                $user->role !== 'lead_manager' &&
+                $note->created_by !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to delete this note'
+                ], 403);
+            }
+
+            $note->delete();
+
+            Log::info('Note deleted', [
+                'note_id' => $note->id,
+                'lead_id' => $note->lead_id,
+                'deleted_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Note deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete note error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting note'
+            ], 500);
+        }
     }
 
 }

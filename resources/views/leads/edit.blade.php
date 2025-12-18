@@ -375,44 +375,66 @@
                     <div class="form-section">
                         <h5><i class="las la-tasks me-2"></i>Status of Lead & Assignment</h5>
 
+                        {{-- Show alert if lead is approved --}}
+                        @if($lead->status === 'approved')
+                        <div class="alert alert-success mb-3">
+                            <i class="las la-check-circle me-2"></i>
+                            <strong>This lead is APPROVED.</strong>
+                            @if(auth()->user()->role === 'super_admin')
+                                You can edit all details including status. Any changes to amount or services will update related jobs and set them to pending status for admin review.
+                            @else
+                                You can edit the details, but the lead will remain approved. Any changes to amount or services will update related jobs and set them to pending status for admin review.
+                            @endif
+                        </div>
+                        @endif
+
                         <div class="row mb-3">
-                            @if($lead->status !== 'approved')
+                            @php $user = auth()->user(); @endphp
+
+                            {{-- Status Field --}}
+                            @if($lead->status === 'approved' && $user->role !== 'super_admin')
+                                {{-- For telecallers and lead managers: keep approved status hidden --}}
+                                <input type="hidden" name="status" value="approved">
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Lead Status</label>
+                                    <input type="text" class="form-control bg-light" value="Approved" disabled>
+                                    <small class="text-muted">Status locked. Only admin can change approved status.</small>
+                                </div>
+                            @else
+                                {{-- For super admin or non-approved leads: show status dropdown --}}
                                 <div class="col-md-6">
                                     <label for="status" class="form-label required-field">Lead Status</label>
                                     <select class="form-select @error('status') is-invalid @enderror"
                                             id="status"
                                             name="status"
                                             required>
+                                        <option value="">Select Status</option>
                                         <option value="pending" {{ old('status', $lead->status) == 'pending' ? 'selected' : '' }}>Pending</option>
                                         <option value="site_visit" {{ old('status', $lead->status) == 'site_visit' ? 'selected' : '' }}>Site Visit</option>
                                         <option value="not_accepting_tc" {{ old('status', $lead->status) == 'not_accepting_tc' ? 'selected' : '' }}>Not Accepting T&C</option>
                                         <option value="they_will_confirm" {{ old('status', $lead->status) == 'they_will_confirm' ? 'selected' : '' }}>They Will Confirm</option>
                                         <option value="date_issue" {{ old('status', $lead->status) == 'date_issue' ? 'selected' : '' }}>Date Issue</option>
                                         <option value="rate_issue" {{ old('status', $lead->status) == 'rate_issue' ? 'selected' : '' }}>Rate Issue</option>
-                                        <option value="service_not_provided" {{ old('status', $lead->status) == 'service_not_provided' ? 'selected' : '' }}>Service We Do Not Provide</option>
+                                        <option value="service_not_provided" {{ old('status', $lead->status) == 'service_not_provided' ? 'selected' : '' }}>Service Not Provided</option>
                                         <option value="just_enquiry" {{ old('status', $lead->status) == 'just_enquiry' ? 'selected' : '' }}>Just Enquiry</option>
                                         <option value="immediate_service" {{ old('status', $lead->status) == 'immediate_service' ? 'selected' : '' }}>Immediate Service</option>
                                         <option value="no_response" {{ old('status', $lead->status) == 'no_response' ? 'selected' : '' }}>No Response</option>
                                         <option value="location_not_available" {{ old('status', $lead->status) == 'location_not_available' ? 'selected' : '' }}>Location Not Available</option>
                                         <option value="night_work_demanded" {{ old('status', $lead->status) == 'night_work_demanded' ? 'selected' : '' }}>Night Work Demanded</option>
                                         <option value="customisation" {{ old('status', $lead->status) == 'customisation' ? 'selected' : '' }}>Customisation</option>
+                                        @if($user->role === 'super_admin')
+                                            <option value="approved" {{ old('status', $lead->status) == 'approved' ? 'selected' : '' }}>Approved</option>
+                                            <option value="rejected" {{ old('status', $lead->status) == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                                        @endif
                                     </select>
                                     @error('status')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
-                                @else
-                                {{-- Approved lead: show read‑only status label --}}
-                                <div class="col-md-6">
-                                    <label class="form-label">Lead Status</label>
-                                    <div class="form-control-plaintext fw-semibold">
-                                        {{ $lead->status_label }}
-                                    </div>
-                                </div>
-                                {{-- keep the status value so validation passes --}}
-                                <input type="hidden" name="status" value="{{ $lead->status }}">
                             @endif
 
+                            {{-- Branch Field --}}
                             @if(auth()->user()->role === 'super_admin')
                             <div class="col-md-6">
                                 <label for="branch_id" class="form-label required-field">Branch</label>
@@ -437,8 +459,6 @@
                         </div>
 
                         <div class="row mb-3">
-                            @php $user = auth()->user(); @endphp
-
                             <div class="col-md-6">
                                 <label for="assigned_to" class="form-label">Assign To Telecaller</label>
 
@@ -464,7 +484,6 @@
                                     @enderror
                                 @endif
                             </div>
-
                         </div>
                     </div>
 
@@ -669,7 +688,8 @@ $(document).ready(function() {
             isValid = false;
         }
 
-        if (!$('#status').val()) {
+        // Only validate status dropdown if it's visible (not hidden)
+        if ($('#status').is(':visible') && !$('#status').val()) {
             errors.push('Lead status is required');
             $('#status').addClass('is-invalid');
             isValid = false;

@@ -476,7 +476,7 @@
                         <button type="submit" class="btn btn-primary me-2" id="submitBtn">
                             <i class="las la-save me-1"></i> Create Lead
                         </button>
-                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
                             <button type="button" class="btn btn-success" id="createAndConvertBtn">
                                 <i class="las la-briefcase me-1"></i> Create & Convert to Work Order
                             </button>
