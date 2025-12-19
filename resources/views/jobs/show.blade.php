@@ -321,6 +321,55 @@
             grid-template-columns: 1fr;
         }
     }
+    /* Better button spacing and alignment */
+    .action-button {
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        font-weight: 600;
+        border: none;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .action-button i {
+        font-size: 1.1rem;
+    }
+
+    .action-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Responsive button layout */
+    @media (max-width: 768px) {
+        .job-header-card .gap-2 {
+            gap: 0.5rem !important;
+        }
+
+        .action-button {
+            font-size: 0.85rem;
+            padding: 0.5rem 0.8rem;
+        }
+
+        .job-header-card h2 {
+            font-size: 1.5rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .action-button {
+            width: 100%;
+        }
+
+        .job-header-card .d-flex.flex-wrap.gap-2 {
+            width: 100%;
+        }
+    }
+
 </style>
 @endsection
 
@@ -331,8 +380,8 @@
         <!-- Job Header -->
         <div class="job-header-card">
             <div class="row align-items-center">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-2">
+                <div class="col-md-6 col-lg-5">
+                    <div class="d-flex align-items-center mb-2 flex-wrap">
                         <h2 class="mb-0 me-3">{{ $job->title }}</h2>
                         <span class="job-status-badge bg-{{ $job->status }}">
                             {{ ucfirst(str_replace('_', ' ', $job->status)) }}
@@ -344,50 +393,52 @@
                     </p>
                 </div>
 
-                <div class="col-md-6 text-md-end mt-3 mt-md-0">
-                    <a href="{{ route('jobs.index') }}" class="btn btn-light action-button me-2">
-                        <i class="las la-arrow-left me-2"></i>Back to Jobs
-                    </a>
+                <div class="col-md-6 col-lg-7 mt-3 mt-md-0">
+                    <div class="d-flex justify-content-md-end align-items-center flex-wrap gap-2">
+                        @php
+                            $user = auth()->user();
+                            $canEdit = in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']);
+                        @endphp
 
-                    @php
-                        $user = auth()->user();
-                        $canEdit = in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']);
-                    @endphp
+                        <a href="{{ route('jobs.index') }}" class="btn btn-light action-button">
+                            <i class="las la-arrow-left me-1"></i>Back to Jobs
+                        </a>
 
-                    @if($canEdit)
-                        <button type="button" class="btn btn-primary action-button me-2 editJobBtn" data-id="{{ $job->id }}">
-                            <i class="las la-edit me-2"></i>Edit
-                        </button>
-                    @endif
-
-                    @if(auth()->user()->role === 'super_admin')
-                        <button type="button" class="btn btn-success action-button me-2 assignJobBtn" data-id="{{ $job->id }}">
-                            <i class="las la-user-check me-2"></i>Assign
-                        </button>
-
-                        @if($job->status === 'pending')
-                        <button type="button" class="btn btn-info action-button me-2" onclick="confirmJobStatus({{ $job->id }})">
-                            <i class="las la-check-double me-2"></i>Confirm
-                        </button>
-                        @endif
-
-                        <button type="button" class="btn btn-danger action-button" onclick="deleteJob({{ $job->id }})">
-                            <i class="las la-trash-alt me-2"></i>Delete
-                        </button>
-                    @endif
-
-                    @if(auth()->user()->role === 'field_staff' && auth()->id() === $job->assigned_to)
-                        @if($job->status === 'assigned')
-                            <button type="button" class="btn btn-success action-button" onclick="startJob({{ $job->id }})">
-                                <i class="las la-play me-2"></i>Start Job
+                        @if($canEdit)
+                            <button type="button" class="btn btn-primary action-button editJobBtn" data-id="{{ $job->id }}">
+                                <i class="las la-edit me-1"></i>Edit
                             </button>
                         @endif
-                        @if($job->status === 'in_progress')
-                            <button type="button" class="btn btn-success action-button" onclick="completeJob({{ $job->id }})">
-                                <i class="las la-check-circle me-2"></i>Complete Job
+
+                        @if(auth()->user()->role === 'super_admin')
+                            <button type="button" class="btn btn-success action-button assignJobBtn" data-id="{{ $job->id }}">
+                                <i class="las la-user-check me-1"></i>Assign
+                            </button>
+
+                            @if($job->status === 'pending')
+                            <button type="button" class="btn btn-info action-button" onclick="confirmJobStatus({{ $job->id }})">
+                                <i class="las la-check-double me-1"></i>Confirm
+                            </button>
+                            @endif
+
+                            <button type="button" class="btn btn-danger action-button" onclick="deleteJob({{ $job->id }})">
+                                <i class="las la-trash-alt me-1"></i>Delete
                             </button>
                         @endif
-                    @endif
+
+                        @if(auth()->user()->role === 'field_staff' && auth()->id() === $job->assigned_to)
+                            @if($job->status === 'assigned')
+                                <button type="button" class="btn btn-success action-button" onclick="startJob({{ $job->id }})">
+                                    <i class="las la-play me-1"></i>Start Job
+                                </button>
+                            @endif
+                            @if($job->status === 'in_progress')
+                                <button type="button" class="btn btn-success action-button" onclick="completeJob({{ $job->id }})">
+                                    <i class="las la-check-circle me-1"></i>Complete Job
+                                </button>
+                            @endif
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>

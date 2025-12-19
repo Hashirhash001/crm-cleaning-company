@@ -100,8 +100,17 @@ class LeadController extends Controller
             });
         }
 
+        // ============================================
+        // APPLY SORTING
+        // ============================================
+        $sortColumn = $request->get('sort_column', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+
+        // Use the scope for sorting
+        $query->sort($sortColumn, $sortDirection);
+
         // Paginate results
-        $leads = $query->orderBy('created_at', 'desc')->paginate(15);
+        $leads = $query->paginate(15);
 
         // Calculate pending count based on role
         if ($user->role === 'super_admin') {
@@ -121,9 +130,14 @@ class LeadController extends Controller
         // Return JSON for AJAX requests
         if ($request->ajax()) {
             return response()->json([
+                'success' => true,
                 'html' => view('leads.partials.table-rows', compact('leads'))->render(),
                 'pagination' => $leads->links('pagination::bootstrap-5')->render(),
                 'total' => $leads->total(),
+                'current_sort' => [
+                    'column' => $sortColumn,
+                    'direction' => $sortDirection,
+                ],
             ]);
         }
 

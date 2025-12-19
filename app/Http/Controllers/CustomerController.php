@@ -19,14 +19,14 @@ class CustomerController extends Controller
     {
         $user = auth()->user();
 
-        // Allow super_admin, lead_manager AND telecallers
+        // Authorization
         if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
             abort(403, 'Unauthorized');
         }
 
-        $query = Customer::with(['lead', 'jobs', 'completedJobs']);
+        $query = Customer::with(['lead', 'jobs']);
 
-        // Telecallers can only see customers from their assigned jobs/leads
+        // Telecallers can only see their assigned customers
         if ($user->role === 'telecallers') {
             $query->where(function($q) use ($user) {
                 $q->whereHas('jobs', function($jobQuery) use ($user) {
@@ -52,29 +52,45 @@ class CustomerController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%")
-                ->orWhere('customer_code', 'like', "%{$search}%");
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('customer_code', 'like', "%{$search}%");
             });
         }
 
-        $customers = $query->orderBy('created_at', 'desc')->paginate(15);
+        // ============================================
+        // APPLY SORTING
+        // ============================================
 
-        // Return JSON for AJAX - Check both ways
+        $sortColumn = $request->get('sort_column', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+
+        // Use the scope for sorting
+        $query->sort($sortColumn, $sortDirection);
+
+        $customers = $query->paginate(15);
+
+        // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
+                'success' => true,
                 'html' => view('customers.partials.table-rows', compact('customers'))->render(),
                 'pagination' => $customers->links('pagination::bootstrap-5')->render(),
-                'total' => $customers->total()
+                'total' => $customers->total(),
+                'current_sort' => [
+                    'column' => $sortColumn,
+                    'direction' => $sortDirection,
+                ],
             ]);
         }
 
         return view('customers.index', compact('customers'));
     }
 
+    // ... rest of your methods remain the same ...
+
     public function create()
     {
-        // Only super_admin, lead_manager and telecallers can create customers
         if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
             return back()->with('error', 'Unauthorized. Only Super Admin, Lead Manager or Telecallers can create customers.');
         }
@@ -85,7 +101,6 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         try {
-            // Authorization check
             if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 if ($request->ajax()) {
                     return response()->json([
@@ -96,7 +111,6 @@ class CustomerController extends Controller
                 return back()->with('error', 'Unauthorized.');
             }
 
-            // Validate request
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'email' => 'nullable|email|unique:customers,email',
@@ -114,7 +128,6 @@ class CustomerController extends Controller
                 'priority.in' => 'Please select a valid priority level',
             ]);
 
-            // Check if validation fails
             if ($validator->fails()) {
                 if ($request->ajax()) {
                     return response()->json([
@@ -127,7 +140,6 @@ class CustomerController extends Controller
 
             $validated = $validator->validated();
 
-            // Create customer
             $customer = Customer::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'] ?? null,
@@ -144,7 +156,6 @@ class CustomerController extends Controller
                 'created_by' => auth()->id()
             ]);
 
-            // Return JSON for AJAX
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
@@ -154,7 +165,6 @@ class CustomerController extends Controller
                 ]);
             }
 
-            // Return with success message for normal form submission
             return redirect()->route('customers.index')
                 ->with('success', json_encode([
                     'title' => 'Customer Created Successfully!',
@@ -181,14 +191,11 @@ class CustomerController extends Controller
         }
     }
 
-
     public function show(Customer $customer)
     {
         $user = auth()->user();
 
-        // Authorization check
         if ($user->role === 'telecallers') {
-            // Telecallers can only view customers assigned to them
             $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
                       || ($customer->lead && $customer->lead->assigned_to == $user->id);
 
@@ -205,7 +212,6 @@ class CustomerController extends Controller
     public function update(Request $request, Customer $customer)
     {
         try {
-            // Only super_admin and lead_manager can update customers
             if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
@@ -242,7 +248,6 @@ class CustomerController extends Controller
 
     public function edit(Customer $customer)
     {
-        // Only super_admin and lead_manager can edit customers
         if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
             abort(403, 'Unauthorized. Only Super Admin, Lead Manager and Telecallers can edit customers.');
         }
@@ -262,7 +267,6 @@ class CustomerController extends Controller
         try {
             $user = auth()->user();
 
-            // Authorization: Telecallers can only add notes to their assigned customers
             if ($user->role === 'telecallers') {
                 $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
                           || ($customer->lead && $customer->lead->assigned_to == $user->id);
@@ -311,7 +315,6 @@ class CustomerController extends Controller
     public function destroy(Customer $customer)
     {
         try {
-            // Only super_admin can delete customers
             if (auth()->user()->role !== 'super_admin') {
                 return response()->json([
                     'success' => false,
@@ -319,7 +322,6 @@ class CustomerController extends Controller
                 ], 403);
             }
 
-            // Check if customer has jobs
             if ($customer->jobs()->count() > 0) {
                 return response()->json([
                     'success' => false,

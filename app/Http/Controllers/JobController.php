@@ -82,8 +82,17 @@ class JobController extends Controller
             });
         }
 
+        // ============================================
+        // APPLY SORTING
+        // ============================================
+        $sortColumn = $request->get('sort_column', 'created_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+
+        // Use the scope for sorting
+        $query->sort($sortColumn, $sortDirection);
+
         // Paginate instead of get()
-        $jobs = $query->orderBy('created_at', 'desc')->paginate(15);
+        $jobs = $query->paginate(15);
 
         // Get data for filters
         $branches = Branch::all();
@@ -104,9 +113,14 @@ class JobController extends Controller
         // Return JSON for AJAX requests
         if ($request->ajax()) {
             return response()->json([
+                'success' => true,
                 'html' => view('jobs.partials.table-rows', compact('jobs'))->render(),
                 'pagination' => $jobs->links('pagination::bootstrap-5')->render(),
-                'total' => $jobs->total()
+                'total' => $jobs->total(),
+                'current_sort' => [
+                    'column' => $sortColumn,
+                    'direction' => $sortDirection,
+                ],
             ]);
         }
 
@@ -311,7 +325,7 @@ class JobController extends Controller
             $newStatus = $validated['status'] ?? $job->status;
 
             // If amount or services changed and job has a lead and is confirmed, set to pending
-            if (($amountChanged || $servicesChanged) && $job->lead_id && $job->status === 'confirmed') {
+            if (($amountChanged || $servicesChanged) && $job->lead_id) {
                 $newStatus = 'pending';
             }
 

@@ -2,6 +2,32 @@
 
 @section('title', 'Customer Details')
 
+@section('extra-css')
+<style>
+    .job-link {
+        color: #0d6efd;
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .job-link:hover {
+        color: #0a58ca;
+        text-decoration: underline;
+    }
+
+    .job-code-badge {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .job-code-badge:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+</style>
+@endsection
+
 @section('content')
 <div class="row">
     <div class="col-sm-12">
@@ -38,8 +64,20 @@
                 <p><strong>Customer Code:</strong><br><span class="badge bg-primary fs-6">{{ $customer->customer_code }}</span></p>
                 <hr>
                 <p><strong>Name:</strong><br>{{ $customer->name }}</p>
-                <p><strong>Email:</strong><br><a href="mailto:{{ $customer->email }}">{{ $customer->email }}</a></p>
-                <p><strong>Phone:</strong><br>{{ $customer->phone ?? 'N/A' }}</p>
+                <p><strong>Email:</strong><br>
+                    @if($customer->email)
+                        <a href="mailto:{{ $customer->email }}">{{ $customer->email }}</a>
+                    @else
+                        <span class="text-muted">N/A</span>
+                    @endif
+                </p>
+                <p><strong>Phone:</strong><br>
+                    @if($customer->phone)
+                        <a href="tel:{{ $customer->phone }}">{{ $customer->phone }}</a>
+                    @else
+                        <span class="text-muted">N/A</span>
+                    @endif
+                </p>
                 <p><strong>Address:</strong><br>{{ $customer->address ?? 'N/A' }}</p>
                 <p><strong>Customer Since:</strong><br>{{ $customer->created_at->format('d M Y') }}</p>
 
@@ -84,8 +122,8 @@
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body text-center">
-                        <h3 class="mb-0 text-info">{{ $customer->jobs->where('status', 'pending')->count() }}</h3>
-                        <small class="text-muted">Pending Jobs</small>
+                        <h3 class="mb-0 text-info">{{ $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress'])->count() }}</h3>
+                        <small class="text-muted">Active Jobs</small>
                     </div>
                 </div>
             </div>
@@ -99,22 +137,44 @@
             <div class="card-body">
                 @if($customer->completedJobs->count() > 0)
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-sm table-hover">
                             <thead class="table-light">
                                 <tr>
                                     <th>Job Code</th>
-                                    <th>Service</th>
+                                    <th>Name</th>
+                                    <th>Amount</th>
                                     <th>Completed Date</th>
                                     <th>Assigned To</th>
+                                    <th class="text-center">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($customer->completedJobs as $job)
                                 <tr>
-                                    <td><span class="badge bg-success">{{ $job->job_code }}</span></td>
-                                    <td>{{ $job->service->name ?? 'N/A' }}</td>
+                                    <td>
+                                        <a href="{{ route('jobs.show', $job->id) }}" class="job-code-badge badge bg-success text-decoration-none" title="View Job Details">
+                                            {{ $job->job_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('jobs.show', $job->id) }}" class="job-link">
+                                            {{ $job->title ?? 'N/A' }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        @if($job->amount)
+                                            <span class="text-success fw-bold">₹{{ number_format($job->amount, 2) }}</span>
+                                        @else
+                                            <span class="text-muted">N/A</span>
+                                        @endif
+                                    </td>
                                     <td>{{ $job->completed_at ? $job->completed_at->format('d M Y') : 'N/A' }}</td>
-                                    <td>{{ $job->assignedTo->name ?? 'N/A' }}</td>
+                                    <td>{{ $job->assignedTo->name ?? 'Unassigned' }}</td>
+                                    <td class="text-center">
+                                        <a href="{{ route('jobs.show', $job->id) }}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                            <i class="las la-eye"></i>
+                                        </a>
+                                    </td>
                                 </tr>
                                 @endforeach
                             </tbody>
@@ -124,53 +184,85 @@
                     <p class="text-muted text-center py-3">No completed jobs yet.</p>
                 @endif
             </div>
-            <!-- Pending Jobs Section - ADD THIS -->
-            <div class="card mb-3">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Pending & Active Jobs</h5>
-                </div>
-                <div class="card-body">
-                    @php
-                        $pendingJobs = $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress']);
-                    @endphp
+        </div>
 
-                    @if($pendingJobs->count() > 0)
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Job Code</th>
-                                        <th>Service</th>
-                                        <th>Status</th>
-                                        <th>Scheduled Date</th>
-                                        <th>Assigned To</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($pendingJobs as $job)
-                                    <tr>
-                                        <td><span class="badge bg-info">{{ $job->job_code }}</span></td>
-                                        <td>{{ $job->service->name ?? 'N/A' }}</td>
-                                        <td>
-                                            @if($job->status === 'pending')
-                                                <span class="badge bg-warning">Pending</span>
-                                            @elseif($job->status === 'assigned')
-                                                <span class="badge bg-info">Assigned</span>
-                                            @elseif($job->status === 'in_progress')
-                                                <span class="badge bg-primary">In Progress</span>
+        <!-- Pending & Active Jobs Section -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Pending & Active Jobs</h5>
+            </div>
+            <div class="card-body">
+                @php
+                    $pendingJobs = $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress']);
+                @endphp
+
+                @if($pendingJobs->count() > 0)
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Job Code</th>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Amount</th>
+                                    <th>Scheduled Date</th>
+                                    <th>Assigned To</th>
+                                    <th class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($pendingJobs as $job)
+                                <tr>
+                                    <td>
+                                        <a href="{{ route('jobs.show', $job->id) }}" class="job-code-badge badge bg-info text-decoration-none" title="View Job Details">
+                                            {{ $job->job_code }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <a href="{{ route('jobs.show', $job->id) }}" class="job-link">
+                                            {{ $job->title ?? 'N/A' }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        @if($job->status === 'pending')
+                                            <span class="badge bg-warning">Pending</span>
+                                        @elseif($job->status === 'assigned')
+                                            <span class="badge bg-info">Assigned</span>
+                                        @elseif($job->status === 'in_progress')
+                                            <span class="badge bg-primary">In Progress</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($job->amount)
+                                            <span class="fw-bold">₹{{ number_format($job->amount, 2) }}</span>
+                                        @else
+                                            <span class="text-muted">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if($job->scheduled_date)
+                                            {{ $job->scheduled_date->format('d M Y') }}
+                                            @if($job->scheduled_time)
+                                                <br><small class="text-muted">{{ $job->scheduled_time }}</small>
                                             @endif
-                                        </td>
-                                        <td>{{ $job->scheduled_date ? $job->scheduled_date->format('d M Y') : 'Not Scheduled' }}</td>
-                                        <td>{{ $job->assignedTo->name ?? 'Unassigned' }}</td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <p class="text-muted text-center py-3">No pending jobs at the moment.</p>
-                    @endif
-                </div>
+                                        @else
+                                            <span class="text-muted">Not Scheduled</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $job->assignedTo->name ?? 'Unassigned' }}</td>
+                                    <td class="text-center">
+                                        <a href="{{ route('jobs.show', $job->id) }}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                            <i class="las la-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p class="text-muted text-center py-3">No pending jobs at the moment.</p>
+                @endif
             </div>
         </div>
 
@@ -195,7 +287,9 @@
                                     <small class="text-muted ms-2">{{ $note->created_at->diffForHumans() }}</small>
                                 </div>
                                 @if($note->job)
-                                    <span class="badge bg-info">{{ $note->job->job_code }}</span>
+                                    <a href="{{ route('jobs.show', $note->job->id) }}" class="badge bg-info text-decoration-none" title="View Related Job">
+                                        {{ $note->job->job_code }}
+                                    </a>
                                 @else
                                     <span class="badge bg-secondary">General Note</span>
                                 @endif
@@ -225,12 +319,30 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="note" class="form-label">Note <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="note" name="note" rows="4" required></textarea>
+                        <textarea class="form-control" id="note" name="note" rows="4" required placeholder="Enter customer note or instruction..."></textarea>
                     </div>
+
+                    @if($customer->jobs->count() > 0)
+                    <div class="mb-3">
+                        <label for="job_id" class="form-label">Link to Job (Optional)</label>
+                        <select class="form-select" id="job_id" name="job_id">
+                            <option value="">General Note (Not linked to any job)</option>
+                            @foreach($customer->jobs->sortByDesc('created_at') as $job)
+                                <option value="{{ $job->id }}">
+                                    {{ $job->job_code }} - {{ $job->service->name ?? 'N/A' }}
+                                    ({{ ucfirst($job->status) }})
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="text-muted">Link this note to a specific job if relevant</small>
+                    </div>
+                    @endif
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Note</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="las la-save"></i> Add Note
+                    </button>
                 </div>
             </form>
         </div>
@@ -275,10 +387,17 @@
                         });
                     },
                     error: function(xhr) {
-                        Swal.fire('Error!', 'Failed to add note', 'error');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: xhr.responseJSON?.message || 'Failed to add note',
+                        });
                     }
                 });
             });
+
+            // Tooltip for job codes
+            $('[data-bs-toggle="tooltip"]').tooltip();
         });
     </script>
 @endsection

@@ -45,7 +45,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/leads/bulk-import', [LeadBulkImportController::class, 'bulkImport'])->name('leads.bulk-import');
     Route::get('/leads/download-template', [LeadBulkImportController::class, 'downloadTemplate'])->name('leads.download-template');
     Route::post('/leads/process-bulk-import', [LeadBulkImportController::class, 'processBulkImport'])->name('leads.process-bulk-import');
-    Route::get('/leads/import-progress/{import}', [LeadBulkImportController::class, 'getImportProgress'])->name('leads.import-progress');
+    Route::get('/leads/bulk-import/progress/{import}', [LeadBulkImportController::class, 'getImportProgress'])
+    ->name('leads.import-progress');
+    Route::get('/leads/bulk-import/download-failed/{import}', [LeadBulkImportController::class, 'downloadFailedRows'])
+    ->name('leads.download-failed-rows');
+    Route::post('/leads/pre-validate-import', [LeadBulkImportController::class, 'preValidateImport'])
+    ->name('leads.pre-validate-import');
 
     // Other specific lead routes - BEFORE resource route
     Route::get('/leads/whatsapp', [LeadController::class, 'whatsappLeads'])->name('leads.whatsapp');
@@ -66,11 +71,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('leads/call/{call}', [LeadController::class, 'deleteCall'])->name('leads.deleteCall');
     Route::delete('leads/note/{note}', [LeadController::class, 'deleteNote'])->name('leads.deleteNote');
 
-    // Lead resource route - MUST BE LAST
-    Route::resource('leads', LeadController::class);
-
     // Lead Followups
     Route::post('/lead-followups/{followup}/complete', [LeadController::class, 'complete'])->name('lead-followups.complete');
+
+    // Lead resource route - MUST BE LAST
+    Route::resource('leads', LeadController::class);
 
     // Job Management
     Route::post('/jobs/{job}/confirm-status', [JobController::class, 'confirmStatus'])

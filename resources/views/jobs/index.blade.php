@@ -264,6 +264,58 @@
             max-height: 200px;
             overflow-y: auto;
         }
+
+        /* Sortable headers */
+        .sortable {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            padding-right: 20px !important;
+        }
+        .sortable:hover {
+            background-color: #e9ecef;
+        }
+        .sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 8px;
+            opacity: 0.3;
+            font-size: 14px;
+        }
+        .sortable.asc::after {
+            content: '↑';
+            opacity: 1;
+            color: #0d6efd;
+        }
+        .sortable.desc::after {
+            content: '↓';
+            opacity: 1;
+            color: #0d6efd;
+        }
+
+        /* Loading overlay */
+        .table-loading {
+            position: relative;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .job-name-link {
+            color: #0d6efd;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .job-name-link:hover {
+            color: #0a58ca;
+            text-decoration: underline;
+        }
+
+        .job-name-link h6 {
+            color: inherit;
+            font-weight: 600;
+            margin: 0;
+        }
     </style>
 @endsection
 
@@ -389,18 +441,16 @@
                         <table class="table table-hover mb-0" id="jobsTable">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="min-width: 100px;">Job Code</th>
-                                    <th style="min-width: 200px;">Title</th>
-                                    <th style="min-width: 150px;">Customer</th>
-                                    <th style="min-width: 140px;">Service</th>
-                                    <th style="min-width: 120px;">Amount</th>
-                                    <th style="min-width: 120px;">Status</th>
-                                    <th style="min-width: 120px;">Branch</th>
-                                    @if(auth()->user()->role === 'super_admin')
-                                        <th style="min-width: 150px;">Assigned To</th>
-                                        <th style="min-width: 130px;">Scheduled Date</th>
-                                    @endif
-                                    <th style="min-width: 200px; text-align: center;">Action</th>
+                                    <th class="sortable" data-column="code" style="min-width: 100px;">Job Code</th>
+                                    <th class="sortable" data-column="title" style="min-width: 200px;">Title</th>
+                                    <th class="sortable" data-column="customer" style="min-width: 150px;">Customer</th>
+                                    <th class="sortable" data-column="service" style="min-width: 140px;">Service</th>
+                                    <th class="sortable" data-column="amount" style="min-width: 120px;">Amount</th>
+                                    <th class="sortable" data-column="status" style="min-width: 120px;">Status</th>
+                                    <th class="sortable" data-column="branch" style="min-width: 120px;">Branch</th>
+                                    <th class="sortable" data-column="assigned" style="min-width: 150px;">Assigned To</th>
+                                    <th class="sortable" data-column="scheduled_date" style="min-width: 130px;">Scheduled Date</th>
+                                    <th class="sortable" data-column="action" style="min-width: 200px; text-align: center;">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="jobsTableBody">
@@ -723,26 +773,91 @@
                 loadServices($(this).val(), currentJobServiceIds);
             });
 
-            // AJAX Form Submit Function
+            // ============================================
+            // SORTING STATE
+            // ============================================
+            let currentSort = {
+                column: null,
+                direction: 'asc'
+            };
+
+            // ============================================
+            // AJAX LOAD FUNCTION WITH SORTING
+            // ============================================
             function loadJobs(url = null) {
-                let formData = $('#filterForm').serialize();
                 let requestUrl = url || '{{ route("jobs.index") }}';
+
+                let params = {
+                    status: $('#statusFilter').val(),
+                    branch_id: $('#branchFilter').val(),
+                    service_id: $('#serviceFilter').val(),
+                    search: $('#searchJob').val(),
+                    date_from: $('#dateFrom').val(),
+                    date_to: $('#dateTo').val(),
+                    sort_column: currentSort.column,
+                    sort_direction: currentSort.direction
+                };
+
+                // Show loading state
+                $('#jobsTable').addClass('table-loading');
 
                 $.ajax({
                     url: requestUrl,
                     type: 'GET',
-                    data: formData,
+                    data: params,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     success: function(response) {
                         $('#jobsTableBody').html(response.html);
                         $('#paginationContainer').html(response.pagination);
-                        $('#jobCount').text(response.total || 0);
+                        $('#jobCount').text(response.total);
+
+                        // Update sort indicators
+                        if (response.current_sort) {
+                            updateSortIndicators(response.current_sort.column, response.current_sort.direction);
+                        }
+
+                        // Remove loading state
+                        $('#jobsTable').removeClass('table-loading');
                     },
                     error: function(xhr) {
                         console.error('Error loading jobs:', xhr);
-                        Swal.fire('Error!', 'Failed to load jobs', 'error');
+                        $('#jobsTable').removeClass('table-loading');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: 'Failed to load jobs'
+                        });
                     }
                 });
             }
+
+            // ============================================
+            // UPDATE SORT INDICATORS
+            // ============================================
+            function updateSortIndicators(column, direction) {
+                $('.sortable').removeClass('asc desc');
+                $(`.sortable[data-column="${column}"]`).addClass(direction);
+            }
+
+            // ============================================
+            // SORT COLUMN CLICK HANDLER
+            // ============================================
+            $(document).on('click', '.sortable', function() {
+                let column = $(this).data('column');
+
+                // Toggle direction if same column, otherwise reset to asc
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+
+                // Load jobs with new sorting
+                loadJobs();
+            });
 
             // Form Submit - AJAX
             $('#filterForm').on('submit', function(e) {

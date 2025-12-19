@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 
 class Customer extends Model
 {
@@ -69,7 +70,6 @@ class Customer extends Model
         return $this->hasMany(Job::class);
     }
 
-    // THIS IS THE MISSING METHOD - ADD IT
     public function customerNotes()
     {
         return $this->hasMany(CustomerNote::class)->latest();
@@ -100,5 +100,58 @@ class Customer extends Model
     public function getCompletedJobsCountAttribute()
     {
         return $this->completedJobs()->count();
+    }
+
+    // ============================================
+    // SCOPE FOR SORTING
+    // ============================================
+
+    /**
+     * Scope for dynamic sorting
+     */
+    public function scopeSort(Builder $query, $column, $direction = 'asc')
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+
+        switch ($column) {
+            case 'code':
+            case 'customer_code':
+                return $query->orderBy('customer_code', $direction);
+
+            case 'name':
+                return $query->orderBy('name', $direction);
+
+            case 'email':
+                return $query->orderBy('email', $direction);
+
+            case 'phone':
+                return $query->orderBy('phone', $direction);
+
+            case 'priority':
+                // Sort by priority: high > medium > low
+                $order = $direction === 'asc'
+                    ? "FIELD(priority, 'low', 'medium', 'high')"
+                    : "FIELD(priority, 'high', 'medium', 'low')";
+                return $query->orderByRaw($order);
+
+            case 'total_jobs':
+            case 'total-jobs':
+                // Sort by total jobs count using withCount
+                return $query->withCount('jobs')->orderBy('jobs_count', $direction);
+
+            case 'completed_jobs':
+            case 'completed-jobs':
+                // Sort by completed jobs count
+                return $query->withCount(['jobs as completed_jobs_count' => function ($query) {
+                    $query->where('status', 'completed');
+                }])->orderBy('completed_jobs_count', $direction);
+
+            case 'created_at':
+            case 'date':
+                return $query->orderBy('created_at', $direction);
+
+            default:
+                return $query->orderBy('created_at', 'desc');
+        }
     }
 }

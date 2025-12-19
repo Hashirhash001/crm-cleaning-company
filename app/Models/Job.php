@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 
 class Job extends Model
 {
@@ -115,5 +116,70 @@ class Job extends Model
     public function getServicesListAttribute()
     {
         return $this->services->pluck('name')->join(', ');
+    }
+
+    /**
+     * Scope for dynamic sorting
+     */
+    public function scopeSort(Builder $query, $column, $direction = 'asc')
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+
+        switch ($column) {
+            case 'code':
+            case 'job_code':
+                return $query->orderBy('job_code', $direction);
+
+            case 'title':
+                return $query->orderBy('title', $direction);
+
+            case 'customer':
+            case 'customer_name':
+                // Sort by customer name
+                return $query->leftJoin('customers', 'jobs.customer_id', '=', 'customers.id')
+                    ->orderBy('customers.name', $direction)
+                    ->select('jobs.*');
+
+            case 'service':
+            case 'service_name':
+                // Sort by service name
+                return $query->leftJoin('services', 'jobs.service_id', '=', 'services.id')
+                    ->orderBy('services.name', $direction)
+                    ->select('jobs.*');
+
+            case 'branch':
+            case 'branch_name':
+                // Sort by branch name
+                return $query->leftJoin('branches', 'jobs.branch_id', '=', 'branches.id')
+                    ->orderBy('branches.name', $direction)
+                    ->select('jobs.*');
+
+            case 'status':
+                // Custom status ordering
+                $order = $direction === 'asc'
+                    ? "FIELD(status, 'pending', 'confirmed', 'assigned', 'in_progress', 'completed', 'cancelled')"
+                    : "FIELD(status, 'cancelled', 'completed', 'in_progress', 'assigned', 'confirmed', 'pending')";
+                return $query->orderByRaw($order);
+
+            case 'assigned':
+            case 'assigned_to':
+                // Sort by assigned user name
+                return $query->leftJoin('users as assigned_users', 'jobs.assigned_to', '=', 'assigned_users.id')
+                    ->orderBy('assigned_users.name', $direction)
+                    ->select('jobs.*');
+
+            case 'scheduled_date':
+            case 'date':
+                return $query->orderBy('scheduled_date', $direction);
+
+            case 'amount':
+                return $query->orderBy('amount', $direction);
+
+            case 'created_at':
+                return $query->orderBy('created_at', $direction);
+
+            default:
+                return $query->orderBy('created_at', 'desc');
+        }
     }
 }

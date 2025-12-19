@@ -15,10 +15,16 @@ class LeadImport extends Model
         'failed_rows',
         'status',
         'errors',
+        'failed_rows_data', // ← ADD THIS LINE!
     ];
 
     protected $casts = [
         'errors' => 'array',
+        'failed_rows_data' => 'array',
+        'total_rows' => 'integer',
+        'processed_rows' => 'integer',
+        'successful_rows' => 'integer',
+        'failed_rows' => 'integer',
     ];
 
     public function user()

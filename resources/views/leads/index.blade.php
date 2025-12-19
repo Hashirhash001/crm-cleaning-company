@@ -1290,21 +1290,45 @@
 
             let currentSort = { column: null, direction: 'asc' };
 
+            // ============================================
+            // AJAX LOAD FUNCTION WITH SORTING
+            // ============================================
             function loadLeads(url = null) {
                 let formData = $('#filterForm').serialize();
                 let requestUrl = url || '{{ route("leads.index") }}';
+
+                // Append sorting parameters
+                let sortParams = '&sort_column=' + (currentSort.column || '') +
+                                '&sort_direction=' + currentSort.direction;
+
+                formData += sortParams;
+
+                // Show loading state
+                $('#leadsTable').addClass('table-loading');
 
                 $.ajax({
                     url: requestUrl,
                     type: 'GET',
                     data: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     success: function(response) {
                         $('#leadsTableBody').html(response.html);
                         $('#paginationContainer').html(response.pagination);
                         $('#leadCount').text(response.total);
+
+                        // Update sort indicators
+                        if (response.current_sort) {
+                            updateSortIndicators(response.current_sort.column, response.current_sort.direction);
+                        }
+
+                        // Remove loading state
+                        $('#leadsTable').removeClass('table-loading');
                     },
                     error: function(xhr) {
                         console.error('Error loading leads:', xhr);
+                        $('#leadsTable').removeClass('table-loading');
                         Swal.fire({
                             icon: 'error',
                             title: 'Error!',
@@ -1314,17 +1338,54 @@
                 });
             }
 
+            // ============================================
+            // UPDATE SORT INDICATORS
+            // ============================================
+            function updateSortIndicators(column, direction) {
+                $('.sortable').removeClass('asc desc');
+                $(`.sortable[data-column="${column}"]`).addClass(direction);
+            }
+
+            // ============================================
+            // SORT COLUMN CLICK HANDLER
+            // ============================================
+            $(document).on('click', '.sortable', function() {
+                let column = $(this).data('column');
+
+                // Toggle direction if same column, otherwise reset to asc
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+
+                // Load leads with new sorting
+                loadLeads();
+            });
+
+            // ============================================
+            // PAGINATION CLICK HANDLER
+            // ============================================
+            $(document).on('click', '#paginationContainer .pagination a', function(e) {
+                e.preventDefault();
+                let url = $(this).attr('href');
+                if (url) {
+                    loadLeads(url);
+                }
+            });
+
+            // ============================================
+            // FILTER FORM SUBMIT
+            // ============================================
             $('#filterForm').on('submit', function(e) {
                 e.preventDefault();
                 loadLeads();
             });
 
-            $(document).on('click', '#paginationContainer .pagination a', function(e) {
-                e.preventDefault();
-                let url = $(this).attr('href');
-                loadLeads(url);
-            });
-
+            // ============================================
+            // SEARCH WITH DEBOUNCE
+            // ============================================
             let searchTimeout;
             $('#searchInput').on('keyup', function() {
                 clearTimeout(searchTimeout);
@@ -1333,15 +1394,23 @@
                 }, 500);
             });
 
+            // ============================================
+            // RESET FILTERS
+            // ============================================
             $('#resetBtn').on('click', function(e) {
                 e.preventDefault();
-                $('#statusFilter').val('');
+                $('#filterStatus').val('');
                 $('#branchFilter').val('');
                 $('#sourceFilter').val('');
                 $('#dateFromFilter').val('');
                 $('#dateToFilter').val('');
                 $('#searchInput').val('');
                 $('#filter_assigned_to').val('');
+                $('#serviceFilter').val('').trigger('change');
+
+                currentSort = { column: null, direction: 'asc' };
+                $('.sortable').removeClass('asc desc');
+
                 window.location.href = '{{ route("leads.index") }}';
             });
 
@@ -1797,23 +1866,6 @@
                         });
                     }
                 });
-            });
-
-            // Table sorting
-            $(document).on('click', '.sortable', function() {
-                let column = $(this).data('column');
-
-                if (currentSort.column === column) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.column = column;
-                    currentSort.direction = 'asc';
-                }
-
-                $('.sortable').removeClass('asc desc');
-                $(this).addClass(currentSort.direction);
-
-                sortLeadsTable(column, currentSort.direction);
             });
 
             function sortLeadsTable(column, direction) {

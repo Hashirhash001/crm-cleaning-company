@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 
 class Lead extends Model
 {
@@ -256,4 +257,75 @@ class Lead extends Model
 
         return $code;
     }
+
+    /**
+     * Scope for dynamic sorting
+     */
+    public function scopeSort(Builder $query, $column, $direction = 'asc')
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+
+        switch ($column) {
+            case 'code':
+            case 'lead_code':
+                return $query->orderBy('lead_code', $direction);
+
+            case 'name':
+                return $query->orderBy('name', $direction);
+
+            case 'email':
+                return $query->orderBy('email', $direction);
+
+            case 'phone':
+                return $query->orderBy('phone', $direction);
+
+            case 'service':
+            case 'servicetype':
+                return $query->orderBy('service_type', $direction);
+
+            case 'status':
+                // Custom status ordering: pending > approved > rejected
+                $order = $direction === 'asc'
+                    ? "FIELD(status, 'pending', 'site_visit', 'approved', 'rejected')"
+                    : "FIELD(status, 'rejected', 'approved', 'site_visit', 'pending')";
+                return $query->orderByRaw($order);
+
+            case 'source':
+                // Sort by lead source name
+                return $query->leftJoin('lead_sources', 'leads.lead_source_id', '=', 'lead_sources.id')
+                    ->orderBy('lead_sources.name', $direction)
+                    ->select('leads.*');
+
+            case 'branch':
+                // Sort by branch name
+                return $query->leftJoin('branches', 'leads.branch_id', '=', 'branches.id')
+                    ->orderBy('branches.name', $direction)
+                    ->select('leads.*');
+
+            case 'assigned':
+            case 'assigned_to':
+                // Sort by assigned user name
+                return $query->leftJoin('users as assigned_users', 'leads.assigned_to', '=', 'assigned_users.id')
+                    ->orderBy('assigned_users.name', $direction)
+                    ->select('leads.*');
+
+            case 'created-by':
+            case 'created_by':
+                // Sort by creator name
+                return $query->leftJoin('users as creator_users', 'leads.created_by', '=', 'creator_users.id')
+                    ->orderBy('creator_users.name', $direction)
+                    ->select('leads.*');
+
+            case 'date':
+            case 'created_at':
+                return $query->orderBy('created_at', $direction);
+
+            case 'amount':
+                return $query->orderBy('amount', $direction);
+
+            default:
+                return $query->orderBy('created_at', 'desc');
+        }
+    }
+
 }

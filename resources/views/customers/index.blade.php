@@ -19,17 +19,19 @@
             position: absolute;
             right: 8px;
             opacity: 0.3;
+            font-size: 14px;
         }
         .sortable.asc::after {
             content: '↑';
             opacity: 1;
+            color: #0d6efd;
         }
         .sortable.desc::after {
             content: '↓';
             opacity: 1;
+            color: #0d6efd;
         }
 
-        /* Clickable customer name styling */
         .customer-name-link {
             color: #0d6efd;
             text-decoration: none;
@@ -50,6 +52,13 @@
         .error-text {
             display: none;
             font-size: 0.875rem;
+        }
+
+        /* Loading overlay */
+        .table-loading {
+            position: relative;
+            opacity: 0.6;
+            pointer-events: none;
         }
     </style>
 @endsection
@@ -87,7 +96,7 @@
 
                     <div class="col-md-6">
                         <label class="form-label fw-semibold">Search</label>
-                        <input type="text" class="form-control" id="searchCustomer" placeholder="Search by name or email...">
+                        <input type="text" class="form-control" id="searchCustomer" placeholder="Search by name, email, phone or code...">
                     </div>
 
                     <div class="col-md-3">
@@ -278,31 +287,53 @@
                 }
             });
 
-            let currentSort = { column: null, direction: 'asc' };
+            // ============================================
+            // SORTING STATE
+            // ============================================
+            let currentSort = {
+                column: null,
+                direction: 'asc'
+            };
 
-            // AJAX Load Function - FIXED
+            // ============================================
+            // AJAX LOAD FUNCTION WITH SORTING
+            // ============================================
             function loadCustomers(url = null) {
                 let requestUrl = url || '{{ route("customers.index") }}';
+
                 let params = {
                     priority: $('#priorityFilter').val(),
                     search: $('#searchCustomer').val(),
-                    sort_by: $('#sortBy').val()
+                    sort_column: currentSort.column,
+                    sort_direction: currentSort.direction
                 };
+
+                // Show loading state
+                $('#customersTable').addClass('table-loading');
 
                 $.ajax({
                     url: requestUrl,
                     type: 'GET',
                     data: params,
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest'  // This is crucial!
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
                     success: function(response) {
                         $('#customersTableBody').html(response.html);
                         $('#paginationContainer').html(response.pagination);
                         $('#customerCount').text(response.total);
+
+                        // Update sort indicators
+                        if (response.current_sort) {
+                            updateSortIndicators(response.current_sort.column, response.current_sort.direction);
+                        }
+
+                        // Remove loading state
+                        $('#customersTable').removeClass('table-loading');
                     },
                     error: function(xhr) {
                         console.error('Error loading customers:', xhr);
+                        $('#customersTable').removeClass('table-loading');
                         Swal.fire({
                             icon: 'error',
                             title: 'Error!',
@@ -312,16 +343,49 @@
                 });
             }
 
-            // Pagination Click Handler
+            // ============================================
+            // UPDATE SORT INDICATORS
+            // ============================================
+            function updateSortIndicators(column, direction) {
+                $('.sortable').removeClass('asc desc');
+                $(`.sortable[data-column="${column}"]`).addClass(direction);
+            }
+
+            // ============================================
+            // SORT COLUMN CLICK HANDLER
+            // ============================================
+            $(document).on('click', '.sortable', function() {
+                let column = $(this).data('column');
+
+                // Toggle direction if same column, otherwise reset to asc
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+
+                // Load customers with new sorting
+                loadCustomers();
+            });
+
+            // ============================================
+            // PAGINATION CLICK HANDLER
+            // ============================================
             $(document).on('click', '#paginationContainer .pagination a', function(e) {
                 e.preventDefault();
                 let url = $(this).attr('href');
-                loadCustomers(url);
+                if (url) {
+                    loadCustomers(url);
+                }
             });
 
-            // Filters with Debounce
+            // ============================================
+            // FILTERS WITH DEBOUNCE
+            // ============================================
             let filterTimeout;
-            $('#priorityFilter, #sortBy').on('change', function() {
+
+            $('#priorityFilter').on('change', function() {
                 clearTimeout(filterTimeout);
                 filterTimeout = setTimeout(function() {
                     loadCustomers();
@@ -335,17 +399,20 @@
                 }, 500);
             });
 
-            // Reset Filters
+            // ============================================
+            // RESET FILTERS
+            // ============================================
             $('#resetFilters').click(function() {
                 $('#priorityFilter').val('');
                 $('#searchCustomer').val('');
-                $('#sortBy').val('');
-                $('.sortable').removeClass('asc desc');
                 currentSort = { column: null, direction: 'asc' };
+                $('.sortable').removeClass('asc desc');
                 loadCustomers();
             });
 
-            // Edit Customer
+            // ============================================
+            // EDIT CUSTOMER
+            // ============================================
             $(document).on('click', '.editCustomerBtn', function() {
                 let customerId = $(this).data('id');
 
@@ -382,14 +449,16 @@
                 });
             });
 
-            // Remove error styling when user types in edit modal
+            // Remove error styling when user types
             $('#editCustomerModal input, #editCustomerModal select, #editCustomerModal textarea').on('input change', function() {
                 $(this).removeClass('is-invalid');
                 let fieldName = $(this).attr('name');
                 $('.' + fieldName + '_error').text('').hide();
             });
 
-            // Submit Edit Customer Form
+            // ============================================
+            // SUBMIT EDIT CUSTOMER FORM
+            // ============================================
             $('#editCustomerForm').on('submit', function(e) {
                 e.preventDefault();
 
@@ -437,7 +506,9 @@
                 });
             });
 
-            // Add Note
+            // ============================================
+            // ADD NOTE
+            // ============================================
             $(document).on('click', '.addNoteBtn', function() {
                 let customerId = $(this).data('id');
                 $('#note_customer_id').val(customerId);
@@ -445,7 +516,6 @@
                 $('#addNoteModal').modal('show');
             });
 
-            // Submit Add Note Form
             $('#addNoteForm').on('submit', function(e) {
                 e.preventDefault();
 
@@ -477,73 +547,6 @@
                     }
                 });
             });
-
-            // Table Header Sorting (Client-side for current page)
-            $(document).on('click', '.sortable', function() {
-                let column = $(this).data('column');
-
-                // Toggle direction
-                if (currentSort.column === column) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.column = column;
-                    currentSort.direction = 'asc';
-                }
-
-                // Update header indicators
-                $('.sortable').removeClass('asc desc');
-                $(this).addClass(currentSort.direction);
-
-                // Sort the table
-                sortTable(column, currentSort.direction);
-            });
-
-            function sortTable(column, direction) {
-                let rows = $('#customersTableBody tr').get();
-
-                rows.sort(function(a, b) {
-                    let aVal, bVal;
-
-                    switch(column) {
-                        case 'code':
-                            aVal = $(a).data('code') || '';
-                            bVal = $(b).data('code') || '';
-                            break;
-                        case 'name':
-                            aVal = $(a).data('name') || '';
-                            bVal = $(b).data('name') || '';
-                            break;
-                        case 'email':
-                            aVal = $(a).data('email') || '';
-                            bVal = $(b).data('email') || '';
-                            break;
-                        case 'priority':
-                            let priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-                            aVal = priorityOrder[$(a).data('priority')] || 0;
-                            bVal = priorityOrder[$(b).data('priority')] || 0;
-                            break;
-                        case 'total-jobs':
-                        case 'jobs':
-                            aVal = parseInt($(a).data('total-jobs')) || 0;
-                            bVal = parseInt($(b).data('total-jobs')) || 0;
-                            break;
-                        case 'completed-jobs':
-                            aVal = parseInt($(a).data('completed-jobs')) || 0;
-                            bVal = parseInt($(b).data('completed-jobs')) || 0;
-                            break;
-                    }
-
-                    if (direction === 'asc') {
-                        return aVal > bVal ? 1 : -1;
-                    } else {
-                        return aVal < bVal ? 1 : -1;
-                    }
-                });
-
-                $.each(rows, function(index, row) {
-                    $('#customersTableBody').append(row);
-                });
-            }
         });
     </script>
 @endsection
