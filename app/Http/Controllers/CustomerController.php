@@ -52,20 +52,15 @@ class CustomerController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('customer_code', 'like', "%{$search}%");
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('customer_code', 'like', "%{$search}%");
             });
         }
-
-        // ============================================
-        // APPLY SORTING
-        // ============================================
 
         $sortColumn = $request->get('sort_column', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
 
-        // Use the scope for sorting
         $query->sort($sortColumn, $sortDirection);
 
         $customers = $query->paginate(15);
@@ -86,8 +81,6 @@ class CustomerController extends Controller
 
         return view('customers.index', compact('customers'));
     }
-
-    // ... rest of your methods remain the same ...
 
     public function create()
     {
@@ -350,4 +343,178 @@ class CustomerController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Delete a customer note
+     * Only super_admin or the note creator can delete
+     */
+    public function deleteNote(Customer $customer, CustomerNote $note)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization: Super admin can delete any note, others only their own
+            if ($user->role !== 'super_admin' && $note->created_by !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized. You can only delete notes you created.'
+                ], 403);
+            }
+
+            // Verify note belongs to this customer
+            if ($note->customer_id !== $customer->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Note does not belong to this customer.'
+                ], 400);
+            }
+
+            $note->delete();
+
+            Log::info('Customer note deleted', [
+                'customer_id' => $customer->id,
+                'note_id' => $note->id,
+                'deleted_by' => $user->id,
+                'note_creator' => $note->created_by
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Note deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete note error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting note'
+            ], 500);
+        }
+    }
+
+        /**
+     * Get customer jobs (for note modal dropdown)
+     * API endpoint for AJAX calls
+     */
+    public function getCustomerJobs(Customer $customer)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization check for telecallers
+            if ($user->role === 'telecallers') {
+                $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
+                          || ($customer->lead && $customer->lead->assigned_to == $user->id);
+
+                if (!$hasAccess) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized access'
+                    ], 403);
+                }
+            }
+
+            // Load customer jobs with service relationship
+            $jobs = $customer->jobs()
+                ->with('service:id,name')
+                ->orderBy('created_at', 'desc')
+                ->get(['id', 'job_code', 'title', 'status', 'amount', 'service_id'])
+                ->map(function($job) {
+                    return [
+                        'id' => $job->id,
+                        'job_code' => $job->job_code,
+                        'title' => $job->title,
+                        'status' => $job->status,
+                        'status_label' => ucfirst(str_replace('_', ' ', $job->status)),
+                        'amount' => $job->amount,
+                        'service_name' => $job->service->name ?? 'N/A'
+                    ];
+                });
+
+            return response()->json($jobs);
+
+        } catch (\Exception $e) {
+            Log::error('Get customer jobs error: ' . $e->getMessage(), [
+                'customer_id' => $customer->id,
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading customer jobs'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get customer notes (for view notes modal)
+     * API endpoint for AJAX calls
+     */
+    public function getCustomerNotes(Customer $customer)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization check for telecallers
+            if ($user->role === 'telecallers') {
+                $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
+                          || ($customer->lead && $customer->lead->assigned_to == $user->id);
+
+                if (!$hasAccess) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized access'
+                    ], 403);
+                }
+            }
+
+            // Load customer notes with relationships
+            $notes = $customer->customerNotes()
+                ->with([
+                    'createdBy:id,name',
+                    'job:id,job_code,title,status,amount'
+                ])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function($note) use ($user) {
+                    return [
+                        'id' => $note->id,
+                        'note' => $note->note,
+                        'created_by' => $note->created_by,
+                        'created_by_name' => $note->createdBy->name ?? 'Unknown',
+                        'created_at' => $note->created_at->format('Y-m-d H:i:s'),
+                        'created_at_human' => $note->created_at->diffForHumans(),
+                        'can_delete' => $user->role === 'super_admin' || $note->created_by === $user->id,
+                        'job' => $note->job ? [
+                            'id' => $note->job->id,
+                            'job_code' => $note->job->job_code,
+                            'title' => $note->job->title,
+                            'status' => $note->job->status,
+                            'status_label' => ucfirst(str_replace('_', ' ', $note->job->status)),
+                            'amount' => $note->job->amount,
+                            'amount_formatted' => $note->job->amount ?
+                                '₹' . number_format($note->job->amount, 2) : null
+                        ] : null
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'notes' => $notes,
+                'total' => $notes->count()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get customer notes error: ' . $e->getMessage(), [
+                'customer_id' => $customer->id,
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error loading customer notes'
+            ], 500);
+        }
+    }
+
 }

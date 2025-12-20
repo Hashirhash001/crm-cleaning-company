@@ -14,7 +14,7 @@
         <!-- Checkbox for bulk selection -->
         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
         <td class="checkbox-col">
-            @if ($lead->status !== 'approved')
+            {{-- REMOVED STATUS CHECK - Allow all leads to be selected --}}
             <div class="checkbox-wrapper">
                 <input type="checkbox"
                        class="custom-checkbox lead-checkbox"
@@ -22,9 +22,9 @@
                        data-name="{{ $lead->name }}"
                        data-code="{{ $lead->lead_code }}"
                        data-branch="{{ $lead->branch_id }}"
+                       data-status="{{ $lead->status }}"
                        title="Select {{ $lead->name }}">
             </div>
-            @endif
         </td>
         @endif
 

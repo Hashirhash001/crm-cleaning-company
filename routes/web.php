@@ -26,8 +26,18 @@ Route::middleware('auth')->group(function () {
         Route::resource('users', UserController::class);
     });
 
+    // Customer Note Delete
+    Route::delete('/customers/{customer}/notes/{note}', [CustomerController::class, 'deleteNote'])
+    ->name('customers.notes.delete');
+    // API endpoints for AJAX calls
+    Route::get('/api/customers/{customer}/jobs', [CustomerController::class, 'getCustomerJobs'])
+        ->name('api.customers.jobs');
+
+    Route::get('/api/customers/{customer}/notes', [CustomerController::class, 'getCustomerNotes'])
+        ->name('api.customers.notes');
+
     // Customer Management
-    Route::resource('customers', CustomerController::class)->only(['index', 'show', 'edit', 'update', 'create', 'store']);
+    Route::resource('customers', CustomerController::class)->only(['index', 'show', 'edit', 'update', 'create', 'store', 'destroy']);
     Route::post('customers/{customer}/notes', [CustomerController::class, 'addNote'])->name('customers.addNote');
 
     // Settings

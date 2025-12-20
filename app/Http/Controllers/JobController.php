@@ -61,13 +61,47 @@ class JobController extends Controller
             $query->whereDate('scheduled_date', '<=', $request->date_to);
         }
 
-        // Search by title or job code
+        // ============================================
+        // ENHANCED SEARCH FUNCTIONALITY
+        // ============================================
         if ($request->filled('search')) {
             $search = $request->search;
+
             $query->where(function($q) use ($search) {
+                // Search by job title
                 $q->where('title', 'like', "%{$search}%")
-                ->orWhere('job_code', 'like', "%{$search}%");
+
+                // Search by job code
+                ->orWhere('job_code', 'like', "%{$search}%")
+
+                // Search by location
+                ->orWhere('location', 'like', "%{$search}%")
+
+                // Search by customer name
+                ->orWhereHas('customer', function($customerQuery) use ($search) {
+                    $customerQuery->where('name', 'like', "%{$search}%")
+                        // Search by customer code
+                        ->orWhere('customer_code', 'like', "%{$search}%")
+                        // Search by customer phone
+                        ->orWhere('phone', 'like', "%{$search}%");
+                })
+
+                // Search by lead code (if job has a lead)
+                ->orWhereHas('lead', function($leadQuery) use ($search) {
+                    $leadQuery->where('lead_code', 'like', "%{$search}%");
+                })
+
+                // Search by assigned user name
+                ->orWhereHas('assignedTo', function($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', "%{$search}%");
+                });
             });
+
+            Log::info('Job search query', [
+                'search_term' => $search,
+                'user_id' => $user->id,
+                'user_role' => $user->role
+            ]);
         }
 
         // If user is field staff, only show their jobs

@@ -29,44 +29,63 @@ class LeadController extends Controller
     {
         $user = auth()->user();
 
+        // Base query with relationships
         $query = Lead::with(['branch', 'services', 'source', 'createdBy', 'assignedTo']);
 
+        // Get all telecallers for assignment dropdown
         $telecallers = User::where('role', 'telecallers')
             ->where('is_active', true)
             ->select('id', 'name', 'branch_id')
             ->orderBy('name')
             ->get();
 
-        // Role-based access
+        // ============================================
+        // ROLE-BASED ACCESS CONTROL
+        // ============================================
         if ($user->role === 'super_admin') {
             // Super admin sees all leads
         } elseif ($user->role === 'lead_manager') {
+            // Lead manager sees only their created leads
             $query->where('created_by', $user->id);
         } elseif ($user->role === 'telecallers') {
+            // Telecallers see only assigned leads
             $query->where('assigned_to', $user->id);
         } else {
             abort(403, 'Unauthorized');
         }
 
-        // Apply filters
-        if ($request->filled('status')) {
+        // ============================================
+        // APPLY FILTERS
+        // ============================================
+
+        // Mode filter (All Leads / Open Leads / Work Orders)
+        $mode = $request->input('mode', '');
+
+        if ($mode === 'open') {
+            // Open leads = anything NOT approved
+            $query->where('status', '!=', 'approved');
+        } elseif ($mode === 'approved' || $request->status === 'approved') {
+            // Work Orders = approved leads only
+            $query->where('status', 'approved');
+        }
+        // Default: show all leads (no additional filter)
+
+        // Status filter (only apply if not using mode filter)
+        if ($request->filled('status') && !$mode) {
             $query->where('status', $request->status);
         }
 
-        // Open leads (anything not approved)
-        if ($request->input('mode') === 'open') {
-            $query->where('status', '!=', 'approved');
-        }
-
+        // Branch filter
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
         }
 
-        if ($request->filled('lead_source_id') && $request->lead_source_id !== '0') {
+        // Lead source filter
+        if ($request->filled('lead_source_id') && $request->lead_source_id != '0') {
             $query->where('lead_source_id', $request->lead_source_id);
         }
 
-        // Filter by service - check the many-to-many relationship
+        // Service filter - check the many-to-many relationship
         if ($request->filled('service_id')) {
             $serviceId = $request->service_id;
             $query->whereHas('services', function($subQuery) use ($serviceId) {
@@ -74,14 +93,17 @@ class LeadController extends Controller
             });
         }
 
+        // Date from filter
         if ($request->filled('date_from')) {
             $query->whereDate('created_at', '>=', $request->date_from);
         }
 
+        // Date to filter
         if ($request->filled('date_to')) {
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
+        // Assigned to filter
         if ($request->filled('assigned_to')) {
             if ($request->assigned_to === 'unassigned') {
                 $query->whereNull('assigned_to');
@@ -90,29 +112,54 @@ class LeadController extends Controller
             }
         }
 
+        // Search filter - Optimized version
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = '%' . $request->search . '%';
+
             $query->where(function($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%")
-                ->orWhere('lead_code', 'like', "%{$search}%");
+                // Direct lead fields (fastest)
+                $q->where('leads.name', 'like', $search)
+                ->orWhere('leads.email', 'like', $search)
+                ->orWhere('leads.phone', 'like', $search)
+                ->orWhere('leads.lead_code', 'like', $search);
+            })
+            // Separate OR for related tables (better indexing)
+            ->orWhere(function($q) use ($search) {
+                $q->whereHas('customer', function($subQuery) use ($search) {
+                    $subQuery->where('customer_code', 'like', $search);
+                })
+                ->orWhereHas('jobs', function($subQuery) use ($search) {
+                    $subQuery->where('job_code', 'like', $search);
+                });
             });
         }
 
         // ============================================
-        // APPLY SORTING
+        // SORTING
         // ============================================
         $sortColumn = $request->get('sort_column', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
 
-        // Use the scope for sorting
+        // Use the scope for sorting (assuming you have a scope in Lead model)
         $query->sort($sortColumn, $sortDirection);
 
-        // Paginate results
-        $leads = $query->paginate(15);
+        // ============================================
+        // PAGINATION WITH PER PAGE SELECTION
+        // ============================================
+        $perPage = $request->get('per_page', 15);
 
-        // Calculate pending count based on role
+        // Validate per_page to prevent abuse
+        $allowedPerPage = [15, 30, 50, 100, 500, 1000];
+        if (!in_array($perPage, $allowedPerPage)) {
+            $perPage = 15;
+        }
+
+        // Paginate results
+        $leads = $query->paginate($perPage);
+
+        // ============================================
+        // CALCULATE PENDING COUNT
+        // ============================================
         if ($user->role === 'super_admin') {
             $pendingcount = Lead::where('status', 'pending')->count();
         } elseif ($user->role === 'lead_manager') {
@@ -123,17 +170,24 @@ class LeadController extends Controller
             $pendingcount = 0;
         }
 
+        // Get filter dropdown data
         $branches = Branch::where('is_active', true)->get();
         $services = Service::where('is_active', true)->orderBy('name')->get();
         $lead_sources = LeadSource::where('is_active', true)->get();
 
-        // Return JSON for AJAX requests
+        // ============================================
+        // RETURN AJAX OR NORMAL VIEW
+        // ============================================
         if ($request->ajax()) {
             return response()->json([
                 'success' => true,
                 'html' => view('leads.partials.table-rows', compact('leads'))->render(),
                 'pagination' => $leads->links('pagination::bootstrap-5')->render(),
                 'total' => $leads->total(),
+                'per_page' => $leads->perPage(),
+                'current_page' => $leads->currentPage(),
+                'from' => $leads->firstItem() ?? 0,
+                'to' => $leads->lastItem() ?? 0,
                 'current_sort' => [
                     'column' => $sortColumn,
                     'direction' => $sortDirection,
@@ -317,22 +371,20 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
-            // Allow super_admin, lead_manager, and telecallers to edit leads
+            // Authorization
             if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return back()->with('error', 'Unauthorized');
             }
 
-            // Telecallers can only edit assigned leads
-            if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
+            if ($user->role === 'telecallers' && $lead->assigned_to != $user->id) {
                 return back()->with('error', 'You can only edit your assigned leads');
             }
 
-            // Lead managers can only edit their own leads
-            if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
+            if ($user->role === 'lead_manager' && $lead->created_by != $user->id) {
                 return back()->with('error', 'You can only edit your own leads');
             }
 
-            // Determine if the lead is currently approved
+            // Check if lead is approved
             $isApprovedLead = $lead->status === 'approved';
 
             // Build validation rules
@@ -357,13 +409,17 @@ class LeadController extends Controller
                 'description' => 'nullable|string',
             ];
 
-            // Status validation: required for super_admin or non-approved leads
-            // For telecallers/lead_managers editing approved leads, status is sent as hidden field
-            if ($user->role === 'super_admin' || !$isApprovedLead) {
-                $validationRules['status'] = 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected';
-            } else {
-                // For telecallers/lead_managers, status should be 'approved' (sent as hidden)
+            // Status validation: Lock if approved
+            if ($isApprovedLead) {
+                // For approved leads, status MUST remain 'approved'
                 $validationRules['status'] = 'required|in:approved';
+            } else {
+                // For non-approved leads, normal status options
+                if ($user->role === 'super_admin') {
+                    $validationRules['status'] = 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected';
+                } else {
+                    $validationRules['status'] = 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation';
+                }
             }
 
             $validated = $request->validate($validationRules);
@@ -375,19 +431,17 @@ class LeadController extends Controller
 
             $branchId = $user->role === 'super_admin' ? $validated['branch_id'] : $user->branch_id;
 
-            // Track changes
+            // Track changes for logging
+            $nameChanged = $validated['name'] !== $lead->name;
+            $phoneChanged = $validated['phone'] !== $lead->phone;
+            $emailChanged = ($validated['email'] ?? null) !== $lead->email;
             $amountChanged = isset($validated['amount']) && $validated['amount'] != $lead->amount;
 
-            // Track if services changed
             $oldServiceIds = $lead->services->pluck('id')->sort()->values()->toArray();
             $newServiceIds = collect($validated['service_ids'])->sort()->values()->toArray();
             $servicesChanged = $oldServiceIds != $newServiceIds;
 
-            // Determine the new status
-            $newStatus = $validated['status'];
-
-            // Track if status actually changed
-            $statusChanged = $newStatus !== $lead->status;
+            $statusChanged = $validated['status'] != $lead->status;
 
             // Update lead
             $lead->update([
@@ -409,86 +463,236 @@ class LeadController extends Controller
                 'amount_updated_by' => $amountChanged ? $user->id : $lead->amount_updated_by,
                 'branch_id' => $branchId,
                 'description' => $validated['description'] ?? null,
-                'status' => $newStatus,
+                'status' => $validated['status'],
             ]);
 
             // Sync lead services
             $lead->services()->sync($validated['service_ids']);
-
-            // Update single service_id field (use first service for backward compatibility)
             $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
 
-            // If lead was/is approved and has related jobs, sync changes to jobs
-            if (($isApprovedLead || $newStatus === 'approved') && ($amountChanged || $servicesChanged)) {
-                $relatedJobs = $lead->jobs()->whereIn('status', ['confirmed', 'pending', 'assigned', 'in_progress'])->get();
+            // ============================================
+            // SYNC CHANGES TO CUSTOMER (IF APPROVED)
+            // ============================================
+            $customerUpdated = false;
 
-                foreach ($relatedJobs as $job) {
-                    $updateData = [];
+            if ($isApprovedLead) {
+                try {
+                    // Reload the customer relationship with fresh data
+                    $lead->load('customer');
+                    $customer = $lead->customer;
 
-                    // Update job amount if changed
-                    if ($amountChanged) {
-                        $updateData['amount'] = $validated['amount'];
+                    if ($customer) {
+                        $customerUpdateData = [];
+                        $changedFields = [];
+
+                        // Track name change
+                        if ($nameChanged) {
+                            $customerUpdateData['name'] = $validated['name'];
+                            $changedFields[] = "name: '{$customer->name}' → '{$validated['name']}'";
+                        }
+
+                        // Track phone change
+                        if ($phoneChanged) {
+                            $customerUpdateData['phone'] = $validated['phone'];
+                            $changedFields[] = "phone: '{$customer->phone}' → '{$validated['phone']}'";
+                        }
+
+                        // Track email change
+                        if ($emailChanged) {
+                            $customerUpdateData['email'] = $validated['email'] ?? null;
+                            $changedFields[] = "email: '{$customer->email}' → '{$validated['email']}'";
+                        }
+
+                        // Track address change
+                        if (isset($validated['address']) && $validated['address'] !== $customer->address) {
+                            $customerUpdateData['address'] = $validated['address'];
+                            $changedFields[] = "address updated";
+                        }
+
+                        // Perform update if there are changes
+                        if (!empty($customerUpdateData)) {
+                            $customer->update($customerUpdateData);
+                            $customerUpdated = true;
+
+                            Log::info('✅ Customer synced successfully', [
+                                'lead_id' => $lead->id,
+                                'lead_code' => $lead->lead_code,
+                                'customer_id' => $customer->id,
+                                'customer_code' => $customer->customer_code,
+                                'changes' => implode(', ', $changedFields)
+                            ]);
+                        }
+                    } else {
+                        Log::warning('⚠️ Approved lead has no customer', [
+                            'lead_id' => $lead->id,
+                            'lead_code' => $lead->lead_code
+                        ]);
                     }
-
-                    // Change job status to pending if it was confirmed (needs admin re-approval)
-                    if ($job->status === 'confirmed' && ($amountChanged || $servicesChanged)) {
-                        $updateData['status'] = 'pending';
-                    }
-
-                    // Update job if there are changes
-                    if (!empty($updateData)) {
-                        $job->update($updateData);
-                    }
-
-                    // Sync job services if changed
-                    if ($servicesChanged) {
-                        $job->services()->sync($validated['service_ids']);
-
-                        // Update single service_id field
-                        $job->update(['service_id' => $validated['service_ids'][0] ?? null]);
-                    }
+                } catch (\Exception $e) {
+                    Log::error('❌ Error syncing customer', [
+                        'lead_id' => $lead->id,
+                        'error' => $e->getMessage()
+                    ]);
                 }
+            }
 
-                Log::info('Approved lead edited - related jobs updated', [
-                    'lead_id' => $lead->id,
-                    'jobs_updated' => $relatedJobs->count(),
-                    'amount_changed' => $amountChanged,
-                    'services_changed' => $servicesChanged,
-                ]);
+            // ============================================
+            // SYNC CHANGES TO JOBS (IF APPROVED)
+            // ============================================
+            $jobsUpdated = false;
+            $jobsUpdatedCount = 0;
+
+            if ($isApprovedLead && ($amountChanged || $servicesChanged)) {
+                try {
+                    // Count total jobs for this lead
+                    $totalJobsCount = $lead->jobs()->count();
+
+                    Log::info('Checking jobs for sync', [
+                        'lead_id' => $lead->id,
+                        'total_jobs' => $totalJobsCount,
+                        'amount_changed' => $amountChanged,
+                        'services_changed' => $servicesChanged
+                    ]);
+
+                    // ⚠️ ONLY UPDATE IF EXACTLY 1 JOB EXISTS
+                    if ($totalJobsCount === 1) {
+                        // Get the single job (any status including completed/cancelled)
+                        $job = $lead->jobs()->first();
+
+                        Log::info('Single job found, proceeding with sync', [
+                            'job_id' => $job->id,
+                            'job_code' => $job->job_code,
+                            'job_status' => $job->status,
+                            'job_amount' => $job->amount
+                        ]);
+
+                        $jobUpdateData = [];
+                        $jobChangedFields = [];
+
+                        // Update job amount if changed
+                        if ($amountChanged) {
+                            $jobUpdateData['amount'] = $validated['amount'];
+                            $jobChangedFields[] = "amount: ₹{$job->amount} → ₹{$validated['amount']}";
+                        }
+
+                        // Change job status to pending ONLY if it was confirmed AND changes were made
+                        if ($job->status === 'confirmed' && ($amountChanged || $servicesChanged)) {
+                            $jobUpdateData['status'] = 'pending';
+                            $jobChangedFields[] = "status: confirmed → pending (needs re-approval)";
+                        }
+
+                        // Update job if there are changes
+                        if (!empty($jobUpdateData)) {
+                            $job->update($jobUpdateData);
+                            $jobsUpdated = true;
+                            $jobsUpdatedCount = 1;
+
+                            Log::info('✅ Job updated from lead changes', [
+                                'job_id' => $job->id,
+                                'job_code' => $job->job_code,
+                                'job_status' => $job->status,
+                                'lead_id' => $lead->id,
+                                'changes' => implode(', ', $jobChangedFields)
+                            ]);
+                        }
+
+                        // Sync job services if changed
+                        if ($servicesChanged) {
+                            $job->services()->sync($validated['service_ids']);
+
+                            // Update primary service_id
+                            if (!empty($validated['service_ids'])) {
+                                $job->update(['service_id' => $validated['service_ids'][0]]);
+                            }
+
+                            $jobsUpdated = true;
+
+                            Log::info('✅ Job services synced', [
+                                'job_id' => $job->id,
+                                'job_code' => $job->job_code,
+                                'job_status' => $job->status,
+                                'old_services' => $oldServiceIds,
+                                'new_services' => $newServiceIds
+                            ]);
+                        }
+
+                        if (!$jobsUpdated) {
+                            Log::info('No job updates needed', [
+                                'job_id' => $job->id,
+                                'job_code' => $job->job_code,
+                                'job_status' => $job->status,
+                                'reason' => 'No field changes detected'
+                            ]);
+                        }
+
+                    } elseif ($totalJobsCount > 1) {
+                        Log::warning('⚠️ Multiple jobs found - skipping automatic sync', [
+                            'lead_id' => $lead->id,
+                            'lead_code' => $lead->lead_code,
+                            'jobs_count' => $totalJobsCount,
+                            'message' => 'Please update jobs manually when multiple jobs exist'
+                        ]);
+                    } else {
+                        Log::warning('⚠️ No jobs found for approved lead', [
+                            'lead_id' => $lead->id,
+                            'lead_code' => $lead->lead_code
+                        ]);
+                    }
+
+                } catch (\Exception $e) {
+                    Log::error('❌ Error syncing jobs from lead update', [
+                        'lead_id' => $lead->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                }
             }
 
             Log::info('Lead updated', [
                 'lead_id' => $lead->id,
                 'updated_by' => $user->id,
-                'user_role' => $user->role,
-                'amount_changed' => $amountChanged,
-                'services_changed' => $servicesChanged,
-                'status_changed' => $statusChanged,
-                'old_status' => $lead->getOriginal('status'),
-                'new_status' => $newStatus,
+                'is_approved' => $isApprovedLead,
+                'customer_updated' => $customerUpdated,
+                'jobs_updated' => $jobsUpdatedCount,
             ]);
 
             // Build success message
-            $message = "Lead {$lead->lead_code} has been updated.";
-            if (($isApprovedLead || $newStatus === 'approved') && ($amountChanged || $servicesChanged)) {
-                $message .= ' Related jobs have been updated and set to pending status for admin approval.';
+            $message = 'Lead ' . $lead->lead_code . ' has been updated.';
+
+            if ($isApprovedLead) {
+                if ($customerUpdated) {
+                    $message .= ' Customer information synchronized.';
+                }
+
+                if ($jobsUpdated) {
+                    $job = $lead->jobs()->first();
+                    if ($job && in_array($job->status, ['completed', 'cancelled'])) {
+                        $message .= ' Note: Job is ' . $job->status . ' but was updated with new information.';
+                    } else {
+                        $message .= ' Job updated successfully.';
+                    }
+                } elseif (($amountChanged || $servicesChanged)) {
+                    $totalJobs = $lead->jobs()->count();
+
+                    if ($totalJobs > 1) {
+                        $message .= ' ⚠️ Multiple jobs found (' . $totalJobs . ') - please update jobs manually.';
+                    }
+                }
             }
 
             return redirect()->route('leads.index')
                 ->with('success', json_encode([
                     'title' => 'Lead Updated Successfully!',
                     'message' => $message,
-                    'leadcode' => $lead->lead_code,
+                    'lead_code' => $lead->lead_code,
                 ]));
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Lead update validation error', [
                 'lead_id' => $lead->id,
-                'errors' => $e->errors(),
-                'user_role' => $user->role,
+                'errors' => $e->errors()
             ]);
             return back()->withErrors($e->errors())->withInput();
-
         } catch (\Exception $e) {
             Log::error('Lead update error: ' . $e->getMessage(), [
                 'lead_id' => $lead->id,
@@ -601,6 +805,7 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
+            // Authorization check
             if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
                 return response()->json([
                     'success' => false,
@@ -608,23 +813,33 @@ class LeadController extends Controller
                 ], 403);
             }
 
+            // Validate request
             $validated = $request->validate([
                 'lead_ids' => 'required|array',
                 'lead_ids.*' => 'exists:leads,id',
                 'assigned_to' => 'required|exists:users,id',
-                'notes' => 'nullable|string'
+                'notes' => 'nullable|string',
             ]);
 
             $telecaller = User::find($validated['assigned_to']);
             $count = 0;
+            $approvedCount = 0;
 
             foreach ($validated['lead_ids'] as $leadId) {
                 $lead = Lead::find($leadId);
 
-                // Update all selected leads, no status restriction
                 if ($lead) {
-                    $lead->update(['assigned_to' => $validated['assigned_to']]);
+                    // Count approved leads separately
+                    if ($lead->status === 'approved') {
+                        $approvedCount++;
+                    }
 
+                    // Update ALL leads regardless of status
+                    $lead->update([
+                        'assigned_to' => $validated['assigned_to']
+                    ]);
+
+                    // Add note if provided
                     if ($request->filled('notes')) {
                         LeadNote::create([
                             'lead_id' => $lead->id,
@@ -639,14 +854,17 @@ class LeadController extends Controller
 
             Log::info('Bulk lead assignment', [
                 'count' => $count,
+                'approved_count' => $approvedCount,
                 'assigned_to' => $telecaller->name,
                 'assigned_by' => $user->id
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => "Bulk assignment completed!",
-                'count' => $count
+                'message' => 'Bulk assignment completed!',
+                'count' => $count,
+                'approved_count' => $approvedCount,
+                'telecaller_name' => $telecaller->name
             ]);
 
         } catch (\Exception $e) {

@@ -138,7 +138,7 @@ class Lead extends Model
 
     public function customer()
     {
-        return $this->hasOne(Customer::class);
+        return $this->hasOne(Customer::class, 'lead_id');
     }
 
     public function job()

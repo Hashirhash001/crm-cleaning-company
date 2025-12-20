@@ -781,57 +781,94 @@
                 direction: 'asc'
             };
 
-            // ============================================
-            // AJAX LOAD FUNCTION WITH SORTING
-            // ============================================
-            function loadJobs(url = null) {
-                let requestUrl = url || '{{ route("jobs.index") }}';
+            // Search form submit
+            $(document).on('submit', '#jobSearchForm', function(e) {
+                e.preventDefault();
+                loadJobs();
+            });
 
-                let params = {
-                    status: $('#statusFilter').val(),
-                    branch_id: $('#branchFilter').val(),
-                    service_id: $('#serviceFilter').val(),
-                    search: $('#searchJob').val(),
-                    date_from: $('#dateFrom').val(),
-                    date_to: $('#dateTo').val(),
-                    sort_column: currentSort.column,
-                    sort_direction: currentSort.direction
-                };
+            // Search input with debounce
+            let searchTimeout;
+            $(document).on('keyup', '#jobSearch', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    loadJobs();
+                }, 500); // Wait 500ms after user stops typing
+            });
 
-                // Show loading state
-                $('#jobsTable').addClass('table-loading');
+            // Filter changes
+            $(document).on('change', '#statusFilter, #branchFilter, #serviceFilter, #dateFromFilter, #dateToFilter', function() {
+                loadJobs();
+            });
+
+            // Clear filters
+            $(document).on('click', '#clearFilters', function() {
+                $('#jobSearch').val('');
+                $('#statusFilter').val('');
+                $('#branchFilter').val('');
+                $('#serviceFilter').val('');
+                $('#dateFromFilter').val('');
+                $('#dateToFilter').val('');
+                loadJobs();
+            });
+
+            // Load jobs with all filters and search
+            function loadJobs(page = 1) {
+                const searchTerm = $('#jobSearch').val();
+                const status = $('#statusFilter').val();
+                const branchId = $('#branchFilter').val();
+                const serviceId = $('#serviceFilter').val();
+                const dateFrom = $('#dateFromFilter').val();
+                const dateTo = $('#dateToFilter').val();
+                const sortColumn = $('input[name="sort_column"]').val() || 'created_at';
+                const sortDirection = $('input[name="sort_direction"]').val() || 'desc';
+
+                console.log('🔍 Loading jobs with search:', searchTerm);
 
                 $.ajax({
-                    url: requestUrl,
+                    url: '{{ route("jobs.index") }}',
                     type: 'GET',
-                    data: params,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                    data: {
+                        search: searchTerm,
+                        status: status,
+                        branch_id: branchId,
+                        service_id: serviceId,
+                        date_from: dateFrom,
+                        date_to: dateTo,
+                        sort_column: sortColumn,
+                        sort_direction: sortDirection,
+                        page: page
                     },
                     success: function(response) {
-                        $('#jobsTableBody').html(response.html);
-                        $('#paginationContainer').html(response.pagination);
-                        $('#jobCount').text(response.total);
-
-                        // Update sort indicators
-                        if (response.current_sort) {
-                            updateSortIndicators(response.current_sort.column, response.current_sort.direction);
+                        console.log('✅ Jobs loaded:', response.total, 'results');
+                        if (response.debug) {
+                            console.log('Debug info:', response.debug);
                         }
 
-                        // Remove loading state
-                        $('#jobsTable').removeClass('table-loading');
+                        $('#jobsTableBody').html(response.html);
+                        $('#jobsPagination').html(response.pagination);
+
+                        // Update total count if element exists
+                        if ($('#totalJobs').length) {
+                            $('#totalJobs').text(response.total + ' jobs');
+                        }
                     },
                     error: function(xhr) {
-                        console.error('Error loading jobs:', xhr);
-                        $('#jobsTable').removeClass('table-loading');
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error!',
-                            text: 'Failed to load jobs'
-                        });
+                        console.error('❌ Error loading jobs:', xhr);
+                        showAlert('error', 'Error loading jobs. Please try again.');
                     }
                 });
             }
+
+            // Pagination click handler
+            $(document).on('click', '.pagination a', function(e) {
+                e.preventDefault();
+                const url = $(this).attr('href');
+                const page = url.split('page=')[1];
+                if (page) {
+                    loadJobs(page);
+                }
+            });
 
             // ============================================
             // UPDATE SORT INDICATORS
@@ -857,28 +894,6 @@
 
                 // Load jobs with new sorting
                 loadJobs();
-            });
-
-            // Form Submit - AJAX
-            $('#filterForm').on('submit', function(e) {
-                e.preventDefault();
-                loadJobs();
-            });
-
-            // Pagination Click Handler - AJAX
-            $(document).on('click', '#paginationContainer .pagination a', function(e) {
-                e.preventDefault();
-                let url = $(this).attr('href');
-                loadJobs(url);
-            });
-
-            // Search with debounce
-            let searchTimeout;
-            $('#searchInput').on('keyup', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(function() {
-                    loadJobs();
-                }, 800);
             });
 
             // Add Job Button

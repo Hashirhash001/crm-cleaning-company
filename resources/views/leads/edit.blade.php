@@ -63,6 +63,20 @@
         margin: 0;
         font-weight: 500;
     }
+
+    /* Approved lead status styling */
+    .bg-success.text-white {
+        background-color: #28a745 !important;
+    }
+
+    .input-group .input-group-text.bg-success {
+        border-color: #28a745;
+    }
+
+    .alert-warning.border-warning {
+        border-left: 4px solid #ffc107 !important;
+    }
+
 </style>
 @endsection
 
@@ -178,25 +192,72 @@
                                         name="district"
                                         data-placeholder="Select District">
                                     <option value="">Select District</option>
-                                    <option value="Thiruvananthapuram" {{ old('district') == 'Thiruvananthapuram' ? 'selected' : '' }}>Thiruvananthapuram</option>
-                                    <option value="Kollam" {{ old('district') == 'Kollam' ? 'selected' : '' }}>Kollam</option>
-                                    <option value="Pathanamthitta" {{ old('district') == 'Pathanamthitta' ? 'selected' : '' }}>Pathanamthitta</option>
-                                    <option value="Alappuzha" {{ old('district') == 'Alappuzha' ? 'selected' : '' }}>Alappuzha</option>
-                                    <option value="Kottayam" {{ old('district') == 'Kottayam' ? 'selected' : '' }}>Kottayam</option>
-                                    <option value="Idukki" {{ old('district') == 'Idukki' ? 'selected' : '' }}>Idukki</option>
-                                    <option value="Ernakulam" {{ old('district') == 'Ernakulam' ? 'selected' : '' }}>Ernakulam</option>
-                                    <option value="Thrissur" {{ old('district') == 'Thrissur' ? 'selected' : '' }}>Thrissur</option>
-                                    <option value="Palakkad" {{ old('district') == 'Palakkad' ? 'selected' : '' }}>Palakkad</option>
-                                    <option value="Malappuram" {{ old('district') == 'Malappuram' ? 'selected' : '' }}>Malappuram</option>
-                                    <option value="Kozhikode" {{ old('district') == 'Kozhikode' ? 'selected' : '' }}>Kozhikode</option>
-                                    <option value="Wayanad" {{ old('district') == 'Wayanad' ? 'selected' : '' }}>Wayanad</option>
-                                    <option value="Kannur" {{ old('district') == 'Kannur' ? 'selected' : '' }}>Kannur</option>
-                                    <option value="Kasaragod" {{ old('district') == 'Kasaragod' ? 'selected' : '' }}>Kasaragod</option>
+
+                                    <!-- Kerala Districts -->
+                                    <optgroup label="Kerala">
+                                        <option value="Thiruvananthapuram" {{ old('district') == 'Thiruvananthapuram' ? 'selected' : '' }}>Thiruvananthapuram</option>
+                                        <option value="Kollam" {{ old('district') == 'Kollam' ? 'selected' : '' }}>Kollam</option>
+                                        <option value="Pathanamthitta" {{ old('district') == 'Pathanamthitta' ? 'selected' : '' }}>Pathanamthitta</option>
+                                        <option value="Alappuzha" {{ old('district') == 'Alappuzha' ? 'selected' : '' }}>Alappuzha</option>
+                                        <option value="Kottayam" {{ old('district') == 'Kottayam' ? 'selected' : '' }}>Kottayam</option>
+                                        <option value="Idukki" {{ old('district') == 'Idukki' ? 'selected' : '' }}>Idukki</option>
+                                        <option value="Ernakulam" {{ old('district') == 'Ernakulam' ? 'selected' : '' }}>Ernakulam</option>
+                                        <option value="Thrissur" {{ old('district') == 'Thrissur' ? 'selected' : '' }}>Thrissur</option>
+                                        <option value="Palakkad" {{ old('district') == 'Palakkad' ? 'selected' : '' }}>Palakkad</option>
+                                        <option value="Malappuram" {{ old('district') == 'Malappuram' ? 'selected' : '' }}>Malappuram</option>
+                                        <option value="Kozhikode" {{ old('district') == 'Kozhikode' ? 'selected' : '' }}>Kozhikode</option>
+                                        <option value="Wayanad" {{ old('district') == 'Wayanad' ? 'selected' : '' }}>Wayanad</option>
+                                        <option value="Kannur" {{ old('district') == 'Kannur' ? 'selected' : '' }}>Kannur</option>
+                                        <option value="Kasaragod" {{ old('district') == 'Kasaragod' ? 'selected' : '' }}>Kasaragod</option>
+                                    </optgroup>
+
+                                    <!-- Tamil Nadu Districts -->
+                                    <optgroup label="Tamil Nadu">
+                                        <option value="Ariyalur" {{ old('district') == 'Ariyalur' ? 'selected' : '' }}>Ariyalur</option>
+                                        <option value="Chengalpattu" {{ old('district') == 'Chengalpattu' ? 'selected' : '' }}>Chengalpattu</option>
+                                        <option value="Chennai" {{ old('district') == 'Chennai' ? 'selected' : '' }}>Chennai</option>
+                                        <option value="Coimbatore" {{ old('district') == 'Coimbatore' ? 'selected' : '' }}>Coimbatore</option>
+                                        <option value="Cuddalore" {{ old('district') == 'Cuddalore' ? 'selected' : '' }}>Cuddalore</option>
+                                        <option value="Dharmapuri" {{ old('district') == 'Dharmapuri' ? 'selected' : '' }}>Dharmapuri</option>
+                                        <option value="Dindigul" {{ old('district') == 'Dindigul' ? 'selected' : '' }}>Dindigul</option>
+                                        <option value="Erode" {{ old('district') == 'Erode' ? 'selected' : '' }}>Erode</option>
+                                        <option value="Kallakurichi" {{ old('district') == 'Kallakurichi' ? 'selected' : '' }}>Kallakurichi</option>
+                                        <option value="Kanchipuram" {{ old('district') == 'Kanchipuram' ? 'selected' : '' }}>Kanchipuram</option>
+                                        <option value="Kanyakumari" {{ old('district') == 'Kanyakumari' ? 'selected' : '' }}>Kanyakumari</option>
+                                        <option value="Karur" {{ old('district') == 'Karur' ? 'selected' : '' }}>Karur</option>
+                                        <option value="Krishnagiri" {{ old('district') == 'Krishnagiri' ? 'selected' : '' }}>Krishnagiri</option>
+                                        <option value="Madurai" {{ old('district') == 'Madurai' ? 'selected' : '' }}>Madurai</option>
+                                        <option value="Mayiladuthurai" {{ old('district') == 'Mayiladuthurai' ? 'selected' : '' }}>Mayiladuthurai</option>
+                                        <option value="Nagapattinam" {{ old('district') == 'Nagapattinam' ? 'selected' : '' }}>Nagapattinam</option>
+                                        <option value="Namakkal" {{ old('district') == 'Namakkal' ? 'selected' : '' }}>Namakkal</option>
+                                        <option value="Nilgiris" {{ old('district') == 'Nilgiris' ? 'selected' : '' }}>Nilgiris</option>
+                                        <option value="Perambalur" {{ old('district') == 'Perambalur' ? 'selected' : '' }}>Perambalur</option>
+                                        <option value="Pudukkottai" {{ old('district') == 'Pudukkottai' ? 'selected' : '' }}>Pudukkottai</option>
+                                        <option value="Ramanathapuram" {{ old('district') == 'Ramanathapuram' ? 'selected' : '' }}>Ramanathapuram</option>
+                                        <option value="Ranipet" {{ old('district') == 'Ranipet' ? 'selected' : '' }}>Ranipet</option>
+                                        <option value="Salem" {{ old('district') == 'Salem' ? 'selected' : '' }}>Salem</option>
+                                        <option value="Sivaganga" {{ old('district') == 'Sivaganga' ? 'selected' : '' }}>Sivaganga</option>
+                                        <option value="Tenkasi" {{ old('district') == 'Tenkasi' ? 'selected' : '' }}>Tenkasi</option>
+                                        <option value="Thanjavur" {{ old('district') == 'Thanjavur' ? 'selected' : '' }}>Thanjavur</option>
+                                        <option value="Theni" {{ old('district') == 'Theni' ? 'selected' : '' }}>Theni</option>
+                                        <option value="Thoothukudi" {{ old('district') == 'Thoothukudi' ? 'selected' : '' }}>Thoothukudi (Tuticorin)</option>
+                                        <option value="Tiruchirappalli" {{ old('district') == 'Tiruchirappalli' ? 'selected' : '' }}>Tiruchirappalli (Trichy)</option>
+                                        <option value="Tirunelveli" {{ old('district') == 'Tirunelveli' ? 'selected' : '' }}>Tirunelveli</option>
+                                        <option value="Tirupathur" {{ old('district') == 'Tirupathur' ? 'selected' : '' }}>Tirupathur</option>
+                                        <option value="Tiruppur" {{ old('district') == 'Tiruppur' ? 'selected' : '' }}>Tiruppur</option>
+                                        <option value="Tiruvallur" {{ old('district') == 'Tiruvallur' ? 'selected' : '' }}>Tiruvallur</option>
+                                        <option value="Tiruvannamalai" {{ old('district') == 'Tiruvannamalai' ? 'selected' : '' }}>Tiruvannamalai</option>
+                                        <option value="Tiruvarur" {{ old('district') == 'Tiruvarur' ? 'selected' : '' }}>Tiruvarur</option>
+                                        <option value="Vellore" {{ old('district') == 'Vellore' ? 'selected' : '' }}>Vellore</option>
+                                        <option value="Viluppuram" {{ old('district') == 'Viluppuram' ? 'selected' : '' }}>Viluppuram</option>
+                                        <option value="Virudhunagar" {{ old('district') == 'Virudhunagar' ? 'selected' : '' }}>Virudhunagar</option>
+                                    </optgroup>
                                 </select>
                                 @error('district')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
                         </div>
                     </div>
 
@@ -371,38 +432,53 @@
                         </div>
                     </div>
 
-                    <!-- Lead Status & Assignment Section -->
+                    <!-- Lead Status Assignment Section -->
                     <div class="form-section">
                         <h5><i class="las la-tasks me-2"></i>Status of Lead & Assignment</h5>
 
-                        {{-- Show alert if lead is approved --}}
+                        <!-- Show alert if lead is approved -->
                         @if($lead->status === 'approved')
-                        <div class="alert alert-success mb-3">
-                            <i class="las la-check-circle me-2"></i>
-                            <strong>This lead is APPROVED.</strong>
-                            @if(auth()->user()->role === 'super_admin')
-                                You can edit all details including status. Any changes to amount or services will update related jobs and set them to pending status for admin review.
-                            @else
-                                You can edit the details, but the lead will remain approved. Any changes to amount or services will update related jobs and set them to pending status for admin review.
-                            @endif
-                        </div>
+                            <div class="alert alert-warning border-warning mb-3">
+                                <div class="d-flex align-items-start">
+                                    <i class="las la-info-circle me-2" style="font-size: 1.5rem;"></i>
+                                    <div>
+                                        <strong>This lead is APPROVED.</strong><br>
+                                        <small>
+                                            - Status is locked and cannot be changed<br>
+                                            - Name, phone, and email changes will sync to the customer<br>
+                                            - Amount or service changes will update related jobs and require admin approval
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
                         @endif
 
                         <div class="row mb-3">
-                            @php $user = auth()->user(); @endphp
+                            @php
+                                $user = auth()->user();
+                            @endphp
 
-                            {{-- Status Field --}}
-                            @if($lead->status === 'approved' && $user->role !== 'super_admin')
-                                {{-- For telecallers and lead managers: keep approved status hidden --}}
+                            <!-- Status Field -->
+                            @if($lead->status === 'approved')
+                                <!-- For approved leads: Keep status locked -->
                                 <input type="hidden" name="status" value="approved">
-
                                 <div class="col-md-6">
                                     <label class="form-label">Lead Status</label>
-                                    <input type="text" class="form-control bg-light" value="Approved" disabled>
-                                    <small class="text-muted">Status locked. Only admin can change approved status.</small>
+                                    <div class="input-group">
+                                        <input type="text"
+                                            class="form-control bg-success text-white fw-bold"
+                                            value="✓ Approved"
+                                            disabled>
+                                        <span class="input-group-text bg-success text-white">
+                                            <i class="las la-lock"></i>
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">
+                                        Status is locked. Lead has been converted to customer.
+                                    </small>
                                 </div>
                             @else
-                                {{-- For super admin or non-approved leads: show status dropdown --}}
+                                <!-- For non-approved leads: Show status dropdown -->
                                 <div class="col-md-6">
                                     <label for="status" class="form-label required-field">Lead Status</label>
                                     <select class="form-select @error('status') is-invalid @enderror"
@@ -423,6 +499,7 @@
                                         <option value="location_not_available" {{ old('status', $lead->status) == 'location_not_available' ? 'selected' : '' }}>Location Not Available</option>
                                         <option value="night_work_demanded" {{ old('status', $lead->status) == 'night_work_demanded' ? 'selected' : '' }}>Night Work Demanded</option>
                                         <option value="customisation" {{ old('status', $lead->status) == 'customisation' ? 'selected' : '' }}>Customisation</option>
+
                                         @if($user->role === 'super_admin')
                                             <option value="approved" {{ old('status', $lead->status) == 'approved' ? 'selected' : '' }}>Approved</option>
                                             <option value="rejected" {{ old('status', $lead->status) == 'rejected' ? 'selected' : '' }}>Rejected</option>
@@ -434,47 +511,47 @@
                                 </div>
                             @endif
 
-                            {{-- Branch Field --}}
+                            <!-- Branch Field -->
                             @if(auth()->user()->role === 'super_admin')
-                            <div class="col-md-6">
-                                <label for="branch_id" class="form-label required-field">Branch</label>
-                                <select class="form-select @error('branch_id') is-invalid @enderror"
-                                        id="branch_id"
-                                        name="branch_id"
-                                        required>
-                                    <option value="">Select Branch</option>
-                                    @foreach($branches as $branch)
-                                        <option value="{{ $branch->id }}" {{ old('branch_id', $lead->branch_id) == $branch->id ? 'selected' : '' }}>
-                                            {{ $branch->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('branch_id')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
+                                <div class="col-md-6">
+                                    <label for="branch_id" class="form-label required-field">Branch</label>
+                                    <select class="form-select @error('branch_id') is-invalid @enderror"
+                                            id="branch_id"
+                                            name="branch_id"
+                                            required>
+                                        <option value="">Select Branch</option>
+                                        @foreach($branches as $branch)
+                                            <option value="{{ $branch->id }}"
+                                                    {{ old('branch_id', $lead->branch_id) == $branch->id ? 'selected' : '' }}>
+                                                {{ $branch->name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('branch_id')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
                             @else
-                            <input type="hidden" name="branch_id" value="{{ $lead->branch_id }}">
+                                <input type="hidden" name="branch_id" value="{{ $lead->branch_id }}">
                             @endif
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label for="assigned_to" class="form-label">Assign To Telecaller</label>
-
                                 @if($user->role === 'telecallers')
-                                    {{-- Telecaller: always self, no dropdown --}}
+                                    <!-- Telecaller always self, no dropdown -->
                                     <input type="text" class="form-control" value="{{ $user->name }}" disabled>
                                     <input type="hidden" name="assigned_to" value="{{ $user->id }}">
                                 @else
-                                    {{-- Admin / Lead manager: can choose telecaller --}}
+                                    <!-- Admin/Lead manager can choose telecaller -->
                                     <select class="form-select @error('assigned_to') is-invalid @enderror"
                                             id="assigned_to"
                                             name="assigned_to">
                                         <option value="">Select Telecaller (Optional)</option>
                                         @foreach($telecallers as $telecaller)
                                             <option value="{{ $telecaller->id }}"
-                                                {{ old('assigned_to', $lead->assigned_to ?? null) == $telecaller->id ? 'selected' : '' }}>
+                                                    {{ old('assigned_to', $lead->assigned_to ?? null) == $telecaller->id ? 'selected' : '' }}>
                                                 {{ $telecaller->name }}
                                             </option>
                                         @endforeach

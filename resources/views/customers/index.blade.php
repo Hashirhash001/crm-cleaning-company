@@ -229,27 +229,113 @@
 <div class="modal fade" id="addNoteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Customer Note</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="las la-sticky-note me-2"></i>Add Customer Note
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form id="addNoteForm">
                 @csrf
                 <input type="hidden" id="note_customer_id" name="note_customer_id">
                 <div class="modal-body">
+                    <!-- ===== FIX: Customer Info Display ===== -->
+                    <div class="alert alert-light border border-primary mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="las la-user text-primary" style="font-size: 1.5rem;"></i>
+                            <div>
+                                <strong class="d-block text-dark">Customer:</strong>
+                                <span id="note_customer_name" class="text-primary fw-semibold">Loading...</span>
+                                <span id="note_customer_code" class="badge bg-secondary ms-2"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Note Text -->
                     <div class="mb-3">
-                        <label for="note" class="form-label">Note <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="note" name="note" rows="4" required></textarea>
+                        <label for="note" class="form-label fw-semibold">
+                            Note <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control"
+                                  id="note"
+                                  name="note"
+                                  rows="4"
+                                  required
+                                  placeholder="Enter customer note or instruction..."></textarea>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i>
+                            Add important information about customer preferences, issues, or instructions
+                        </small>
+                    </div>
+
+                    <!-- Link to Job (Optional) -->
+                    <div class="mb-3">
+                        <label for="job_id" class="form-label fw-semibold">
+                            Link to Job (Optional)
+                        </label>
+                        <select class="form-select" id="job_id" name="job_id">
+                            <option value="">Loading jobs...</option>
+                        </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i>
+                            Link this note to a specific job if relevant
+                        </small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Note</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="las la-times me-1"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="las la-save me-1"></i> Add Note
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<!-- View Notes Modal -->
+<div class="modal fade" id="viewNotesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="las la-list me-2"></i>Customer Notes
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Customer Info -->
+                <div class="alert alert-light border-start border-info border-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong><i class="las la-user"></i> Customer:</strong>
+                            <span id="view_customer_name" class="text-primary"></span>
+                        </div>
+                        <span id="view_customer_code" class="badge bg-secondary"></span>
+                    </div>
+                </div>
+
+                <!-- Notes List -->
+                <div id="notesListContainer">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-3">Loading notes...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="las la-times me-1"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('extra-scripts')
@@ -295,6 +381,14 @@
                 direction: 'asc'
             };
 
+            // Store current customer data for modals
+            let currentCustomer = {
+                id: null,
+                name: null,
+                code: null,
+                jobs: []
+            };
+
             // ============================================
             // AJAX LOAD FUNCTION WITH SORTING
             // ============================================
@@ -308,7 +402,6 @@
                     sort_direction: currentSort.direction
                 };
 
-                // Show loading state
                 $('#customersTable').addClass('table-loading');
 
                 $.ajax({
@@ -323,12 +416,10 @@
                         $('#paginationContainer').html(response.pagination);
                         $('#customerCount').text(response.total);
 
-                        // Update sort indicators
                         if (response.current_sort) {
                             updateSortIndicators(response.current_sort.column, response.current_sort.direction);
                         }
 
-                        // Remove loading state
                         $('#customersTable').removeClass('table-loading');
                     },
                     error: function(xhr) {
@@ -357,7 +448,6 @@
             $(document).on('click', '.sortable', function() {
                 let column = $(this).data('column');
 
-                // Toggle direction if same column, otherwise reset to asc
                 if (currentSort.column === column) {
                     currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
                 } else {
@@ -365,7 +455,6 @@
                     currentSort.direction = 'asc';
                 }
 
-                // Load customers with new sorting
                 loadCustomers();
             });
 
@@ -416,7 +505,6 @@
             $(document).on('click', '.editCustomerBtn', function() {
                 let customerId = $(this).data('id');
 
-                // Clear previous errors
                 $('.error-text').text('').hide();
                 $('input, select, textarea').removeClass('is-invalid');
 
@@ -449,7 +537,6 @@
                 });
             });
 
-            // Remove error styling when user types
             $('#editCustomerModal input, #editCustomerModal select, #editCustomerModal textarea').on('input change', function() {
                 $(this).removeClass('is-invalid');
                 let fieldName = $(this).attr('name');
@@ -466,7 +553,6 @@
                 let formData = new FormData(this);
                 formData.append('_method', 'PUT');
 
-                // Clear previous errors
                 $('.error-text').text('').hide();
                 $('input, select, textarea').removeClass('is-invalid');
 
@@ -507,15 +593,70 @@
             });
 
             // ============================================
-            // ADD NOTE
+            // ADD NOTE - LOAD CUSTOMER JOBS
             // ============================================
             $(document).on('click', '.addNoteBtn', function() {
                 let customerId = $(this).data('id');
+                let customerName = $(this).data('name');
+                let customerCode = $(this).data('code');
+
+                console.log('Add Note Button Clicked:', {
+                    id: customerId,
+                    name: customerName,
+                    code: customerCode
+                });
+
+                // Store current customer data
+                currentCustomer.id = customerId;
+                currentCustomer.name = customerName;
+                currentCustomer.code = customerCode;
+
+                // ===== UPDATE MODAL DISPLAY =====
                 $('#note_customer_id').val(customerId);
+                $('#note_customer_name').text(customerName || 'Unknown Customer');
+                $('#note_customer_code').text(customerCode || 'N/A');
                 $('#note').val('');
+
+                // Reset and show loading in job dropdown
+                $('#job_id').html('<option value="">Loading jobs...</option>');
+
+                // Show modal immediately
                 $('#addNoteModal').modal('show');
+
+                // Load customer jobs for dropdown
+                loadCustomerJobs(customerId);
             });
 
+            // Helper function to load customer jobs
+            function loadCustomerJobs(customerId) {
+                $.ajax({
+                    url: `/api/customers/${customerId}/jobs`,
+                    type: 'GET',
+                    success: function(jobs) {
+                        let options = '<option value="">General Note (Not linked to any job)</option>';
+
+                        if (jobs && jobs.length > 0) {
+                            jobs.forEach(function(job) {
+                                options += `<option value="${job.id}">
+                                    ${job.job_code} - ${job.title || job.service_name} (${job.status_label})
+                                </option>`;
+                            });
+                        } else {
+                            options = '<option value="">General Note (No jobs available)</option>';
+                        }
+
+                        $('#job_id').html(options);
+                    },
+                    error: function(xhr) {
+                        console.error('Failed to load jobs:', xhr);
+                        $('#job_id').html('<option value="">General Note (Not linked to any job)</option>');
+                    }
+                });
+            }
+
+            // ============================================
+            // SUBMIT ADD NOTE FORM
+            // ============================================
             $('#addNoteForm').on('submit', function(e) {
                 e.preventDefault();
 
@@ -547,6 +688,197 @@
                     }
                 });
             });
+
+            // ============================================
+            // VIEW NOTES
+            // ============================================
+            $(document).on('click', '.viewNotesBtn', function() {
+                let customerId = $(this).data('id');
+                let customerName = $(this).data('name');
+                let customerCode = $(this).data('code');
+
+                $('#view_customer_name').text(customerName);
+                $('#view_customer_code').text(customerCode);
+
+                // Show loading
+                $('#notesListContainer').html(`
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-3">Loading notes...</p>
+                    </div>
+                `);
+
+                $('#viewNotesModal').modal('show');
+
+                // Load notes
+                loadCustomerNotes(customerId);
+            });
+
+            // Helper function to load and display notes
+            function loadCustomerNotes(customerId) {
+                $.ajax({
+                    url: '/customers/' + customerId,
+                    type: 'GET',
+                    success: function(htmlResponse) {
+                        // Since the show method returns HTML, we need a JSON endpoint
+                        // For now, let's create a workaround
+                        fetchNotesAsJSON(customerId);
+                    },
+                    error: function() {
+                        $('#notesListContainer').html(`
+                            <div class="alert alert-danger">
+                                <i class="las la-exclamation-triangle"></i>
+                                Failed to load notes
+                            </div>
+                        `);
+                    }
+                });
+            }
+
+            // Fetch notes as JSON (you'll need to add this endpoint)
+            function fetchNotesAsJSON(customerId) {
+                $.ajax({
+                    url: '/api/customers/' + customerId + '/notes',
+                    type: 'GET',
+                    success: function(notes) {
+                        displayNotes(notes, customerId);
+                    },
+                    error: function() {
+                        $('#notesListContainer').html(`
+                            <div class="text-center py-5">
+                                <i class="las la-sticky-note" style="font-size: 4rem; opacity: 0.2;"></i>
+                                <p class="text-muted mt-3">No notes found</p>
+                            </div>
+                        `);
+                    }
+                });
+            }
+
+            // Display notes in modal
+            function displayNotes(notes, customerId) {
+                if (!notes || notes.length === 0) {
+                    $('#notesListContainer').html(`
+                        <div class="text-center py-5">
+                            <i class="las la-sticky-note" style="font-size: 4rem; opacity: 0.2;"></i>
+                            <p class="text-muted mt-3 mb-0">No notes added yet</p>
+                            <small class="text-muted">Add your first note to keep track of customer interactions</small>
+                        </div>
+                    `);
+                    return;
+                }
+
+                let notesHtml = '';
+
+                notes.forEach(function(note) {
+                    let canDelete = {{ auth()->user()->role === 'super_admin' ? 'true' : 'false' }} ||
+                                   note.created_by === {{ auth()->id() }};
+
+                    notesHtml += `
+                        <div class="card mb-2 note-card" id="note-${note.id}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <strong>${note.created_by_name || 'Unknown'}</strong>
+                                        <small class="text-muted ms-2">${note.created_at_human || ''}</small>
+                                    </div>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        ${note.job ? `
+                                            <a href="/jobs/${note.job.id}" class="badge bg-info text-decoration-none"
+                                               title="View Related Job: ${note.job.title || ''}">
+                                                <i class="las la-briefcase"></i> ${note.job.job_code}
+                                            </a>
+                                        ` : '<span class="badge bg-secondary">General Note</span>'}
+
+                                        ${canDelete ? `
+                                            <button type="button"
+                                                    class="deleteNoteBtn"
+                                                    data-customer-id="${customerId}"
+                                                    data-note-id="${note.id}"
+                                                    title="Delete Note">
+                                                <i class="las la-trash text-danger fs-5"></i>
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+
+                                ${note.job ? `
+                                    <div class="alert alert-light border-start border-info border-3 py-2 px-3 mb-2">
+                                        <small class="d-block">
+                                            <i class="las la-briefcase text-info"></i>
+                                            <strong>Related to:</strong> ${note.job.title || 'N/A'}
+                                        </small>
+                                        <small class="text-muted d-block">
+                                            Status: <span class="badge badge-${note.job.status} badge-sm">
+                                                ${note.job.status ? note.job.status.replace('_', ' ') : 'N/A'}
+                                            </span>
+                                            ${note.job.amount ? `| Amount: ₹${parseFloat(note.job.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}` : ''}
+                                        </small>
+                                    </div>
+                                ` : ''}
+
+                                <p class="mb-0">${note.note || ''}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                $('#notesListContainer').html(notesHtml);
+            }
+
+            // ============================================
+            // DELETE NOTE
+            // ============================================
+            $(document).on('click', '.deleteNoteBtn', function() {
+                let noteId = $(this).data('note-id');
+                let customerId = $(this).data('customer-id');
+                let noteCard = $('#note-' + noteId);
+
+                Swal.fire({
+                    title: 'Delete Note?',
+                    text: "This action cannot be undone!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Yes, Delete',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: '/customers/' + customerId + '/notes/' + noteId,
+                            type: 'DELETE',
+                            success: function(response) {
+                                noteCard.fadeOut(300, function() {
+                                    $(this).remove();
+
+                                    if ($('.note-card').length === 0) {
+                                        fetchNotesAsJSON(customerId);
+                                    }
+                                });
+
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: response.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                });
+                            },
+                            error: function(xhr) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error!',
+                                    text: xhr.responseJSON?.message || 'Failed to delete note',
+                                    confirmButtonColor: '#dc3545'
+                                });
+                            }
+                        });
+                    }
+                });
+            });
         });
     </script>
 @endsection
+

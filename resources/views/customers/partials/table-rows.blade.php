@@ -30,7 +30,10 @@
                     <i class="las la-pen text-secondary fs-18"></i>
                 </a>
             @endif
-            <a href="javascript:void(0)" class="addNoteBtn" data-id="{{ $customer->id }}" title="Add Note">
+            <a href="javascript:void(0)" class="addNoteBtn" data-id="{{ $customer->id }}"
+                data-name="{{ $customer->name }}"
+                data-code="{{ $customer->customer_code }}"
+                title="Add Note">
                 <i class="las la-comment text-info fs-18 {{ auth()->user()->role === 'super_admin' ? 'ms-2' : '' }}"></i>
             </a>
         </td>
