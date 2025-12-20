@@ -21,6 +21,7 @@ class Job extends Model
         'title',
         'description',
         'amount',
+        'amount_paid',
         'customer_instructions',
         'status',
         'assigned_at',
@@ -36,7 +37,33 @@ class Job extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'scheduled_date' => 'date',
+        'amount' => 'decimal:2',
+        'amount_paid' => 'decimal:2',
     ];
+
+    // NEW: Calculate balance amount
+    public function getBalanceAmountAttribute()
+    {
+        return $this->amount - $this->amount_paid;
+    }
+
+    // NEW: Check if fully paid
+    public function isFullyPaid()
+    {
+        return $this->amount_paid >= $this->amount;
+    }
+
+    // NEW: Get payment status
+    public function getPaymentStatusAttribute()
+    {
+        if ($this->amount_paid <= 0) {
+            return 'unpaid';
+        } elseif ($this->amount_paid >= $this->amount) {
+            return 'paid';
+        } else {
+            return 'partial';
+        }
+    }
 
     // Relationships
     public function lead()

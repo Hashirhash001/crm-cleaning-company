@@ -1253,6 +1253,7 @@
                                         <th class="sortable" data-column="created-by">Created By</th>
                                     @endif
                                     <th class="sortable" data-column="date">Created Date</th>
+                                    <th class="sortable" data-column="approved_date">Approved Date</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>

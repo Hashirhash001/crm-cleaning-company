@@ -59,6 +59,11 @@ class LeadBulkImportController extends Controller
             'BED SHAMPOO' => 'Bed Shampoo',
             'BED SHAMPOOING' => 'Bed Shampoo',
             'MATTRESS SHAMPOO' => 'Bed Shampoo',
+            'vacuuming' => 'Vacuuming',
+            'VACCUMMING' => 'Vacuuming',
+            'vacuming' => 'Vacuuming',
+            'Unboxing' => 'Unboxing',
+            'UNBOXING' => 'Unboxing',
 
             // Package aliases
             'DEEP PACKAGE' => 'Deep Cleaning Full House',

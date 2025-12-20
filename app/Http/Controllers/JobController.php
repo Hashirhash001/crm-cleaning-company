@@ -185,6 +185,7 @@ class JobController extends Controller
                 'scheduled_date' => 'nullable|date',
                 'scheduled_time' => 'nullable|date_format:H:i',
                 'amount' => 'nullable|numeric|min:0',
+                'amount_paid' => 'nullable|numeric|min:0',
             ]);
 
             // Generate unique job code
@@ -203,6 +204,7 @@ class JobController extends Controller
                 'scheduled_date' => $validated['scheduled_date'] ?? null,
                 'scheduled_time' => $validated['scheduled_time'] ?? null,
                 'amount' => $validated['amount'] ?? null,
+                'amount_paid' => $validated['amount_paid'] ?? 0,
                 'created_by' => auth()->id(),
                 'status' => 'pending',
             ]);
@@ -338,6 +340,7 @@ class JobController extends Controller
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
                 'amount' => 'nullable|numeric|min:0',
+                'amount_paid' => 'nullable|numeric|min:0',
                 'service_type' => 'nullable|in:cleaning,pest_control,other',
                 'service_ids' => 'nullable|array',
                 'service_ids.*' => 'exists:services,id',
@@ -346,6 +349,7 @@ class JobController extends Controller
 
             // Track if amount or services changed
             $amountChanged = isset($validated['amount']) && $validated['amount'] != $job->amount;
+            $amountPaidChanged = isset($validated['amount_paid']) && $validated['amount_paid'] != $job->amount_paid;
 
             // Track if services changed
             $servicesChanged = false;
@@ -359,7 +363,7 @@ class JobController extends Controller
             $newStatus = $validated['status'] ?? $job->status;
 
             // If amount or services changed and job has a lead and is confirmed, set to pending
-            if (($amountChanged || $servicesChanged) && $job->lead_id) {
+            if (($amountChanged || $amountPaidChanged || $servicesChanged) && $job->lead_id) {
                 $newStatus = 'pending';
             }
 
@@ -391,6 +395,10 @@ class JobController extends Controller
                 $updateData['amount'] = $validated['amount'];
             }
 
+            if (isset($validated['amount_paid'])) {
+                $updateData['amount_paid'] = $validated['amount_paid'];
+            }
+
             $job->update($updateData);
 
             // Sync services if provided
@@ -402,7 +410,7 @@ class JobController extends Controller
             }
 
             // If job has a related lead, sync changes back to the lead
-            if ($job->lead_id && ($amountChanged || $servicesChanged)) {
+            if ($job->lead_id && ($amountChanged || $amountPaidChanged || $servicesChanged)) {
                 $lead = $job->lead;
 
                 $leadUpdateData = [];
@@ -410,6 +418,13 @@ class JobController extends Controller
                 // Update lead amount if job amount changed
                 if ($amountChanged && isset($validated['amount'])) {
                     $leadUpdateData['amount'] = $validated['amount'];
+                    $leadUpdateData['amount_updated_at'] = now();
+                    $leadUpdateData['amount_updated_by'] = $user->id;
+                }
+
+                // Update lead amount paid if job amount paid changed
+                if ($amountPaidChanged && isset($validated['amount_paid'])) {
+                    $leadUpdateData['advance_paid_amount'] = $validated['amount_paid'];
                     $leadUpdateData['amount_updated_at'] = now();
                     $leadUpdateData['amount_updated_by'] = $user->id;
                 }
@@ -429,6 +444,7 @@ class JobController extends Controller
                     'job_id' => $job->id,
                     'lead_id' => $lead->id,
                     'amount_changed' => $amountChanged,
+                    'amount_paid_changed' => $amountPaidChanged,
                     'services_changed' => $servicesChanged,
                 ]);
             }
@@ -437,12 +453,13 @@ class JobController extends Controller
                 'job_id' => $job->id,
                 'updated_by' => $user->id,
                 'amount_changed' => $amountChanged,
+                'amount_paid_changed' => $amountPaidChanged,
                 'services_changed' => $servicesChanged,
                 'status_changed_to_pending' => $newStatus === 'pending',
             ]);
 
             $message = 'Job updated successfully!';
-            if (($amountChanged || $servicesChanged) && $job->lead_id) {
+            if (($amountChanged || $amountPaidChanged || $servicesChanged) && $job->lead_id) {
                 $message .= ' Job status changed to pending for admin approval. Related lead has also been updated.';
             }
 

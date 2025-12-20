@@ -288,6 +288,7 @@
                                     <option value="3100-4000" {{ old('sqft') == '3100-4000' ? 'selected' : '' }}>3100-4000</option>
                                     <option value="4100-5000" {{ old('sqft') == '4100-5000' ? 'selected' : '' }}>4100-5000</option>
                                     <option value="5100-6000" {{ old('sqft') == '5100-6000' ? 'selected' : '' }}>5100-6000</option>
+                                    <option value="customization" {{ old('sqft') == 'customization' ? 'selected' : '' }}>Customization</option>
                                 </select>
                                 @error('sqft')
                                     <div class="invalid-feedback">{{ $message }}</div>

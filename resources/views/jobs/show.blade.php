@@ -448,11 +448,54 @@
             <!-- Left Column -->
             <div class="col-lg-4">
 
-                <!-- Amount Card -->
+                <!-- Amount Card - Enhanced with Payment Details -->
                 @if($job->amount)
                 <div class="amount-card">
-                    <h5><i class="las la-rupee-sign me-2"></i>Job Amount</h5>
-                    <div class="amount-value">₹{{ number_format($job->amount, 2) }}</div>
+                    <h5><i class="las la-rupee-sign me-2"></i>Financial Details</h5>
+
+                    <!-- Total Amount -->
+                    <div class="mb-3">
+                        <small style="opacity: 0.9; display: block; margin-bottom: 0.3rem;">Total Amount</small>
+                        <div class="amount-value">₹{{ number_format($job->amount, 2) }}</div>
+                    </div>
+
+                    <!-- Amount Paid -->
+                    <div class="mb-3 pb-3" style="border-bottom: 1px solid rgba(255,255,255,0.2);">
+                        <small style="opacity: 0.9; display: block; margin-bottom: 0.3rem;">Amount Paid</small>
+                        <div style="font-size: 1.3rem; font-weight: 700; color: #fff;">
+                            ₹{{ number_format($job->amount_paid ?? 0, 2) }}
+                        </div>
+                    </div>
+
+                    <!-- Balance Amount -->
+                    @php
+                        $balance = $job->amount - ($job->amount_paid ?? 0);
+                        $paymentStatus = '';
+                        $statusIcon = '';
+
+                        if ($balance <= 0) {
+                            $paymentStatus = 'Fully Paid';
+                            $statusIcon = 'la-check-circle';
+                        } elseif (($job->amount_paid ?? 0) > 0) {
+                            $paymentStatus = 'Partially Paid';
+                            $statusIcon = 'la-clock';
+                        } else {
+                            $paymentStatus = 'Unpaid';
+                            $statusIcon = 'la-exclamation-circle';
+                        }
+                    @endphp
+
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small style="opacity: 0.9;">Balance Amount</small>
+                            <span class="badge bg-light text-dark">
+                                <i class="las {{ $statusIcon }} me-1"></i>{{ $paymentStatus }}
+                            </span>
+                        </div>
+                        <div style="font-size: 1.5rem; font-weight: 800; color: {{ $balance > 0 ? '#fbbf24' : '#fff' }};">
+                            ₹{{ number_format($balance, 2) }}
+                        </div>
+                    </div>
                 </div>
                 @endif
 
@@ -690,9 +733,21 @@
                             <span class="error-text title_error text-danger d-block mt-1"></span>
                         </div>
                         <div class="col-md-6">
-                            <label for="amount" class="form-label">Amount (₹)</label>
-                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0">
+                            <label for="amount" class="form-label">Total Amount (₹)</label>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" placeholder="0.00">
                             <span class="error-text amount_error text-danger d-block mt-1"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="amount_paid" class="form-label">Amount Paid (₹)</label>
+                            <input type="number" class="form-control" id="amount_paid" name="amount_paid" step="0.01" min="0" placeholder="0.00" value="0">
+                            <small class="text-muted">Balance will be calculated automatically</small>
+                            <span class="error-text amount_paid_error text-danger d-block mt-1"></span>
+                        </div>
+                        <div class="col-md-6 mt-2">
+                            <div class="alert alert-info d-flex justify-content-between align-items-center mb-0">
+                                <span><strong>Balance Amount:</strong></span>
+                                <span id="balanceAmount" class="fs-5 fw-bold">₹0.00</span>
+                            </div>
                         </div>
                     </div>
 
@@ -962,6 +1017,10 @@
                     $('#branch_id').val(response.job.branch_id || '');
                     $('#location').val(response.job.location || '');
                     $('#amount').val(response.job.amount || '');
+                    $('#amount_paid').val(response.job.amount_paid || '0');
+
+                    // Calculate and display balance
+                    calculateBalance();
 
                     // Set service type
                     if (response.job.service_type) {
@@ -999,6 +1058,35 @@
                 }
             });
         });
+
+        // ============================================
+        // CALCULATE BALANCE AMOUNT
+        // ============================================
+        function calculateBalance() {
+            const totalAmount = parseFloat($('#amount').val()) || 0;
+            const amountPaid = parseFloat($('#amount_paid').val()) || 0;
+            const balance = totalAmount - amountPaid;
+
+            $('#balanceAmount').text('₹' + balance.toFixed(2));
+
+            // Change color based on payment status
+            const balanceDisplay = $('#balanceAmount').parent();
+            balanceDisplay.removeClass('alert-success alert-warning alert-danger alert-info');
+
+            if (balance <= 0) {
+                balanceDisplay.addClass('alert-success');
+            } else if (amountPaid > 0) {
+                balanceDisplay.addClass('alert-warning');
+            } else {
+                balanceDisplay.addClass('alert-danger');
+            }
+        }
+
+        // Calculate balance on amount change
+        $(document).on('input', '#amount, #amount_paid', function() {
+            calculateBalance();
+        });
+
 
         // Submit Edit Form
         $('#jobForm').on('submit', function(e) {

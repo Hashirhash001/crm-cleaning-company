@@ -46,6 +46,28 @@
             @endif
         </td>
 
+        <!-- Amount Column -->
+        <td>
+            @if($job->amount)
+                <div>
+                    {{-- <strong class="text-primary">₹{{ number_format($job->amount, 2) }}</strong> --}}
+                    <small class="d-block text-muted">
+                        Paid: ₹{{ number_format($job->amount_paid, 2) }}
+                    </small>
+                    @if($job->balance_amount > 0)
+                        <small class="d-block text-danger">
+                            Balance: ₹{{ number_format($job->balance_amount, 2) }}
+                        </small>
+                    @else
+                        <span class="badge bg-success">Fully Paid</span>
+                    @endif
+                </div>
+            @else
+                <span class="text-muted">N/A</span>
+            @endif
+        </td>
+
+
         <!-- Status -->
         <td><span class="badge badge-{{ $job->status }}">{{ ucfirst(str_replace('_', ' ', $job->status)) }}</span></td>
 

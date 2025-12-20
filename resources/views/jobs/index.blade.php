@@ -428,13 +428,13 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">Jobs List (<span id="jobCount">{{ $jobs->total() }}</span> total)</h4>
                     <!-- Add Job Button -->
-                    {{-- @if(auth()->user()->role === 'super_admin')
+                    @if(auth()->user()->role === 'super_admin')
                     <div class="col-auto">
                         <button type="button" class="btn btn-primary" id="addJobBtn">
                             <i class="las la-plus me-1"></i> Add Job
                         </button>
                     </div>
-                    @endif --}}
+                    @endif
                 </div>
                 <div class="card-body">
                     <div class="table-container">
@@ -446,6 +446,7 @@
                                     <th class="sortable" data-column="customer" style="min-width: 150px;">Customer</th>
                                     <th class="sortable" data-column="service" style="min-width: 140px;">Service</th>
                                     <th class="sortable" data-column="amount" style="min-width: 120px;">Amount</th>
+                                    <th class="sortable" data-column="amount_paid" style="min-width: 120px;">Amount Paid</th>
                                     <th class="sortable" data-column="status" style="min-width: 120px;">Status</th>
                                     <th class="sortable" data-column="branch" style="min-width: 120px;">Branch</th>
                                     <th class="sortable" data-column="assigned" style="min-width: 150px;">Assigned To</th>
@@ -491,10 +492,17 @@
                         </div>
                         <div class="col-md-6">
                             <label for="customer_id" class="form-label">Customer</label>
-                            <select class="form-select" id="customer_id" name="customer_id">
+                            <select name="customer_id" id="customerId" class="form-select select2-customer">
                                 <option value="">Select Customer</option>
                                 @foreach($customers as $customer)
-                                    <option value="{{ $customer->id }}">{{ $customer->name }}</option>
+                                    <option value="{{ $customer->id }}"
+                                            data-code="{{ $customer->customer_code }}"
+                                            data-phone="{{ $customer->phone }}">
+                                        {{ $customer->customer_code }} - {{ $customer->name }}
+                                        @if($customer->phone)
+                                            ({{ $customer->phone }})
+                                        @endif
+                                    </option>
                                 @endforeach
                             </select>
                             <span class="error-text customer_id_error text-danger d-block mt-1"></span>
@@ -507,6 +515,30 @@
                             <input type="number" class="form-control" id="amount" name="amount" step="0.01" min="0" placeholder="0.00">
                             <span class="error-text amount_error text-danger d-block mt-1"></span>
                         </div>
+                        <!-- Amount Paid -->
+                        <div class="col-md-6">
+                            <label for="amountPaid" class="form-label">Amount Paid (₹)</label>
+                            <input type="number"
+                                name="amount_paid"
+                                id="amountPaid"
+                                class="form-control"
+                                step="0.01"
+                                min="0"
+                                value="0"
+                                placeholder="Enter amount paid">
+                            <small class="text-muted">Balance will be calculated automatically</small>
+                        </div>
+
+                        <!-- Balance Display (Optional - Read-only) -->
+                        <div class="col-md-6">
+                            <label class="form-label">Balance Amount</label>
+                            <input type="text"
+                                id="balanceAmount"
+                                class="form-control"
+                                readonly
+                                value="₹0.00">
+                        </div>
+
                         <div class="col-md-6">
                             <label for="service_type" class="form-label">Service Type <span class="text-danger">*</span></label>
                             <select class="form-select" id="service_type" name="service_type" required>
@@ -692,7 +724,7 @@
                 }
             });
 
-            // Initialize Select2 on service filter (optional - for better UX with many services)
+            // Initialize Select2 on service filter
             $('#serviceFilter').select2({
                 theme: 'bootstrap-5',
                 placeholder: 'search and select service',
@@ -709,11 +741,81 @@
                 width: '100%'
             });
 
+            // ============================================
+            // INITIALIZE SELECT2 FOR CUSTOMER DROPDOWN
+            // ============================================
+
+            function initializeCustomerSelect2() {
+                // Destroy existing instance if any
+                if ($('.select2-customer').data('select2')) {
+                    $('.select2-customer').select2('destroy');
+                }
+
+                $('.select2-customer').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Search by name, code, or phone',
+                    allowClear: true,
+                    dropdownParent: $('#jobModal'), // IMPORTANT: Set modal as parent
+                    width: '100%',
+                    matcher: function(params, data) {
+                        // If there are no search terms, return all data
+                        if ($.trim(params.term) === '') {
+                            return data;
+                        }
+
+                        // Search in text, customer code, and phone
+                        const searchTerm = params.term.toLowerCase();
+                        const text = data.text.toLowerCase();
+                        const code = $(data.element).data('code')?.toString().toLowerCase() || '';
+                        const phone = $(data.element).data('phone')?.toString() || '';
+
+                        if (text.indexOf(searchTerm) > -1 ||
+                            code.indexOf(searchTerm) > -1 ||
+                            phone.indexOf(searchTerm) > -1) {
+                            return data;
+                        }
+
+                        return null;
+                    }
+                });
+            }
+
+            // Initialize customer select2 when modal is fully shown
+            $('#jobModal').on('shown.bs.modal', function() {
+                initializeCustomerSelect2();
+            });
+
+            // ============================================
+            // CALCULATE BALANCE AMOUNT
+            // ============================================
+
+            function calculateBalance() {
+                const totalAmount = parseFloat($('#amount').val()) || 0;
+                const amountPaid = parseFloat($('#amountPaid').val()) || 0;
+                const balance = totalAmount - amountPaid;
+
+                $('#balanceAmount').val('₹' + balance.toFixed(2));
+
+                // Change color based on payment status
+                if (balance <= 0) {
+                    $('#balanceAmount').removeClass('text-danger text-warning').addClass('text-success');
+                } else if (amountPaid > 0) {
+                    $('#balanceAmount').removeClass('text-danger text-success').addClass('text-warning');
+                } else {
+                    $('#balanceAmount').removeClass('text-warning text-success').addClass('text-danger');
+                }
+            }
+
+            // Calculate balance on amount change
+            $(document).on('input', '#amount, #amountPaid', function() {
+                calculateBalance();
+            });
+
             // Store all telecallers and field staff data
             const allTelecallers = @json($telecallers);
             const allFieldStaff = @json($field_staff);
 
-            let currentJobServiceIds = []; // Store current job services for editing
+            let currentJobServiceIds = [];
 
             // Set minimum date for scheduled_date to today
             let today = new Date().toISOString().split('T')[0];
@@ -774,56 +876,29 @@
             });
 
             // ============================================
-            // SORTING STATE
+            // SORTING STATE - FIXED
             // ============================================
             let currentSort = {
-                column: null,
-                direction: 'asc'
+                column: 'created_at',
+                direction: 'desc'
             };
 
-            // Search form submit
-            $(document).on('submit', '#jobSearchForm', function(e) {
-                e.preventDefault();
-                loadJobs();
-            });
-
-            // Search input with debounce
-            let searchTimeout;
-            $(document).on('keyup', '#jobSearch', function() {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(function() {
-                    loadJobs();
-                }, 500); // Wait 500ms after user stops typing
-            });
-
-            // Filter changes
-            $(document).on('change', '#statusFilter, #branchFilter, #serviceFilter, #dateFromFilter, #dateToFilter', function() {
-                loadJobs();
-            });
-
-            // Clear filters
-            $(document).on('click', '#clearFilters', function() {
-                $('#jobSearch').val('');
-                $('#statusFilter').val('');
-                $('#branchFilter').val('');
-                $('#serviceFilter').val('');
-                $('#dateFromFilter').val('');
-                $('#dateToFilter').val('');
-                loadJobs();
-            });
-
-            // Load jobs with all filters and search
+            // ============================================
+            // LOAD JOBS FUNCTION - FIXED
+            // ============================================
             function loadJobs(page = 1) {
-                const searchTerm = $('#jobSearch').val();
+                const searchTerm = $('#searchInput').val(); // FIXED: was #jobSearch
                 const status = $('#statusFilter').val();
                 const branchId = $('#branchFilter').val();
                 const serviceId = $('#serviceFilter').val();
-                const dateFrom = $('#dateFromFilter').val();
-                const dateTo = $('#dateToFilter').val();
-                const sortColumn = $('input[name="sort_column"]').val() || 'created_at';
-                const sortDirection = $('input[name="sort_direction"]').val() || 'desc';
+                const dateFrom = $('#dateFrom').val(); // FIXED: was #dateFromFilter
+                const dateTo = $('#dateTo').val(); // FIXED: was #dateToFilter
 
-                console.log('🔍 Loading jobs with search:', searchTerm);
+                console.log('🔍 Loading jobs with:', {
+                    search: searchTerm,
+                    sort: currentSort.column,
+                    direction: currentSort.direction
+                });
 
                 $.ajax({
                     url: '{{ route("jobs.index") }}',
@@ -835,40 +910,32 @@
                         service_id: serviceId,
                         date_from: dateFrom,
                         date_to: dateTo,
-                        sort_column: sortColumn,
-                        sort_direction: sortDirection,
+                        sort_column: currentSort.column, // Use currentSort object
+                        sort_direction: currentSort.direction,
                         page: page
+                    },
+                    beforeSend: function() {
+                        $('#jobsTableBody').addClass('table-loading');
                     },
                     success: function(response) {
                         console.log('✅ Jobs loaded:', response.total, 'results');
-                        if (response.debug) {
-                            console.log('Debug info:', response.debug);
-                        }
 
                         $('#jobsTableBody').html(response.html);
-                        $('#jobsPagination').html(response.pagination);
+                        $('#paginationContainer').html(response.pagination);
+                        $('#jobCount').text(response.total);
 
-                        // Update total count if element exists
-                        if ($('#totalJobs').length) {
-                            $('#totalJobs').text(response.total + ' jobs');
-                        }
+                        // Update sort indicators
+                        updateSortIndicators(currentSort.column, currentSort.direction);
+
+                        $('#jobsTableBody').removeClass('table-loading');
                     },
                     error: function(xhr) {
                         console.error('❌ Error loading jobs:', xhr);
-                        showAlert('error', 'Error loading jobs. Please try again.');
+                        $('#jobsTableBody').removeClass('table-loading');
+                        Swal.fire('Error!', 'Failed to load jobs', 'error');
                     }
                 });
             }
-
-            // Pagination click handler
-            $(document).on('click', '.pagination a', function(e) {
-                e.preventDefault();
-                const url = $(this).attr('href');
-                const page = url.split('page=')[1];
-                if (page) {
-                    loadJobs(page);
-                }
-            });
 
             // ============================================
             // UPDATE SORT INDICATORS
@@ -879,10 +946,12 @@
             }
 
             // ============================================
-            // SORT COLUMN CLICK HANDLER
+            // SORT COLUMN CLICK HANDLER - FIXED
             // ============================================
             $(document).on('click', '.sortable', function() {
                 let column = $(this).data('column');
+
+                console.log('🔀 Sorting column:', column);
 
                 // Toggle direction if same column, otherwise reset to asc
                 if (currentSort.column === column) {
@@ -896,6 +965,33 @@
                 loadJobs();
             });
 
+            // Search and filter handlers
+            $(document).on('submit', '#filterForm', function(e) {
+                e.preventDefault();
+                loadJobs();
+            });
+
+            $(document).on('keyup', '#searchInput', function() {
+                clearTimeout(window.searchTimeout);
+                window.searchTimeout = setTimeout(function() {
+                    loadJobs();
+                }, 500);
+            });
+
+            $(document).on('change', '#statusFilter, #branchFilter, #serviceFilter, #dateFrom, #dateTo', function() {
+                loadJobs();
+            });
+
+            // Pagination click handler
+            $(document).on('click', '.pagination a', function(e) {
+                e.preventDefault();
+                const url = $(this).attr('href');
+                const page = url.split('page=')[1];
+                if (page) {
+                    loadJobs(page);
+                }
+            });
+
             // Add Job Button
             $('#addJobBtn').click(function() {
                 $('#jobForm')[0].reset();
@@ -903,6 +999,9 @@
                 $('#jobModalLabel').text('Add Job');
                 $('.error-text').text('');
                 $('#branch_id').val('');
+                $('#amount').val('');
+                $('#amountPaid').val('0');
+                $('#balanceAmount').val('₹0.00');
                 currentJobServiceIds = [];
 
                 let today = new Date().toISOString().split('T')[0];
@@ -930,14 +1029,18 @@
                         $('#job_id').val(response.job.id);
                         $('#jobModalLabel').text('Edit Job');
                         $('#title').val(response.job.title || '');
-                        $('#customer_id').val(response.job.customer_id || '');
+                        $('#customerId').val(response.job.customer_id || '').trigger('change');
                         $('#description').val(response.job.description || '');
                         $('#customer_instructions').val(response.job.customer_instructions || '');
                         $('#branch_id').val(response.job.branch_id || '');
                         $('#location').val(response.job.location || '');
                         $('#amount').val(response.job.amount || '');
+                        $('#amountPaid').val(response.job.amount_paid || '0');
 
-                        // Set service type (get from job)
+                        // Calculate balance
+                        calculateBalance();
+
+                        // Set service type
                         if (response.job.service_type) {
                             $('#service_type').val(response.job.service_type);
                         }
@@ -1030,7 +1133,7 @@
                             timer: 2000,
                             showConfirmButton: false
                         }).then(() => {
-                            loadJobs(); // Reload table without full page refresh
+                            loadJobs();
                         });
                     },
                     error: function(xhr) {
@@ -1055,12 +1158,10 @@
                     type: 'GET',
                     success: function(response) {
                         if (response.success) {
-                            // Set job ID
                             $('#assign_job_id').val(response.job.id);
                             $('#assign_job_code').text(response.job.job_code);
                             $('#assign_job_title').text(response.job.title);
 
-                            // Reset and populate assigned_to dropdown
                             let assignedToSelect = $('#assigned_to');
                             assignedToSelect.html('<option value="">Select Staff Member</option>');
 
@@ -1096,10 +1197,7 @@
                                 assignedToSelect.append(fieldStaffOptgroup);
                             }
 
-                            // Clear notes
                             $('#assign_notes').val('');
-
-                            // Show modal
                             $('#assignJobModal').modal('show');
                         }
                     },
@@ -1126,7 +1224,7 @@
                     success: function(response) {
                         $('#assignJobModal').modal('hide');
                         Swal.fire('Assigned!', response.message, 'success').then(() => {
-                            loadJobs(); // Reload table without full page refresh
+                            loadJobs();
                         });
                     },
                     error: function(xhr) {
@@ -1155,11 +1253,50 @@
                             type: 'DELETE',
                             success: function() {
                                 Swal.fire('Deleted!', 'Job deleted successfully', 'success').then(() => {
-                                    loadJobs(); // Reload table without full page refresh
+                                    loadJobs();
                                 });
                             },
                             error: function() {
                                 Swal.fire('Error!', 'Failed to delete job', 'error');
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Confirm Job Status
+            $(document).on('click', '.confirmJobBtn', function() {
+                let jobId = $(this).data('id');
+
+                Swal.fire({
+                    title: 'Confirm Job Status?',
+                    text: 'This will change the job status to confirmed.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Confirm',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/jobs/${jobId}/confirm-status`,
+                            type: 'POST',
+                            success: function(response) {
+                                if(response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Confirmed!',
+                                        text: response.message,
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        loadJobs();
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not confirm job.', 'error');
                             }
                         });
                     }
@@ -1183,7 +1320,7 @@
                             type: 'POST',
                             success: function() {
                                 Swal.fire('Started!', 'Job started successfully', 'success').then(() => {
-                                    loadJobs(); // Reload table without full page refresh
+                                    loadJobs();
                                 });
                             },
                             error: function() {
@@ -1211,7 +1348,7 @@
                             type: 'POST',
                             success: function() {
                                 Swal.fire('Completed!', 'Job completed successfully', 'success').then(() => {
-                                    loadJobs(); // Reload table without full page refresh
+                                    loadJobs();
                                 });
                             },
                             error: function() {
@@ -1222,44 +1359,8 @@
                 });
             });
 
-            $(document).on('click', '.confirmJobBtn', function() {
-                let jobId = $(this).data('id');
-
-                Swal.fire({
-                    title: 'Confirm Job Status?',
-                    text: 'This will change the job status to confirmed.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, Confirm',
-                    cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $.ajax({
-                            url: `/jobs/${jobId}/confirm-status`,
-                            type: 'POST',
-                            success: function(response) {
-                                if(response.success) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Confirmed!',
-                                        text: response.message,
-                                        timer: 2000,
-                                        showConfirmButton: false
-                                    }).then(() => {
-                                        location.reload();
-                                    });
-                                }
-                            },
-                            error: function(xhr) {
-                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not confirm job.', 'error');
-                            }
-                        });
-                    }
-                });
-            });
+            console.log('✅ Jobs management system initialized');
         });
-    </script>
+        </script>
 
 @endsection

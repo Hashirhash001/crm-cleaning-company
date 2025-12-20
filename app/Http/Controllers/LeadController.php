@@ -436,6 +436,7 @@ class LeadController extends Controller
             $phoneChanged = $validated['phone'] !== $lead->phone;
             $emailChanged = ($validated['email'] ?? null) !== $lead->email;
             $amountChanged = isset($validated['amount']) && $validated['amount'] != $lead->amount;
+            $amountPaidChanged = isset($validated['advance_paid_amount']) && $validated['advance_paid_amount'] != $lead->advance_paid_amount;
 
             $oldServiceIds = $lead->services->pluck('id')->sort()->values()->toArray();
             $newServiceIds = collect($validated['service_ids'])->sort()->values()->toArray();
@@ -542,7 +543,7 @@ class LeadController extends Controller
             $jobsUpdated = false;
             $jobsUpdatedCount = 0;
 
-            if ($isApprovedLead && ($amountChanged || $servicesChanged)) {
+            if ($isApprovedLead && ($amountChanged || $amountPaidChanged || $servicesChanged)) {
                 try {
                     // Count total jobs for this lead
                     $totalJobsCount = $lead->jobs()->count();
@@ -551,6 +552,7 @@ class LeadController extends Controller
                         'lead_id' => $lead->id,
                         'total_jobs' => $totalJobsCount,
                         'amount_changed' => $amountChanged,
+                        'amount_paid_changed' => $amountPaidChanged,
                         'services_changed' => $servicesChanged
                     ]);
 
@@ -575,8 +577,14 @@ class LeadController extends Controller
                             $jobChangedFields[] = "amount: ₹{$job->amount} → ₹{$validated['amount']}";
                         }
 
+                        // Update job amount paid if changed
+                        if ($amountPaidChanged) {
+                            $jobUpdateData['amount_paid'] = $validated['amount_paid'];
+                            $jobChangedFields[] = "amount_paid: ₹{$job->amount_paid} → ₹{$validated['amount_paid']}";
+                        }
+
                         // Change job status to pending ONLY if it was confirmed AND changes were made
-                        if ($job->status === 'confirmed' && ($amountChanged || $servicesChanged)) {
+                        if ($job->status === 'confirmed' && ($amountChanged || $amountPaidChanged || $servicesChanged)) {
                             $jobUpdateData['status'] = 'pending';
                             $jobChangedFields[] = "status: confirmed → pending (needs re-approval)";
                         }
@@ -671,7 +679,7 @@ class LeadController extends Controller
                     } else {
                         $message .= ' Job updated successfully.';
                     }
-                } elseif (($amountChanged || $servicesChanged)) {
+                } elseif (($amountChanged || $amountPaidChanged || $servicesChanged)) {
                     $totalJobs = $lead->jobs()->count();
 
                     if ($totalJobs > 1) {

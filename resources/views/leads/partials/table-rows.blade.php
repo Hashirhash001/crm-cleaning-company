@@ -9,7 +9,8 @@
         data-branch="{{ $lead->branch->name ?? 'N/A' }}"
         data-assigned="{{ $lead->assignedTo ? $lead->assignedTo->name : 'Unassigned' }}"
         data-created-by="{{ $lead->createdBy->name }}"
-        data-date="{{ $lead->created_at->format('Y-m-d') }}">
+        data-date="{{ $lead->created_at->format('Y-m-d') }}"
+        data-approved-date="{{ $lead->approved_at ? $lead->approved_at->format('Y-m-d') : 'N/A' }}">
 
         <!-- Checkbox for bulk selection -->
         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
@@ -115,7 +116,10 @@
         @endif
 
         <!-- Created Date -->
-        <td>{{ $lead->created_at->format('d M Y') }}</td>
+        <td>{{ $lead->created_at->format('d-m-Y') }}</td>
+
+        <!-- Approved Date -->
+        <td>{{ $lead->approved_at ? $lead->approved_at->format('d-m-Y h:i') : 'N/A' }}</td>
 
         <!-- Action -->
         <td>
