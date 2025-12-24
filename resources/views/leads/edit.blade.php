@@ -77,6 +77,66 @@
         border-left: 4px solid #ffc107 !important;
     }
 
+    .service-checkbox-item {
+        padding: 8px 10px;
+        margin: 5px 0;
+        border-radius: 5px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .service-checkbox-item:hover {
+        background: #f8f9fa;
+    }
+
+    .service-checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        flex: 1;
+    }
+
+    .service-checkbox-item input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin-right: 10px;
+        cursor: pointer;
+    }
+
+    .service-checkbox-item label {
+        cursor: pointer;
+        margin: 0;
+        font-weight: 500;
+        flex: 1;
+    }
+
+    .service-quantity-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .service-quantity-input {
+        width: 80px;
+        padding: 4px 8px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        text-align: center;
+        font-size: 0.875rem;
+    }
+
+    .service-quantity-input:disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .quantity-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
 </style>
 @endsection
 
@@ -283,19 +343,42 @@
                             <div class="col-md-6">
                                 <label for="sqft" class="form-label">SQFT Details</label>
                                 <select class="form-select @error('sqft') is-invalid @enderror" id="sqft" name="sqft">
-                                    <option value="0">Select SQFT</option>
-                                    <option value="0-700" {{ old('sqft') == '0-700' ? 'selected' : '' }}>0-700</option>
-                                    <option value="700-2000" {{ old('sqft') == '700-2000' ? 'selected' : '' }}>700-2000</option>
-                                    <option value="2100-3000" {{ old('sqft') == '2100-3000' ? 'selected' : '' }}>2100-3000</option>
-                                    <option value="3100-4000" {{ old('sqft') == '3100-4000' ? 'selected' : '' }}>3100-4000</option>
-                                    <option value="4100-5000" {{ old('sqft') == '4100-5000' ? 'selected' : '' }}>4100-5000</option>
-                                    <option value="5100-6000" {{ old('sqft') == '5100-6000' ? 'selected' : '' }}>5100-6000</option>
-                                    <option value="customization" {{ old('sqft') == 'customization' ? 'selected' : '' }}>Customization</option>
+                                    <option value="">Select SQFT</option>
+                                    @php
+                                        $sqftValue = old('sqft', $lead->sqft);
+                                        $isCustom = !in_array($sqftValue, ['', '0-700', '700-2000', '2100-3000', '3100-4000', '4100-5000', '5100-6000']);
+                                        if ($isCustom && $sqftValue) {
+                                            $customValue = $sqftValue;
+                                            $sqftValue = 'custom';
+                                        } else {
+                                            $customValue = old('sqft_custom', '');
+                                        }
+                                    @endphp
+                                    <option value="0-700" {{ $sqftValue == '0-700' ? 'selected' : '' }}>0-700</option>
+                                    <option value="700-2000" {{ $sqftValue == '700-2000' ? 'selected' : '' }}>700-2000</option>
+                                    <option value="2100-3000" {{ $sqftValue == '2100-3000' ? 'selected' : '' }}>2100-3000</option>
+                                    <option value="3100-4000" {{ $sqftValue == '3100-4000' ? 'selected' : '' }}>3100-4000</option>
+                                    <option value="4100-5000" {{ $sqftValue == '4100-5000' ? 'selected' : '' }}>4100-5000</option>
+                                    <option value="5100-6000" {{ $sqftValue == '5100-6000' ? 'selected' : '' }}>5100-6000</option>
+                                    <option value="custom" {{ $sqftValue == 'custom' ? 'selected' : '' }}>Custom</option>
                                 </select>
                                 @error('sqft')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
+
+                                <!-- Custom SQFT Input -->
+                                <input type="text"
+                                       class="form-control mt-2 @error('sqft_custom') is-invalid @enderror"
+                                       id="sqft_custom"
+                                       name="sqft_custom"
+                                       value="{{ $customValue }}"
+                                       placeholder="Enter custom SQFT"
+                                       style="{{ $sqftValue == 'custom' ? '' : 'display: none;' }}">
+                                @error('sqft_custom')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
+
                         </div>
 
                         <div class="row mb-3">
@@ -343,7 +426,7 @@
                                         Loading services...
                                     </p>
                                 </div>
-                                <small class="text-muted">Check all services that apply to this lead</small>
+                                <small class="text-muted">Check services and quantity for each</small>
                                 @error('service_ids')
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
@@ -590,13 +673,14 @@
 
 <script>
 $(document).ready(function() {
+    // CSRF Token Setup
     $.ajaxSetup({
         headers: {
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         }
     });
 
-    // Initialize Select2 on district dropdown
+    // Initialize Select2
     $('#district').select2({
         theme: 'bootstrap-5',
         placeholder: 'Search and select district',
@@ -607,6 +691,17 @@ $(document).ready(function() {
     const allTelecallers = @json($telecallers);
     const currentAssignedTo = {{ $lead->assigned_to ?? 'null' }};
     const leadServiceIds = @json($lead->services->pluck('id'));
+    const leadServiceQuantities = @json($lead->services->mapWithKeys(function($s) { return [$s->id => $s->pivot->quantity]; }));
+
+    // ============ SQFT Custom Field Toggle ============
+    $('#sqft').on('change', function() {
+        let sqftValue = $(this).val();
+        if (sqftValue === 'custom') {
+            $('#sqft_custom').show().focus();
+        } else {
+            $('#sqft_custom').hide();
+        }
+    });
 
     // Calculate balance amount
     function calculateBalance() {
@@ -614,26 +709,19 @@ $(document).ready(function() {
         let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
         let balance = totalAmount - advancePaid;
 
-        // Update display
-        $('#balance_amount').text('₹ ' + balance.toFixed(2));
+        $('#balanceamount').text(balance.toFixed(2));
 
-        // Add validation styling
         if (advancePaid > totalAmount && totalAmount > 0) {
             $('#advance_paid_amount').addClass('is-invalid');
-            $('#balance_amount').removeClass('text-success').addClass('text-danger');
+            $('#balanceamount').removeClass('text-success').addClass('text-danger');
 
-            // Show error message
-            if (!$('#advance_error').length) {
-                $('#advance_paid_amount').after(
-                    '<div id="advance_error" class="invalid-feedback d-block">' +
-                    'Advance paid cannot be greater than total service cost' +
-                    '</div>'
-                );
+            if (!$('#advanceerror').length) {
+                $('#advance_paid_amount').after('<div id="advanceerror" class="invalid-feedback d-block">Advance paid cannot be greater than total service cost</div>');
             }
         } else {
             $('#advance_paid_amount').removeClass('is-invalid');
-            $('#balance_amount').removeClass('text-danger').addClass('text-success');
-            $('#advance_error').remove();
+            $('#balanceamount').removeClass('text-danger').addClass('text-success');
+            $('#advanceerror').remove();
         }
     }
 
@@ -654,45 +742,28 @@ $(document).ready(function() {
 
             filteredTelecallers.forEach(function(telecaller) {
                 let isSelected = (telecaller.id == currentAssignedTo);
-                assignedToSelect.append(
-                    $('<option>', {
-                        value: telecaller.id,
-                        text: telecaller.name,
-                        selected: isSelected
-                    })
-                );
+                assignedToSelect.append(`<option value="${telecaller.id}" ${isSelected ? 'selected' : ''}>${telecaller.name}</option>`);
             });
 
             if (filteredTelecallers.length === 0) {
-                assignedToSelect.append(
-                    $('<option>', {
-                        value: '',
-                        text: 'No telecallers in this branch',
-                        disabled: true
-                    })
-                );
+                assignedToSelect.append(`<option value="" disabled>No telecallers in this branch</option>`);
             }
         }
     });
 
-    // Load services when service type is selected
+    // ============ UPDATED: Load services with quantities ============
     function loadServices(serviceType) {
         let container = $('#servicesContainer');
 
         if (!serviceType) {
-            container.html(`
-                <p class="text-muted text-center my-5">
-                    <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                    Please select a service type first
-                </p>
-            `);
+            container.html('<p class="text-muted text-center my-5"><i class="las la-arrow-up" style="font-size: 2rem;"></i><br> Please select a service type first</p>');
             return;
         }
 
         container.html('<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>');
 
         $.ajax({
-            url: '{{ route("leads.servicesByType") }}',
+            url: "{{ route('leads.servicesByType') }}",
             type: 'GET',
             data: { service_type: serviceType },
             success: function(services) {
@@ -704,20 +775,50 @@ $(document).ready(function() {
                 let html = '';
                 services.forEach(function(service) {
                     let isChecked = leadServiceIds.includes(service.id);
+                    let quantity = leadServiceQuantities[service.id] || 1;
+
                     html += `
                         <div class="service-checkbox-item">
-                            <input type="checkbox"
-                                   name="service_ids[]"
-                                   value="${service.id}"
-                                   id="service_${service.id}"
-                                   class="service-checkbox"
-                                   ${isChecked ? 'checked' : ''}>
-                            <label for="service_${service.id}">${service.name}</label>
+                            <div class="service-checkbox-wrapper">
+                                <input type="checkbox"
+                                       name="service_ids[]"
+                                       value="${service.id}"
+                                       id="service_${service.id}"
+                                       class="service-checkbox"
+                                       data-service-id="${service.id}"
+                                       ${isChecked ? 'checked' : ''}>
+                                <label for="service_${service.id}">${service.name}</label>
+                            </div>
+                            <div class="service-quantity-wrapper">
+                                <span class="quantity-label">Qty:</span>
+                                <input type="number"
+                                       name="service_quantities[${service.id}]"
+                                       id="quantity_${service.id}"
+                                       class="service-quantity-input"
+                                       min="1"
+                                       value="${quantity}"
+                                       ${isChecked ? '' : 'disabled'}>
+                            </div>
                         </div>
                     `;
                 });
 
                 container.html(html);
+
+                // Enable/disable quantity input based on checkbox
+                $('.service-checkbox').on('change', function() {
+                    let serviceId = $(this).data('service-id');
+                    let quantityInput = $(`#quantity_${serviceId}`);
+
+                    if ($(this).is(':checked')) {
+                        quantityInput.prop('disabled', false);
+                        if (!quantityInput.val() || quantityInput.val() < 1) {
+                            quantityInput.val(1);
+                        }
+                    } else {
+                        quantityInput.prop('disabled', true);
+                    }
+                });
             },
             error: function() {
                 container.html('<p class="text-danger text-center my-3">Error loading services. Please try again.</p>');
@@ -729,12 +830,11 @@ $(document).ready(function() {
         loadServices($(this).val());
     });
 
-    // Form validation helper
+    // Form validation
     function validateForm() {
         let isValid = true;
         let errors = [];
 
-        // Required fields
         if (!$('#name').val().trim()) {
             errors.push('Client name is required');
             $('#name').addClass('is-invalid');
@@ -759,21 +859,26 @@ $(document).ready(function() {
             isValid = false;
         }
 
-        // Check if at least one service is selected
         if ($('.service-checkbox:checked').length === 0) {
             errors.push('Please select at least one service');
             $('#servicesContainer').addClass('is-invalid');
             isValid = false;
         }
 
-        // Only validate status dropdown if it's visible (not hidden)
+        // Validate SQFT custom field
+        if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
+            errors.push('Please enter custom SQFT value');
+            $('#sqft_custom').addClass('is-invalid');
+            isValid = false;
+        }
+
         if ($('#status').is(':visible') && !$('#status').val()) {
             errors.push('Lead status is required');
             $('#status').addClass('is-invalid');
             isValid = false;
         }
 
-        @if(auth()->user()->role === 'super_admin')
+        @if(auth()->user()->role === 'superadmin')
         if (!$('#branch_id').val()) {
             errors.push('Branch is required');
             $('#branch_id').addClass('is-invalid');
@@ -781,7 +886,6 @@ $(document).ready(function() {
         }
         @endif
 
-        // Validate advance amount
         let totalAmount = parseFloat($('#amount').val()) || 0;
         let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
 
@@ -795,7 +899,7 @@ $(document).ready(function() {
             Swal.fire({
                 icon: 'error',
                 title: 'Validation Error',
-                html: '<ul class="text-start">' + errors.map(e => '<li>' + e + '</li>').join('') + '</ul>',
+                html: '<ul class="text-start">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>'
             });
         }
 
@@ -807,15 +911,172 @@ $(document).ready(function() {
         $(this).removeClass('is-invalid');
     });
 
-    // Regular form submission (Create Lead button)
+    // Form submission - AJAX to stay on page
     $('#UpdateLeadForm').on('submit', function(e) {
-        // Only validate, don't prevent default unless validation fails
+        e.preventDefault(); // Always prevent default
+
+        // Validate
         if (!validateForm()) {
-            e.preventDefault();
             return false;
         }
-        // Let form submit normally if validation passes
+
+        // Show loading
+        let submitBtn = $(this).find('button[type="submit"]');
+        let originalBtnHtml = submitBtn.html();
+        submitBtn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Updating...');
+
+        let formData = new FormData(this);
+
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                submitBtn.prop('disabled', false).html(originalBtnHtml);
+
+                if (response.success) {
+                    // Build success message
+                    let successHtml = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <h5 class="alert-heading">
+                                <i class="las la-check-circle me-2"></i>
+                                <strong>Lead Updated Successfully!</strong>
+                            </h5>
+                            <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.lead_code}</span></p>
+                            <p class="mb-0">${response.message}</p>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+
+                    // Show success message at top of form
+                    $('#UpdateLeadForm').prepend(successHtml);
+
+                    // Scroll to success message
+                    $('html, body').animate({
+                        scrollTop: $('.alert-success').offset().top - 100
+                    }, 500);
+
+                    // Show SweetAlert
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        html: `
+                            <div class="text-start">
+                                <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.lead_code}</span></p>
+                                <p class="mb-0">${response.message}</p>
+                            </div>
+                        `,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#10b981',
+                        showCancelButton: true,
+                        cancelButtonText: 'Go to Leads',
+                        cancelButtonColor: '#3b82f6'
+                    }).then((result) => {
+                        if (result.dismiss === Swal.DismissReason.cancel) {
+                            window.location.href = "{{ route('leads.index') }}";
+                        }
+                    });
+
+                    // Remove any previous alerts
+                    $('.alert-danger').remove();
+                }
+            },
+            error: function(xhr) {
+                submitBtn.prop('disabled', false).html(originalBtnHtml);
+
+                let errors = [];
+                let errorHtml = '';
+
+                if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                    // Validation errors
+                    errorHtml = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert" id="errorAlert">
+                            <h5 class="alert-heading">
+                                <i class="las la-exclamation-triangle me-2"></i>
+                                <strong>Please fix the following errors:</strong>
+                            </h5>
+                            <ul class="mb-0">
+                    `;
+
+                    Object.keys(xhr.responseJSON.errors).forEach(function(field) {
+                        let errorMessages = xhr.responseJSON.errors[field];
+
+                        errorMessages.forEach(function(error) {
+                            errors.push(error);
+                            errorHtml += `<li>${error}</li>`;
+                        });
+
+                        // Show inline errors
+                        let input = $(`[name="${field}"], [name="${field}[]"]`).first();
+                        if (input.length) {
+                            input.addClass('is-invalid');
+                            input.siblings('.invalid-feedback').remove();
+
+                            if (input.parent().hasClass('service-select-box')) {
+                                input.parent().after(`<div class="invalid-feedback d-block">${errorMessages[0]}</div>`);
+                            } else {
+                                input.after(`<div class="invalid-feedback d-block">${errorMessages[0]}</div>`);
+                            }
+                        }
+                    });
+
+                    errorHtml += `
+                            </ul>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+
+                    // Show error at top of form
+                    $('.alert-success, .alert-danger').remove();
+                    $('#UpdateLeadForm').prepend(errorHtml);
+
+                    // Scroll to error
+                    $('html, body').animate({
+                        scrollTop: $('#errorAlert').offset().top - 100
+                    }, 500);
+
+                } else if (xhr.responseJSON?.message) {
+                    errorHtml = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="las la-exclamation-circle me-2"></i>
+                            <strong>Error:</strong> ${xhr.responseJSON.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+
+                    $('.alert-success, .alert-danger').remove();
+                    $('#UpdateLeadForm').prepend(errorHtml);
+
+                    $('html, body').animate({
+                        scrollTop: $('.alert-danger').offset().top - 100
+                    }, 500);
+                } else {
+                    errorHtml = '<p class="mb-0">An error occurred. Please try again.</p>';
+                }
+
+                // Also show SweetAlert for errors
+                if (errors.length > 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        html: '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>',
+                        confirmButtonColor: '#ef4444'
+                    });
+                }
+            }
+        });
     });
+
+    // Auto-scroll to error alert on page load
+    @if($errors->any())
+        $(window).on('load', function() {
+            $('html, body').animate({
+                scrollTop: $('#errorAlert').offset().top - 100
+            }, 500);
+        });
+    @endif
 
     // Load services on page load
     @if($lead->service_type)
@@ -823,9 +1084,10 @@ $(document).ready(function() {
     @endif
 
     // Trigger branch change if super admin
-    @if(auth()->user()->role === 'super_admin')
+    @if(auth()->user()->role === 'superadmin')
         $('#branch_id').trigger('change');
     @endif
 });
 </script>
 @endsection
+

@@ -136,7 +136,9 @@ class Job extends Model
     }
     public function services()
     {
-        return $this->belongsToMany(Service::class, 'job_service')->withTimestamps();
+        return $this->belongsToMany(Service::class, 'job_service')
+            ->withPivot('quantity')
+            ->withTimestamps();
     }
 
     // Helper to get comma-separated service names

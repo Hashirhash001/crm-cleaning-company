@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class LeadService extends Pivot
+class JobService extends Pivot
 {
-    protected $table = 'lead_service';
+    protected $table = 'job_service';
 
     protected $fillable = [
-        'lead_id',
+        'job_id',
         'service_id',
         'quantity',
     ];
@@ -22,9 +21,9 @@ class LeadService extends Pivot
     public $timestamps = true;
 
     // Relationships
-    public function lead()
+    public function job()
     {
-        return $this->belongsTo(Lead::class);
+        return $this->belongsTo(Job::class);
     }
 
     public function service()

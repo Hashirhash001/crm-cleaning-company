@@ -232,8 +232,16 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
+            // Authorization check
             if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
-                return back()->with('error', 'Unauthorized');
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized',
+                        'errors' => ['authorization' => ['You are not authorized to create leads']]
+                    ], 403);
+                }
+                return back()->withInput()->with('error', 'Unauthorized');
             }
 
             // Validate
@@ -246,9 +254,12 @@ class LeadController extends Controller
                 'district' => 'nullable|string|max:100',
                 'property_type' => 'nullable|in:commercial,residential',
                 'sqft' => 'nullable|string|max:100',
-                'service_type' => 'required|in:cleaning,pest_control,other',
+                'sqft_custom' => 'nullable|string|max:100',
+                // No service_type required - will auto-detect
                 'service_ids' => 'required|array|min:1',
                 'service_ids.*' => 'exists:services,id',
+                'service_quantities' => 'nullable|array',
+                'service_quantities.*' => 'nullable|integer|min:1',
                 'lead_source_id' => 'required|exists:lead_sources,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
@@ -259,17 +270,37 @@ class LeadController extends Controller
                 'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation',
             ]);
 
+            // Auto-detect service_type from first selected service
+            $firstService = Service::find($validated['service_ids'][0]);
+            $serviceType = $firstService ? $firstService->service_type : 'other';
+
+            // Determine branch
             $branchId = $user->role === 'super_admin' ? $validated['branch_id'] : $user->branch_id;
 
             if (!$branchId) {
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Branch Error',
+                        'errors' => ['branch_id' => ['Branch not found for your account']]
+                    ], 422);
+                }
                 return back()->withInput()->with('error', 'Error: Branch not found for your account.');
             }
 
+            // Determine assigned_to
             $assignedTo = $validated['assigned_to'] ?? null;
             if ($user->role === 'telecallers' && !$assignedTo) {
                 $assignedTo = $user->id;
             }
 
+            // Handle SQFT: Use custom value if 'custom' is selected
+            $sqftValue = $validated['sqft'] ?? null;
+            if ($sqftValue === 'custom' && !empty($validated['sqft_custom'])) {
+                $sqftValue = $validated['sqft_custom'];
+            }
+
+            // Create lead
             $lead = Lead::create([
                 'name' => $validated['name'],
                 'email' => $validated['email'] ?? null,
@@ -277,9 +308,9 @@ class LeadController extends Controller
                 'phone_alternative' => $validated['phone_alternative'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'district' => $validated['district'] ?? null,
-                'service_type' => $validated['service_type'],
+                'service_type' => $serviceType, // Auto-detected
                 'property_type' => $validated['property_type'] ?? null,
-                'sqft' => $validated['sqft'] ?? null,
+                'sqft' => $sqftValue,
                 'lead_source_id' => $validated['lead_source_id'],
                 'assigned_to' => $assignedTo,
                 'amount' => $validated['amount'] ?? null,
@@ -293,17 +324,25 @@ class LeadController extends Controller
                 'status' => $validated['status'],
             ]);
 
-            // Attach selected services
-            $lead->services()->attach($validated['service_ids']);
+            // Attach selected services WITH quantities
+            $serviceData = [];
+            foreach ($validated['service_ids'] as $serviceId) {
+                $quantity = $validated['service_quantities'][$serviceId] ?? 1;
+                $serviceData[$serviceId] = ['quantity' => $quantity];
+            }
+            $lead->services()->attach($serviceData);
+
+            // Set primary service_id for backward compatibility
+            $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
 
             Log::info('Lead created successfully', [
                 'lead_id' => $lead->id,
                 'lead_code' => $lead->lead_code,
-                'services' => $validated['service_ids'],
+                'services' => $serviceData,
                 'created_by' => $user->id,
             ]);
 
-            // Check if this is an AJAX request (from "Create & Convert" button)
+            // Check if this is an AJAX request (from Create & Convert button)
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
@@ -314,17 +353,45 @@ class LeadController extends Controller
                 ]);
             }
 
-            return redirect()->route('leads.index')
-                ->with('success', json_encode([
-                    'title' => 'Lead Created Successfully!',
-                    'lead_id' => $lead->id,
-                    'message' => "Lead {$lead->lead_code} has been created.",
-                    'leadcode' => $lead->lead_code,
-                    'name' => $lead->name
-                ]));
+            // Regular form submission - redirect to leads index
+            return redirect()->route('leads.index')->with('success', json_encode([
+                'title' => 'Lead Created Successfully!',
+                'lead_id' => $lead->id,
+                'message' => "Lead {$lead->lead_code} has been created.",
+                'lead_code' => $lead->lead_code,
+                'name' => $lead->name,
+            ]));
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Lead validation error', [
+                'errors' => $e->errors(),
+                'user_id' => auth()->id(),
+            ]);
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            return back()->withErrors($e->errors())->withInput();
 
         } catch (\Exception $e) {
-            Log::error('Lead creation error: ' . $e->getMessage());
+            Log::error('Lead creation error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+            ]);
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error creating lead: ' . $e->getMessage(),
+                    'errors' => ['general' => ['Error creating lead: ' . $e->getMessage()]]
+                ], 500);
+            }
+
             return back()->withInput()->with('error', 'Error creating lead: ' . $e->getMessage());
         }
     }
@@ -345,7 +412,12 @@ class LeadController extends Controller
             abort(403, 'You can only edit leads assigned to you');
         }
 
-        $services = Service::where('is_active', true)->get();
+        // Get ALL services - no filtering by type
+        $services = Service::where('is_active', true)
+            ->orderBy('service_type')
+            ->orderBy('name')
+            ->get();
+
         $lead_sources = LeadSource::where('is_active', true)->get();
 
         if ($user->role === 'super_admin') {
@@ -373,19 +445,39 @@ class LeadController extends Controller
 
             // Authorization
             if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized',
+                        'errors' => ['authorization' => ['You are not authorized to update this lead']]
+                    ], 403);
+                }
                 return back()->with('error', 'Unauthorized');
             }
 
             if ($user->role === 'telecallers' && $lead->assigned_to != $user->id) {
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized',
+                        'errors' => ['authorization' => ['You can only edit your assigned leads']]
+                    ], 403);
+                }
                 return back()->with('error', 'You can only edit your assigned leads');
             }
 
             if ($user->role === 'lead_manager' && $lead->created_by != $user->id) {
+                if ($request->ajax() || $request->wantsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Unauthorized',
+                        'errors' => ['authorization' => ['You can only edit your own leads']]
+                    ], 403);
+                }
                 return back()->with('error', 'You can only edit your own leads');
             }
 
-            // Check if lead is approved
-            $isApprovedLead = $lead->status === 'approved';
+            $isApprovedLead = ($lead->status === 'approved');
 
             // Build validation rules
             $validationRules = [
@@ -397,9 +489,12 @@ class LeadController extends Controller
                 'district' => 'nullable|string|max:100',
                 'property_type' => 'nullable|in:commercial,residential',
                 'sqft' => 'nullable|string|max:100',
-                'service_type' => 'required|in:cleaning,pest_control,other',
+                'sqft_custom' => 'nullable|string|max:100',
+                // No service_type validation - will be auto-detected
                 'service_ids' => 'required|array|min:1',
                 'service_ids.*' => 'exists:services,id',
+                'service_quantities' => 'nullable|array',
+                'service_quantities.*' => 'nullable|integer|min:1',
                 'lead_source_id' => 'required|exists:lead_sources,id',
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
@@ -409,12 +504,10 @@ class LeadController extends Controller
                 'description' => 'nullable|string',
             ];
 
-            // Status validation: Lock if approved
+            // Status validation
             if ($isApprovedLead) {
-                // For approved leads, status MUST remain 'approved'
                 $validationRules['status'] = 'required|in:approved';
             } else {
-                // For non-approved leads, normal status options
                 if ($user->role === 'super_admin') {
                     $validationRules['status'] = 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected';
                 } else {
@@ -424,25 +517,39 @@ class LeadController extends Controller
 
             $validated = $request->validate($validationRules);
 
-            // Force telecaller self-assignment
+            // Auto-detect service_type from first selected service
+            $firstService = Service::find($validated['service_ids'][0]);
+            $serviceType = $firstService ? $firstService->service_type : 'other';
+
             if ($user->role === 'telecallers') {
                 $validated['assigned_to'] = $user->id;
             }
 
             $branchId = $user->role === 'super_admin' ? $validated['branch_id'] : $user->branch_id;
 
-            // Track changes for logging
-            $nameChanged = $validated['name'] !== $lead->name;
-            $phoneChanged = $validated['phone'] !== $lead->phone;
-            $emailChanged = ($validated['email'] ?? null) !== $lead->email;
+            $sqftValue = $validated['sqft'] ?? null;
+            if ($sqftValue === 'custom' && !empty($validated['sqft_custom'])) {
+                $sqftValue = $validated['sqft_custom'];
+            }
+
+            // Track changes
+            $nameChanged = $validated['name'] != $lead->name;
+            $phoneChanged = $validated['phone'] != $lead->phone;
+            $emailChanged = ($validated['email'] ?? null) != $lead->email;
             $amountChanged = isset($validated['amount']) && $validated['amount'] != $lead->amount;
             $amountPaidChanged = isset($validated['advance_paid_amount']) && $validated['advance_paid_amount'] != $lead->advance_paid_amount;
 
-            $oldServiceIds = $lead->services->pluck('id')->sort()->values()->toArray();
-            $newServiceIds = collect($validated['service_ids'])->sort()->values()->toArray();
-            $servicesChanged = $oldServiceIds != $newServiceIds;
+            // Check service changes INCLUDING quantities
+            $oldServiceData = $lead->services->mapWithKeys(function($service) {
+                return [$service->id => $service->pivot->quantity];
+            })->toArray();
 
-            $statusChanged = $validated['status'] != $lead->status;
+            $newServiceData = [];
+            foreach ($validated['service_ids'] as $serviceId) {
+                $newServiceData[$serviceId] = $validated['service_quantities'][$serviceId] ?? 1;
+            }
+
+            $servicesChanged = $oldServiceData != $newServiceData;
 
             // Update lead
             $lead->update([
@@ -452,9 +559,9 @@ class LeadController extends Controller
                 'phone_alternative' => $validated['phone_alternative'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'district' => $validated['district'] ?? null,
-                'service_type' => $validated['service_type'],
+                'service_type' => $serviceType, // Auto-detected
                 'property_type' => $validated['property_type'] ?? null,
-                'sqft' => $validated['sqft'] ?? null,
+                'sqft' => $sqftValue,
                 'lead_source_id' => $validated['lead_source_id'],
                 'assigned_to' => $validated['assigned_to'] ?? null,
                 'amount' => $validated['amount'] ?? null,
@@ -467,245 +574,133 @@ class LeadController extends Controller
                 'status' => $validated['status'],
             ]);
 
-            // Sync lead services
-            $lead->services()->sync($validated['service_ids']);
+            // Sync services with quantities
+            $lead->services()->sync($newServiceData);
             $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
 
-            // ============================================
-            // SYNC CHANGES TO CUSTOMER (IF APPROVED)
-            // ============================================
+            // Sync to customer and jobs if approved
             $customerUpdated = false;
+            $jobsUpdated = false;
 
             if ($isApprovedLead) {
+                // Sync customer
                 try {
-                    // Reload the customer relationship with fresh data
                     $lead->load('customer');
                     $customer = $lead->customer;
 
                     if ($customer) {
                         $customerUpdateData = [];
-                        $changedFields = [];
-
-                        // Track name change
-                        if ($nameChanged) {
-                            $customerUpdateData['name'] = $validated['name'];
-                            $changedFields[] = "name: '{$customer->name}' → '{$validated['name']}'";
-                        }
-
-                        // Track phone change
-                        if ($phoneChanged) {
-                            $customerUpdateData['phone'] = $validated['phone'];
-                            $changedFields[] = "phone: '{$customer->phone}' → '{$validated['phone']}'";
-                        }
-
-                        // Track email change
-                        if ($emailChanged) {
-                            $customerUpdateData['email'] = $validated['email'] ?? null;
-                            $changedFields[] = "email: '{$customer->email}' → '{$validated['email']}'";
-                        }
-
-                        // Track address change
-                        if (isset($validated['address']) && $validated['address'] !== $customer->address) {
+                        if ($nameChanged) $customerUpdateData['name'] = $validated['name'];
+                        if ($phoneChanged) $customerUpdateData['phone'] = $validated['phone'];
+                        if ($emailChanged) $customerUpdateData['email'] = $validated['email'] ?? null;
+                        if (isset($validated['address']) && $validated['address'] != $customer->address) {
                             $customerUpdateData['address'] = $validated['address'];
-                            $changedFields[] = "address updated";
                         }
 
-                        // Perform update if there are changes
                         if (!empty($customerUpdateData)) {
                             $customer->update($customerUpdateData);
                             $customerUpdated = true;
-
-                            Log::info('✅ Customer synced successfully', [
-                                'lead_id' => $lead->id,
-                                'lead_code' => $lead->lead_code,
-                                'customer_id' => $customer->id,
-                                'customer_code' => $customer->customer_code,
-                                'changes' => implode(', ', $changedFields)
-                            ]);
                         }
-                    } else {
-                        Log::warning('⚠️ Approved lead has no customer', [
-                            'lead_id' => $lead->id,
-                            'lead_code' => $lead->lead_code
-                        ]);
                     }
                 } catch (\Exception $e) {
-                    Log::error('❌ Error syncing customer', [
-                        'lead_id' => $lead->id,
-                        'error' => $e->getMessage()
-                    ]);
+                    Log::error('Error syncing customer', ['lead_id' => $lead->id, 'error' => $e->getMessage()]);
                 }
-            }
 
-            // ============================================
-            // SYNC CHANGES TO JOBS (IF APPROVED)
-            // ============================================
-            $jobsUpdated = false;
-            $jobsUpdatedCount = 0;
+                // Sync jobs WITH quantities
+                if ($amountChanged || $amountPaidChanged || $servicesChanged) {
+                    try {
+                        if ($lead->jobs()->count() === 1) {
+                            $job = $lead->jobs()->first();
+                            $jobUpdateData = [];
 
-            if ($isApprovedLead && ($amountChanged || $amountPaidChanged || $servicesChanged)) {
-                try {
-                    // Count total jobs for this lead
-                    $totalJobsCount = $lead->jobs()->count();
+                            if ($amountChanged) $jobUpdateData['amount'] = $validated['amount'];
+                            if ($amountPaidChanged) $jobUpdateData['amount_paid'] = $validated['advance_paid_amount'];
 
-                    Log::info('Checking jobs for sync', [
-                        'lead_id' => $lead->id,
-                        'total_jobs' => $totalJobsCount,
-                        'amount_changed' => $amountChanged,
-                        'amount_paid_changed' => $amountPaidChanged,
-                        'services_changed' => $servicesChanged
-                    ]);
-
-                    // ⚠️ ONLY UPDATE IF EXACTLY 1 JOB EXISTS
-                    if ($totalJobsCount === 1) {
-                        // Get the single job (any status including completed/cancelled)
-                        $job = $lead->jobs()->first();
-
-                        Log::info('Single job found, proceeding with sync', [
-                            'job_id' => $job->id,
-                            'job_code' => $job->job_code,
-                            'job_status' => $job->status,
-                            'job_amount' => $job->amount
-                        ]);
-
-                        $jobUpdateData = [];
-                        $jobChangedFields = [];
-
-                        // Update job amount if changed
-                        if ($amountChanged) {
-                            $jobUpdateData['amount'] = $validated['amount'];
-                            $jobChangedFields[] = "amount: ₹{$job->amount} → ₹{$validated['amount']}";
-                        }
-
-                        // Update job amount paid if changed
-                        if ($amountPaidChanged) {
-                            $jobUpdateData['amount_paid'] = $validated['amount_paid'];
-                            $jobChangedFields[] = "amount_paid: ₹{$job->amount_paid} → ₹{$validated['amount_paid']}";
-                        }
-
-                        // Change job status to pending ONLY if it was confirmed AND changes were made
-                        if ($job->status === 'confirmed' && ($amountChanged || $amountPaidChanged || $servicesChanged)) {
-                            $jobUpdateData['status'] = 'pending';
-                            $jobChangedFields[] = "status: confirmed → pending (needs re-approval)";
-                        }
-
-                        // Update job if there are changes
-                        if (!empty($jobUpdateData)) {
-                            $job->update($jobUpdateData);
-                            $jobsUpdated = true;
-                            $jobsUpdatedCount = 1;
-
-                            Log::info('✅ Job updated from lead changes', [
-                                'job_id' => $job->id,
-                                'job_code' => $job->job_code,
-                                'job_status' => $job->status,
-                                'lead_id' => $lead->id,
-                                'changes' => implode(', ', $jobChangedFields)
-                            ]);
-                        }
-
-                        // Sync job services if changed
-                        if ($servicesChanged) {
-                            $job->services()->sync($validated['service_ids']);
-
-                            // Update primary service_id
-                            if (!empty($validated['service_ids'])) {
-                                $job->update(['service_id' => $validated['service_ids'][0]]);
+                            // If services or amounts changed and job is confirmed, set to pending
+                            if ($job->status === 'confirmed' && ($servicesChanged || $amountChanged || $amountPaidChanged)) {
+                                $jobUpdateData['status'] = 'pending';
                             }
 
-                            $jobsUpdated = true;
+                            if (!empty($jobUpdateData)) {
+                                $job->update($jobUpdateData);
+                                $jobsUpdated = true;
+                            }
 
-                            Log::info('✅ Job services synced', [
-                                'job_id' => $job->id,
-                                'job_code' => $job->job_code,
-                                'job_status' => $job->status,
-                                'old_services' => $oldServiceIds,
-                                'new_services' => $newServiceIds
-                            ]);
+                            // **SYNC SERVICES WITH QUANTITIES TO JOB**
+                            if ($servicesChanged) {
+                                $job->services()->sync($newServiceData); // $newServiceData already has quantities
+                                if (!empty($validated['service_ids'])) {
+                                    $job->update(['service_id' => $validated['service_ids'][0]]);
+                                }
+                                $jobsUpdated = true;
+                            }
                         }
-
-                        if (!$jobsUpdated) {
-                            Log::info('No job updates needed', [
-                                'job_id' => $job->id,
-                                'job_code' => $job->job_code,
-                                'job_status' => $job->status,
-                                'reason' => 'No field changes detected'
-                            ]);
-                        }
-
-                    } elseif ($totalJobsCount > 1) {
-                        Log::warning('⚠️ Multiple jobs found - skipping automatic sync', [
-                            'lead_id' => $lead->id,
-                            'lead_code' => $lead->lead_code,
-                            'jobs_count' => $totalJobsCount,
-                            'message' => 'Please update jobs manually when multiple jobs exist'
-                        ]);
-                    } else {
-                        Log::warning('⚠️ No jobs found for approved lead', [
-                            'lead_id' => $lead->id,
-                            'lead_code' => $lead->lead_code
-                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Error syncing jobs', ['lead_id' => $lead->id, 'error' => $e->getMessage()]);
                     }
-
-                } catch (\Exception $e) {
-                    Log::error('❌ Error syncing jobs from lead update', [
-                        'lead_id' => $lead->id,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
                 }
             }
 
             Log::info('Lead updated', [
                 'lead_id' => $lead->id,
                 'updated_by' => $user->id,
-                'is_approved' => $isApprovedLead,
                 'customer_updated' => $customerUpdated,
-                'jobs_updated' => $jobsUpdatedCount,
+                'jobs_updated' => $jobsUpdated
             ]);
 
-            // Build success message
-            $message = 'Lead ' . $lead->lead_code . ' has been updated.';
-
+            $message = "Lead {$lead->lead_code} has been updated.";
             if ($isApprovedLead) {
-                if ($customerUpdated) {
-                    $message .= ' Customer information synchronized.';
-                }
-
-                if ($jobsUpdated) {
-                    $job = $lead->jobs()->first();
-                    if ($job && in_array($job->status, ['completed', 'cancelled'])) {
-                        $message .= ' Note: Job is ' . $job->status . ' but was updated with new information.';
-                    } else {
-                        $message .= ' Job updated successfully.';
-                    }
-                } elseif (($amountChanged || $amountPaidChanged || $servicesChanged)) {
-                    $totalJobs = $lead->jobs()->count();
-
-                    if ($totalJobs > 1) {
-                        $message .= ' ⚠️ Multiple jobs found (' . $totalJobs . ') - please update jobs manually.';
-                    }
-                }
+                if ($customerUpdated) $message .= ' Customer information synchronized.';
+                if ($jobsUpdated) $message .= ' Job updated successfully.';
             }
 
-            return redirect()->route('leads.index')
-                ->with('success', json_encode([
-                    'title' => 'Lead Updated Successfully!',
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => true,
                     'message' => $message,
+                    'lead_id' => $lead->id,
                     'lead_code' => $lead->lead_code,
-                ]));
+                    'customer_updated' => $customerUpdated,
+                    'jobs_updated' => $jobsUpdated,
+                ]);
+            }
+
+            return redirect()->route('leads.index')->with('success', json_encode([
+                'title' => 'Lead Updated Successfully!',
+                'message' => $message,
+                'lead_code' => $lead->lead_code,
+            ]));
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Lead update validation error', [
                 'lead_id' => $lead->id,
                 'errors' => $e->errors()
             ]);
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
             return back()->withErrors($e->errors())->withInput();
+
         } catch (\Exception $e) {
             Log::error('Lead update error: ' . $e->getMessage(), [
                 'lead_id' => $lead->id,
                 'trace' => $e->getTraceAsString()
             ]);
+
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error updating lead: ' . $e->getMessage(),
+                    'errors' => ['general' => ['Error updating lead: ' . $e->getMessage()]]
+                ], 500);
+            }
+
             return back()->withInput()->with('error', 'Error updating lead: ' . $e->getMessage());
         }
     }
@@ -1091,7 +1086,6 @@ class LeadController extends Controller
         try {
             $user = auth()->user();
 
-            // Allow super_admin, lead_manager, and telecallers
             if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
                 return response()->json([
                     'success' => false,
@@ -1099,7 +1093,6 @@ class LeadController extends Controller
                 ], 403);
             }
 
-            // If telecaller, only allow approval of their own assigned leads
             if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
                 return response()->json([
                     'success' => false,
@@ -1107,7 +1100,6 @@ class LeadController extends Controller
                 ], 403);
             }
 
-            // Check if amount is set
             if (!$lead->amount || $lead->amount <= 0) {
                 return response()->json([
                     'success' => false,
@@ -1115,7 +1107,6 @@ class LeadController extends Controller
                 ], 400);
             }
 
-            // Check daily budget limit
             $budgetCheck = $this->checkDailyBudget($lead->amount);
 
             if (!$budgetCheck['can_approve']) {
@@ -1139,10 +1130,10 @@ class LeadController extends Controller
             DB::beginTransaction();
 
             try {
-                // Create Customer from Lead - Handle null email
+                // Create Customer
                 $customer = Customer::create([
                     'name' => $lead->name,
-                    'email' => $lead->email ?? null, // Handle null email
+                    'email' => $lead->email ?? null,
                     'phone' => $lead->phone,
                     'address' => $lead->address ?? null,
                     'priority' => 'medium',
@@ -1151,19 +1142,19 @@ class LeadController extends Controller
                     'is_active' => true,
                 ]);
 
-                // Generate UNIQUE job code
                 $jobCode = $this->generateUniqueJobCode();
 
-                // Auto-create Job from approved lead
+                // Create Job
                 $job = Job::create([
                     'job_code' => $jobCode,
-                    'title' => ($lead->service ? $lead->service->name : 'Cleaning Service') . ' - ' . $lead->name,
+                    'title' => ($lead->services->first() ? $lead->services->first()->name : 'Service') . ' - ' . $lead->name,
                     'customer_id' => $customer->id,
                     'lead_id' => $lead->id,
-                    'service_id' => $lead->services->first()->id ?? null, // First service for backward compatibility
+                    'service_id' => $lead->services->first()->id ?? null,
                     'branch_id' => $lead->branch_id,
                     'assigned_to' => $lead->assigned_to,
                     'amount' => $lead->amount,
+                    'amount_paid' => $lead->advance_paid_amount ?? 0,
                     'scheduled_date' => null,
                     'status' => 'confirmed',
                     'created_by' => auth()->id(),
@@ -1172,12 +1163,16 @@ class LeadController extends Controller
                             ($validated['approval_notes'] ?? ''),
                 ]);
 
-                // Sync all services from lead to job
+                // **SYNC SERVICES WITH QUANTITIES TO JOB**
                 if ($lead->services->isNotEmpty()) {
-                    $job->services()->sync($lead->services->pluck('id'));
+                    $serviceQuantities = [];
+                    foreach ($lead->services as $service) {
+                        $serviceQuantities[$service->id] = ['quantity' => $service->pivot->quantity];
+                    }
+                    $job->services()->sync($serviceQuantities);
                 }
 
-                // Update Lead with approval details
+                // Update Lead
                 $lead->update([
                     'status' => 'approved',
                     'customer_id' => $customer->id,
@@ -1186,7 +1181,6 @@ class LeadController extends Controller
                     'approved_at' => now(),
                 ]);
 
-                // Create approval record
                 LeadApproval::create([
                     'lead_id' => $lead->id,
                     'super_admin_id' => auth()->id(),
@@ -1197,7 +1191,6 @@ class LeadController extends Controller
 
                 DB::commit();
 
-                // Calculate new remaining budget
                 $newRemaining = $budgetCheck['remaining'] - $lead->amount;
 
                 Log::info('Lead approved with budget check', [

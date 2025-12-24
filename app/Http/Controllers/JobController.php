@@ -175,9 +175,11 @@ class JobController extends Controller
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
                 'customer_id' => 'nullable|exists:customers,id',
-                'service_type' => 'required|in:cleaning,pest_control,other',
+                // No service_type required - will auto-detect
                 'service_ids' => 'required|array|min:1',
                 'service_ids.*' => 'exists:services,id',
+                'service_quantities' => 'nullable|array',
+                'service_quantities.*' => 'nullable|integer|min:1',
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
                 'branch_id' => 'required|exists:branches,id',
@@ -209,10 +211,19 @@ class JobController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Attach selected services
-            $job->services()->sync($validated['service_ids']);
+            // **ATTACH SELECTED SERVICES WITH QUANTITIES**
+            $serviceData = [];
+            foreach ($validated['service_ids'] as $serviceId) {
+                $quantity = $validated['service_quantities'][$serviceId] ?? 1;
+                $serviceData[$serviceId] = ['quantity' => $quantity];
+            }
+            $job->services()->attach($serviceData);
 
-            Log::info('Job created', ['job_id' => $job->id, 'job_code' => $jobCode]);
+            Log::info('Job created', [
+                'job_id' => $job->id,
+                'job_code' => $jobCode,
+                'services' => $serviceData
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -401,9 +412,16 @@ class JobController extends Controller
 
             $job->update($updateData);
 
-            // Sync services if provided
+            // Sync services WITH QUANTITIES if provided
             if (isset($validated['service_ids']) && count($validated['service_ids']) > 0) {
-                $job->services()->sync($validated['service_ids']);
+                // Build service data with quantities
+                $serviceData = [];
+                foreach ($validated['service_ids'] as $serviceId) {
+                    $quantity = $validated['service_quantities'][$serviceId] ?? 1;
+                    $serviceData[$serviceId] = ['quantity' => $quantity];
+                }
+
+                $job->services()->sync($serviceData);
 
                 // Update single service_id field (use first service for backward compatibility)
                 $job->update(['service_id' => $validated['service_ids'][0]]);
@@ -434,9 +452,9 @@ class JobController extends Controller
                     $lead->update($leadUpdateData);
                 }
 
-                // Sync lead services if job services changed
-                if ($servicesChanged && isset($validated['service_ids'])) {
-                    $lead->services()->sync($validated['service_ids']);
+                // **SYNC LEAD SERVICES WITH QUANTITIES if job services changed**
+                if ($servicesChanged && isset($serviceData)) {
+                    $lead->services()->sync($serviceData); // Use same serviceData with quantities
                     $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
                 }
 
@@ -679,9 +697,11 @@ class JobController extends Controller
 
             $validated = $request->validate([
                 'customer_id' => 'required|exists:customers,id',
-                'service_type' => 'required|in:cleaning,pest_control,other',
+                // No service_type required
                 'service_ids' => 'required|array|min:1',
                 'service_ids.*' => 'exists:services,id',
+                'service_quantities' => 'nullable|array',
+                'service_quantities.*' => 'nullable|integer|min:1',
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
                 'customer_instructions' => 'nullable|string',
@@ -712,12 +732,18 @@ class JobController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Attach selected services
-            $job->services()->sync($validated['service_ids']);
+            // **ATTACH SELECTED SERVICES WITH QUANTITIES**
+            $serviceData = [];
+            foreach ($validated['service_ids'] as $serviceId) {
+                $quantity = $validated['service_quantities'][$serviceId] ?? 1;
+                $serviceData[$serviceId] = ['quantity' => $quantity];
+            }
+            $job->services()->attach($serviceData);
 
             Log::info('Job created for existing customer', [
                 'job_id' => $job->id,
-                'customer_id' => $validated['customer_id']
+                'customer_id' => $validated['customer_id'],
+                'services' => $serviceData
             ]);
 
             return response()->json([

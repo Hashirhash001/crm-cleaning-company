@@ -236,18 +236,72 @@
         background: var(--primary-blue-dark);
     }
 
-    /* Service Badges */
-    .services-badges {
+   /* Service Badges with Quantities */
+   .services-badges {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5rem;
+        gap: 0.6rem;
     }
 
     .service-badge {
+        background: linear-gradient(135deg, var(--primary-blue) 0%, #3b82f6 100%);
+        color: #fff;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        transition: all 0.2s ease;
+    }
+
+    .service-badge:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+    }
+
+    .quantity-badge {
+        background: rgba(255, 255, 255, 0.25);
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    /* Alternative: Service list with table-like display */
+    .service-list-table {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .service-list-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        background: #f8fafc;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        border: 1px solid #e2e8f0;
+    }
+
+    .service-list-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .service-name {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .service-qty {
         background: var(--primary-blue);
         color: #fff;
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
+        padding: 0.25rem 0.75rem;
+        border-radius: 5px;
         font-size: 0.85rem;
         font-weight: 600;
     }
@@ -632,14 +686,25 @@
 
                     @if($lead->services->count() > 0)
                     <div class="info-row" style="flex-direction: column; align-items: flex-start;">
-                        <span class="info-label mb-2">Services</span>
+                        <div class="d-flex justify-content-between align-items-center w-100 mb-2">
+                            <span class="info-label">Services</span>
+                            <span class="badge bg-primary">
+                                {{ $lead->services->count() }} {{ Str::plural('Service', $lead->services->count()) }}
+                            </span>
+                        </div>
                         <div class="services-badges">
                             @foreach($lead->services as $service)
-                                <span class="service-badge">{{ $service->name }}</span>
+                            <span class="service-badge">
+                                {{ $service->name }}
+                                @if($service->pivot && $service->pivot->quantity > 1)
+                                    <span class="quantity-badge">× {{ $service->pivot->quantity }}</span>
+                                @endif
+                            </span>
                             @endforeach
                         </div>
                     </div>
                     @endif
+
 
                     <div class="info-row">
                         <span class="info-label">Source</span>

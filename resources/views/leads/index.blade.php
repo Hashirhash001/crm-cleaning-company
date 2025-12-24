@@ -1222,7 +1222,7 @@
                     <button type="button"
                         class="btn btn-outline-success {{ request('status') == 'approved' ? 'active' : '' }}"
                         data-status="approved" data-mode="">
-                        <i class="las la-check-circle me-1"></i> Work Orders
+                        <i class="las la-check-circle me-1"></i> Work Orders / jobs
                     </button>
                 </div>
 

@@ -130,22 +130,42 @@
         color: #fff;
     }
 
-    /* Services Badges */
+    /* Enhanced Service Badges with Quantities */
     .services-section {
         display: flex;
         flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 0.5rem;
+        gap: 0.6rem;
+        width: 100%;
     }
 
     .service-badge {
-        background: var(--primary-blue);
+        background: linear-gradient(135deg, var(--primary-blue) 0%, #3b82f6 100%);
         color: #fff;
-        padding: 0.5rem 1rem;
-        border-radius: 6px;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
         font-size: 0.85rem;
         font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        transition: all 0.2s ease;
     }
+
+    .service-badge:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+    }
+
+    .quantity-badge {
+        background: rgba(255, 255, 255, 0.25);
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
 
     .service-checkbox-item {
         padding: 8px 10px;
@@ -546,32 +566,124 @@
                     {{-- Show job services if available --}}
                     @if($job->services && $job->services->count() > 0)
                     <div class="info-row" style="flex-direction: column; align-items: flex-start;">
-                        <span class="info-label mb-2">Services</span>
-                        <div class="services-section">
+                        <div class="d-flex justify-content-between align-items-center w-100 mb-2">
+                            <span class="info-label">Services</span>
+                            <span class="badge bg-primary">
+                                {{ $job->services->count() }} {{ Str::plural('Service', $job->services->count()) }}
+                            </span>
+                        </div>
+
+                        <!-- Badge Style Display -->
+                        <div class="services-section mb-3">
                             @foreach($job->services as $service)
-                                <span class="service-badge">{{ $service->name }}</span>
+                                <span class="service-badge">
+                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-1"></i>
+                                    {{ $service->name }}
+                                    @if($service->pivot && $service->pivot->quantity > 1)
+                                        <span class="quantity-badge">× {{ $service->pivot->quantity }}</span>
+                                    @endif
+                                </span>
                             @endforeach
                         </div>
+
+                        <!-- Detailed List View -->
+                        <div class="service-list-table">
+                            @php
+                                $totalQuantity = $job->services->sum(function($service) {
+                                    return $service->pivot->quantity ?? 1;
+                                });
+                            @endphp
+
+                            @foreach($job->services as $service)
+                            <div class="service-list-item">
+                                <span class="service-name">
+                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-2 text-primary"></i>
+                                    {{ $service->name }}
+                                    <small class="text-muted ms-1">({{ ucfirst(str_replace('_', ' ', $service->service_type)) }})</small>
+                                </span>
+                                <span class="service-qty">
+                                    Qty: {{ $service->pivot->quantity ?? 1 }}
+                                </span>
+                            </div>
+                            @endforeach
+
+                            @if($totalQuantity > $job->services->count())
+                            <div class="mt-2 text-end">
+                                <small class="text-muted">
+                                    <strong>Total Items:</strong> {{ $totalQuantity }}
+                                </small>
+                            </div>
+                            @endif
+                        </div>
                     </div>
+
                     {{-- Fallback to lead services --}}
                     @elseif($job->lead && $job->lead->services && $job->lead->services->count() > 0)
                     <div class="info-row" style="flex-direction: column; align-items: flex-start;">
-                        <span class="info-label mb-2">Services (from Lead)</span>
-                        <div class="services-section">
+                        <div class="d-flex justify-content-between align-items-center w-100 mb-2">
+                            <span class="info-label">Services (from Lead)</span>
+                            <span class="badge bg-info">
+                                {{ $job->lead->services->count() }} {{ Str::plural('Service', $job->lead->services->count()) }}
+                            </span>
+                        </div>
+
+                        <!-- Badge Style Display -->
+                        <div class="services-section mb-3">
                             @foreach($job->lead->services as $service)
-                                <span class="service-badge">{{ $service->name }}</span>
+                                <span class="service-badge">
+                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-1"></i>
+                                    {{ $service->name }}
+                                    @if($service->pivot && $service->pivot->quantity > 1)
+                                        <span class="quantity-badge">× {{ $service->pivot->quantity }}</span>
+                                    @endif
+                                </span>
                             @endforeach
                         </div>
+
+                        <!-- Detailed List View -->
+                        <div class="service-list-table">
+                            @php
+                                $totalQuantity = $job->lead->services->sum(function($service) {
+                                    return $service->pivot->quantity ?? 1;
+                                });
+                            @endphp
+
+                            @foreach($job->lead->services as $service)
+                            <div class="service-list-item">
+                                <span class="service-name">
+                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-2 text-primary"></i>
+                                    {{ $service->name }}
+                                    <small class="text-muted ms-1">({{ ucfirst(str_replace('_', ' ', $service->service_type)) }})</small>
+                                </span>
+                                <span class="service-qty">
+                                    Qty: {{ $service->pivot->quantity ?? 1 }}
+                                </span>
+                            </div>
+                            @endforeach
+
+                            @if($totalQuantity > $job->lead->services->count())
+                            <div class="mt-2 text-end">
+                                <small class="text-muted">
+                                    <strong>Total Items:</strong> {{ $totalQuantity }}
+                                </small>
+                            </div>
+                            @endif
+                        </div>
                     </div>
+
                     {{-- Single service fallback --}}
                     @elseif($job->service)
                     <div class="info-row">
                         <span class="info-label">Service</span>
                         <span class="info-value">
-                            <span class="service-badge">{{ $job->service->name }}</span>
+                            <span class="service-badge">
+                                <i class="las la-cogs me-1"></i>
+                                {{ $job->service->name }}
+                            </span>
                         </span>
                     </div>
                     @endif
+
 
                     @if($job->description)
                     <div class="info-row" style="flex-direction: column; align-items: flex-start;">

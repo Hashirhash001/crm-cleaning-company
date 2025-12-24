@@ -58,13 +58,17 @@ class Lead extends Model
     {
         return $this->belongsToMany(Service::class, 'lead_service')
             ->using(LeadService::class)
+            ->withPivot('quantity')
             ->withTimestamps();
     }
 
     // Get all service names as comma-separated string
     public function getServicesListAttribute()
     {
-        return $this->services->pluck('name')->join(', ');
+        return $this->services->map(function($service) {
+            $quantity = $service->pivot->quantity ?? 1;
+            return $quantity > 1 ? "{$service->name} (×{$quantity})" : $service->name;
+        })->join(', ');
     }
 
     // Accessor for balance amount

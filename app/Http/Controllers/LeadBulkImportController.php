@@ -6,6 +6,7 @@ use App\Models\Job;
 use App\Models\Lead;
 use App\Models\User;
 use App\Models\Branch;
+use League\Csv\Writer;
 use App\Models\Service;
 use App\Models\Customer;
 use App\Models\LeadImport;
@@ -173,6 +174,7 @@ class LeadBulkImportController extends Controller
             'branch_id' => $lead->branch_id,
             'location' => $lead->address,
             'amount' => $amount,
+            'amount_paid' => $amount,
             'status' => 'completed', // Since payment is received, mark as completed
             'created_by' => auth()->id(),
             'assigned_to' => $lead->assigned_to,
@@ -1143,131 +1145,110 @@ class LeadBulkImportController extends Controller
 
     public function downloadFailedRows($importId)
     {
-        try {
-            $import = LeadImport::findOrFail($importId);
+        $import = LeadImport::findOrFail($importId);
+        $failedRows = $import->failed_rows_data;
 
-            // Detailed logging
-            Log::info('Download attempt:', [
-                'import_id' => $import->id,
-                'failed_rows' => $import->failed_rows,
-                'failed_rows_data_type' => gettype($import->failed_rows_data),
-                'failed_rows_data_empty' => empty($import->failed_rows_data),
-            ]);
+        if (empty($failedRows)) {
+            abort(404, 'No failed rows data');
+        }
 
-            // Check if failed rows data exists
-            $failedData = $import->failed_rows_data;
+        // 🔍 Debug: Check structure of first failed row
+        Log::info('Failed row structure:', ['first_row' => $failedRows[0] ?? 'empty']);
 
-            if (empty($failedData)) {
-                Log::warning('No failed rows data found for import: ' . $importId);
-                return redirect()->route('leads.bulk-import')
-                    ->with('error', 'No failed rows data available. The data may not have been saved during import.');
+        $csv = Writer::fromString('');
+        $csv->setOutputBOM(Writer::BOM_UTF8);
+
+        $headers = [
+            'Date',
+            'Name of the Company',
+            'Customer Name',
+            'Work Description',
+            'Package Amount',
+            'Final Amount',
+            'Paid',
+            'Telecaller Name',
+            'Contact Number',
+            'Payment Mode',
+            'Address',
+            'District',
+            'Source',
+            // '❌ ERROR - Fix and delete this column before re-import',
+        ];
+
+        $csv->insertOne($headers);
+
+        foreach ($failedRows as $failedRow) {
+            // ✅ Handle multiple possible structures
+            if (isset($failedRow['data'])) {
+                // Structure: ['data' => [...], 'errors' => '...']
+                $rowData = $failedRow['data'];
+                $errorMessage = $failedRow['errors'] ?? 'Unknown error';
+            } else {
+                // Flat structure: ['customername' => '...', ...]
+                $rowData = $failedRow;
+                $errorMessage = $failedRow['error'] ?? $failedRow['errors'] ?? 'Unknown error';
             }
 
-            // Decode if it's JSON string (shouldn't happen with proper casting, but just in case)
-            if (is_string($failedData)) {
-                $failedData = json_decode($failedData, true);
-            }
+            $rowData = $this->convertExcelDates($rowData);
 
-            if (!is_array($failedData) || count($failedData) === 0) {
-                Log::warning('Failed rows data is not an array or is empty for import: ' . $importId);
-                return redirect()->route('leads.bulk-import')
-                    ->with('error', 'Failed rows data is corrupted or empty.');
-            }
-
-            Log::info('Starting download with ' . count($failedData) . ' failed rows');
-
-            $filename = 'failed_rows_import_' . $import->id . '_' . date('Ymd_His') . '.csv';
-
-            $headers = [
-                'Content-Type' => 'text/csv; charset=UTF-8',
-                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-                'Pragma' => 'no-cache',
-                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-                'Expires' => '0'
+            $orderedRow = [
+                $this->getField($rowData, ['date', 'Date']),
+                $this->getField($rowData, ['company', 'Name of the Company', 'Company']),
+                $this->getField($rowData, ['customername', 'customer_name', 'Customer Name', 'name']),
+                $this->getField($rowData, ['workdescription', 'work_description', 'Work Description']),
+                $this->getField($rowData, ['packageamount', 'package_amount', 'Package Amount']),
+                $this->getField($rowData, ['finalamount', 'final_amount', 'Final Amount']),
+                $this->getField($rowData, ['paid', 'Paid']),
+                $this->getField($rowData, ['telecallername', 'telecaller_name', 'Telecaller Name']),
+                $this->getField($rowData, ['contactnumber', 'contact_number', 'Contact Number']),
+                $this->getField($rowData, ['paymentmode', 'payment_mode', 'Payment Mode']),
+                $this->getField($rowData, ['address', 'Address']),
+                $this->getField($rowData, ['district', 'District']),
+                $this->getField($rowData, ['source', 'Source']),
             ];
 
-            return response()->stream(function () use ($import, $failedData) {
-                $file = fopen('php://output', 'w');
+            // ✅ Add error message - handle arrays
+            // if (is_array($errorMessage)) {
+            //     $errorMessage = implode(' | ', $errorMessage);
+            // }
+            // $orderedRow[] = (string) $errorMessage;
 
-                // Add UTF-8 BOM for Excel
-                fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-                // Write header
-                fputcsv($file, [
-                    'Sheet Name',
-                    'Excel Row',
-                    'Date',
-                    'Company',
-                    'Customer Name',
-                    'Work Description',
-                    'Package Amount',
-                    'Final Amount',
-                    'Paid',
-                    'Telecaller Name',
-                    'Office Number',
-                    'Contact Number',
-                    'Payment Mode',
-                    'Address',
-                    'District',
-                    'Source',
-                    'Error Reason'
-                ]);
-
-                // Get errors
-                $errors = $import->errors ?? [];
-                if (is_string($errors)) {
-                    $errors = json_decode($errors, true);
-                }
-
-                $errorsByRow = [];
-                foreach ($errors as $error) {
-                    $key = ($error['sheet'] ?? '') . '_' . ($error['excel_row'] ?? '');
-                    $errorReason = $error['errors'] ?? 'Unknown error';
-                    if (is_array($errorReason)) {
-                        $errorReason = implode('; ', $errorReason);
-                    }
-                    $errorsByRow[$key] = $errorReason;
-                }
-
-                // Write failed rows
-                foreach ($failedData as $row) {
-                    $key = ($row['sheet_name'] ?? '') . '_' . ($row['excel_row'] ?? '');
-                    $errorReason = $errorsByRow[$key] ?? 'Unknown error';
-
-                    fputcsv($file, [
-                        $row['sheet_name'] ?? '',
-                        $row['excel_row'] ?? '',
-                        $row['date'] ?? '',
-                        $row['company'] ?? '',
-                        $row['customer_name'] ?? '',
-                        $row['work_description'] ?? '',
-                        $row['package_amount'] ?? '',
-                        $row['final_amount'] ?? '',
-                        $row['paid'] ?? '',
-                        $row['telecaller_name'] ?? '',
-                        $row['office_number'] ?? '',
-                        $row['contact_number'] ?? '',
-                        $row['payment_mode'] ?? '',
-                        $row['address'] ?? '',
-                        $row['district'] ?? '',
-                        $row['source'] ?? '',
-                        $errorReason
-                    ]);
-                }
-
-                fclose($file);
-            }, 200, $headers);
-        } catch (\Exception $e) {
-            Log::error('Download failed rows error:', [
-                'import_id' => $importId,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
-
-            return redirect()->route('leads.bulk-import')
-                ->with('error', 'Download failed: ' . $e->getMessage());
+            $csv->insertOne($orderedRow);
         }
+
+        return response($csv->toString())
+            ->header('Content-Type', 'text/csv; charset=UTF-8')
+            ->header('Content-Disposition', 'attachment; filename="failed_rows_' . date('Ymd_His') . '.csv"');
+    }
+
+    private function getField(array $data, array $possibleKeys): string
+    {
+        foreach ($possibleKeys as $key) {
+            if (isset($data[$key]) && $data[$key] !== '') {
+                return (string) $data[$key];
+            }
+        }
+        return '';
+    }
+
+    private function convertExcelDates(array $data): array
+    {
+        $dateColumns = ['date', 'Date'];
+
+        foreach ($data as $key => $value) {
+            if (in_array($key, $dateColumns, true)) {
+                if (is_numeric($value) && $value > 40000 && $value < 50000) {
+                    try {
+                        $unixTimestamp = ($value - 25569) * 86400;
+                        $data[$key] = date('d/m/Y', $unixTimestamp);
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        return $data;
     }
 
     /**
