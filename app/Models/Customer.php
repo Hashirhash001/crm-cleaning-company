@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Branch;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Customer extends Model
 {
@@ -19,12 +20,19 @@ class Customer extends Model
         'priority',
         'notes',
         'lead_id',
+        'branch_id',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    // Relationship to Branch
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
+    }
 
     protected static function boot()
     {

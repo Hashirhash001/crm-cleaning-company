@@ -94,6 +94,7 @@ class Lead extends Model
             'location_not_available' => 'Location Not Available',
             'night_work_demanded' => 'Night Work Demanded',
             'customisation' => 'Customisation',
+            'confirmed' => 'Confirmed',
             'approved' => 'Approved',
             'rejected' => 'Rejected',
         ];

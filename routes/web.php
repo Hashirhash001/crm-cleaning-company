@@ -88,6 +88,19 @@ Route::middleware('auth')->group(function () {
     Route::resource('leads', LeadController::class);
 
     // Job Management
+    // Job Followups
+    Route::post('/jobs/{job}/followups', [JobController::class, 'addFollowup'])->name('jobs.addFollowup');
+    Route::post('/job-followups/{followup}/complete', [JobController::class, 'completeFollowup'])->name('jobs.completeFollowup');
+    Route::delete('/jobs/{job}/followups/{followup}', [JobController::class, 'deleteFollowup'])->name('jobs.deleteFollowup');
+
+    // Job Calls
+    Route::post('/jobs/{job}/calls', [JobController::class, 'addCall'])->name('jobs.addCall');
+    Route::delete('/jobs/{job}/calls/{call}', [JobController::class, 'deleteCall'])->name('jobs.deleteCall');
+
+    // Job Notes
+    Route::post('/jobs/{job}/notes', [JobController::class, 'addNote'])->name('jobs.addNote');
+    Route::delete('/jobs/{job}/notes/{note}', [JobController::class, 'deleteNote'])->name('jobs.deleteNote');
+
     Route::post('/jobs/{job}/confirm-status', [JobController::class, 'confirmStatus'])
     ->name('jobs.confirm-status');
     Route::resource('jobs', JobController::class);

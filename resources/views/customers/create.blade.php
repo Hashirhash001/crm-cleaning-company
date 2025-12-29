@@ -64,6 +64,43 @@
                 <form id="customerForm">
                     @csrf
 
+                    <!-- Branch Selection (Super Admin Only) -->
+                    @if(auth()->user()->role === 'super_admin')
+                    <div class="form-section">
+                        <h5><i class="las la-building me-2"></i>Branch Assignment</h5>
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label for="branch_id" class="form-label required-field">Branch</label>
+                                <select class="form-select" id="branch_id" name="branch_id" required>
+                                    <option value="">Select Branch</option>
+                                    @foreach(\App\Models\Branch::where('is_active', true)->orderBy('name')->get() as $branch)
+                                        <option value="{{ $branch->id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>
+                                            {{ $branch->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <span class="error-text text-danger branch_id_error"></span>
+                                <small class="text-muted">
+                                    <i class="las la-info-circle"></i>
+                                    Customer will be unique to this branch. Same phone/email can exist in different branches.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    @else
+                    <!-- Hidden input for non-super-admin users -->
+                    <input type="hidden" name="branch_id" value="{{ auth()->user()->branch_id }}">
+
+                    <!-- Display current branch info -->
+                    <div class="alert alert-info mb-3">
+                        <i class="las la-building me-2"></i>
+                        <strong>Branch:</strong> {{ auth()->user()->branch->name ?? 'N/A' }}
+                        <small class="d-block mt-1 text-muted">
+                            Customer will be created in your branch
+                        </small>
+                    </div>
+                    @endif
+
                     <!-- Personal Information -->
                     <div class="form-section">
                         <h5><i class="las la-user me-2"></i>Personal Information</h5>
@@ -89,7 +126,7 @@
                                        value="{{ old('email') }}"
                                        placeholder="Enter email address (optional)">
                                 <span class="error-text text-danger email_error"></span>
-                                <small class="text-muted">Email is optional but must be unique</small>
+                                <small class="text-muted">Email must be unique within this branch</small>
                             </div>
                         </div>
 
@@ -103,7 +140,7 @@
                                        value="{{ old('phone') }}"
                                        placeholder="Enter phone number">
                                 <span class="error-text text-danger phone_error"></span>
-                                <small class="text-muted">Phone must be unique</small>
+                                <small class="text-muted">Phone must be unique within this branch</small>
                             </div>
 
                             <div class="col-md-6">

@@ -4,10 +4,11 @@
 
 @section('extra-css')
 <style>
-    /* Professional CRM Styling */
+    /* Professional CRM Color Palette - Same as Lead Details */
     :root {
         --primary-blue: #2563eb;
         --primary-blue-dark: #1e40af;
+        --secondary-gray: #64748b;
         --success-green: #10b981;
         --warning-orange: #f59e0b;
         --danger-red: #ef4444;
@@ -24,9 +25,9 @@
         padding: 1.5rem 0;
     }
 
-    /* Header Card */
+    /* Header Card - Simple Blue */
     .job-header-card {
-        background: linear-gradient(135deg, var(--primary-blue) 0%, #143a78 100%);
+        background: var(--primary-blue);
         border-radius: 12px;
         padding: 2rem;
         color: #fff;
@@ -44,12 +45,69 @@
         border-radius: 6px;
         font-weight: 600;
         color: #fff;
+        font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         background: rgba(255, 255, 255, 0.2);
     }
 
-    /* Info Cards */
+    /* Price Card - Professional Teal/Blue */
+    .price-card {
+        background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+        border-radius: 12px;
+        padding: 1.8rem;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(8, 145, 178, 0.2);
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .price-card h5 {
+        color: #fff;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .price-card h5 i {
+        margin-right: 0.5rem;
+    }
+
+    .price-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.9rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+        align-items: center;
+    }
+
+    .price-row:last-of-type {
+        border-bottom: none;
+        padding-top: 1rem;
+        margin-top: 0.5rem;
+        border-top: 2px solid rgba(255,255,255,0.3);
+    }
+
+    .price-label {
+        font-weight: 500;
+        font-size: 0.95rem;
+        opacity: 0.95;
+    }
+
+    .price-value {
+        font-weight: 700;
+        font-size: 1.2rem;
+    }
+
+    .balance-highlight {
+        font-size: 1.6rem;
+        color: #fef3c7;
+        font-weight: 800;
+    }
+
+    /* Info Cards - Clean White */
     .info-card {
         background: var(--card-bg);
         border-radius: 12px;
@@ -85,7 +143,7 @@
         justify-content: space-between;
         padding: 0.85rem 0;
         border-bottom: 1px solid #f1f5f9;
-        align-items: start;
+        align-items: center;
     }
 
     .info-row:last-child {
@@ -96,7 +154,6 @@
         color: var(--text-secondary);
         font-weight: 500;
         font-size: 0.9rem;
-        min-width: 140px;
     }
 
     .info-value {
@@ -104,38 +161,78 @@
         font-weight: 600;
         text-align: right;
         font-size: 0.95rem;
-        flex: 1;
     }
 
-    /* Amount Card */
-    .amount-card {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    /* Special Cards */
+    .customer-link-card {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
         border-radius: 12px;
-        padding: 1.8rem;
-        color: #fff;
-        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+        padding: 1.5rem;
         margin-bottom: 1.5rem;
     }
 
-    .amount-card h5 {
-        color: #fff;
+    .customer-link-card h6 {
+        color: var(--success-green);
         font-weight: 700;
         margin-bottom: 1rem;
-        font-size: 1.1rem;
     }
 
-    .amount-value {
-        font-size: 2rem;
-        font-weight: 800;
+    .related-lead-card {
+        background: #eff6ff;
+        border: 1px solid #93c5fd;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .related-lead-card h6 {
+        color: var(--primary-blue);
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* Buttons - Clean Professional */
+    .action-button {
+        border-radius: 8px;
+        padding: 0.50rem 1rem;
+        font-weight: 600;
+        border: none;
+        font-size: 0.9rem;
+    }
+
+    .view-profile-btn, .view-lead-btn {
+        width: 100%;
+        padding: 0.85rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        font-size: 0.95rem;
+    }
+
+    .view-profile-btn {
+        background: var(--success-green);
         color: #fff;
     }
 
-    /* Enhanced Service Badges with Quantities */
-    .services-section {
+    .view-profile-btn:hover {
+        background: #059669;
+    }
+
+    .view-lead-btn {
+        background: var(--primary-blue);
+        color: #fff;
+    }
+
+    .view-lead-btn:hover {
+        background: var(--primary-blue-dark);
+    }
+
+    /* Service Badges with Quantities */
+    .services-badges {
         display: flex;
         flex-wrap: wrap;
         gap: 0.6rem;
-        width: 100%;
     }
 
     .service-badge {
@@ -166,114 +263,97 @@
         border: 1px solid rgba(255, 255, 255, 0.3);
     }
 
+    .services-section {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
 
     .service-checkbox-item {
-        padding: 8px 10px;
-        margin: 5px 0;
-        border-radius: 5px;
-        transition: background 0.2s;
-        display: flex;
-        align-items: center;
+            padding: 8px 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+        }
+
+        .service-checkbox-item:hover {
+            background: #f8f9fa;
+        }
+
+        .service-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .service-checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .service-select-box {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+            min-height: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+    /* Followup Timeline - Clean */
+    .followup-timeline {
+        position: relative;
     }
 
-    .service-checkbox-item:hover {
-        background: #f8f9fa;
-    }
-
-    .service-checkbox-item input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        margin-right: 10px;
-        cursor: pointer;
-    }
-
-    .service-checkbox-item label {
-        cursor: pointer;
-        margin: 0;
-        font-weight: 500;
-    }
-
-    .service-select-box {
-        border: 2px solid #dee2e6;
+    .followup-item {
+        position: relative;
+        padding: 1.2rem;
+        background: var(--card-bg);
         border-radius: 8px;
-        padding: 10px;
-        background: #fff;
-        min-height: 150px;
-        max-height: 200px;
-        overflow-y: auto;
+        margin-bottom: 1rem;
+        border-left: 3px solid var(--primary-blue);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--primary-blue);
     }
 
-    /* Customer Notes Compact */
-    .note-compact {
+    .followup-item.overdue {
+        border-left-color: var(--danger-red);
+        background: #fef2f2;
+    }
+
+    .followup-item.completed {
+        border-left-color: var(--success-green);
+        background: #f0fdf4;
+        opacity: 0.85;
+    }
+
+    .followup-item.today {
+        border-left-color: var(--warning-orange);
         background: #fffbeb;
-        border-left: 3px solid var(--warning-orange);
+    }
+
+    /* Call Logs & Notes */
+    .call-log-item, .note-item {
+        background: var(--card-bg);
         border-radius: 8px;
         padding: 1rem;
         margin-bottom: 0.75rem;
+        border-left: 3px solid var(--primary-blue);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        border-left: 3px solid var(--primary-blue);
     }
 
-    .note-compact .note-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-    }
-
-    .note-compact strong {
-        color: var(--text-primary);
-        font-size: 0.9rem;
-    }
-
-    .note-compact small {
-        color: var(--text-secondary);
-        font-size: 0.8rem;
-    }
-
-    .note-compact p {
-        margin: 0;
-        color: var(--text-primary);
-        font-size: 0.9rem;
-        line-height: 1.5;
-    }
-
-    /* Action Buttons */
-    .action-button {
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-        border: none;
-        font-size: 0.9rem;
-        transition: all 0.2s;
-    }
-
-    .action-button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    /* Status Badges */
-    .badge.bg-pending {
-        background-color: #f59e0b !important;
-    }
-
-    .badge.bg-confirmed {
-        background-color: #8b5cf6 !important;
-    }
-
-    .badge.bg-assigned {
-        background-color: #3b82f6 !important;
-    }
-
-    .badge.bg-in_progress {
-        background-color: #06b6d4 !important;
-    }
-
-    .badge.bg-completed {
-        background-color: #10b981 !important;
-    }
-
-    .badge.bg-cancelled {
-        background-color: #ef4444 !important;
+    .note-item {
+        background: #fffbeb;
+        border-left-color: var(--warning-orange);
     }
 
     /* Empty State */
@@ -287,109 +367,71 @@
         font-size: 4rem;
         opacity: 0.2;
         margin-bottom: 1rem;
+        color: var(--text-secondary);
     }
 
-    /* Customer Link Card */
-    .customer-link-card {
-        background: #f0fdf4;
-        border: 1px solid #86efac;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .customer-link-card h6 {
-        color: var(--success-green);
-        font-weight: 700;
-        margin-bottom: 1rem;
-    }
-
-    .view-customer-btn {
-        width: 100%;
-        padding: 0.85rem 1.5rem;
-        border-radius: 8px;
+    /* Badge Colors */
+    .badge {
+        /* padding: 0.4rem 0.9rem; */
+        border-radius: 6px;
         font-weight: 600;
-        border: none;
-        font-size: 0.95rem;
-        background: var(--success-green);
-        color: #fff;
+        /* font-size: 0.8rem; */
     }
 
-    .view-customer-btn:hover {
-        background: #059669;
+    .badge.bg-success {
+        background: var(--success-green) !important;
     }
 
-    /* Notes Section Styling */
-    .notes-full-width {
-        background: var(--card-bg);
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-        border: 1px solid var(--border-color);
-        margin-top: 1.5rem;
+    .badge.bg-primary {
+        background: var(--primary-blue) !important;
     }
 
-    .notes-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 1rem;
-        margin-top: 1rem;
+    .badge.bg-info {
+        background: #0891b2 !important;
     }
 
+    .badge.bg-warning {
+        background: var(--warning-orange) !important;
+        color: #fff !important;
+    }
+
+    .badge.bg-danger {
+        background: var(--danger-red) !important;
+    }
+
+    /* Responsive */
     @media (max-width: 768px) {
-        .notes-container {
-            grid-template-columns: 1fr;
-        }
-    }
-    /* Better button spacing and alignment */
-    .action-button {
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        font-weight: 600;
-        border: none;
-        font-size: 0.9rem;
-        transition: all 0.2s;
-        white-space: nowrap;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .action-button i {
-        font-size: 1.1rem;
-    }
-
-    .action-button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-
-    /* Responsive button layout */
-    @media (max-width: 768px) {
-        .job-header-card .gap-2 {
-            gap: 0.5rem !important;
+        .job-header-card {
+            padding: 1.5rem;
         }
 
-        .action-button {
-            font-size: 0.85rem;
-            padding: 0.5rem 0.8rem;
+        .price-card {
+            padding: 1.3rem;
         }
 
-        .job-header-card h2 {
-            font-size: 1.5rem;
+        .info-card {
+            padding: 1.2rem;
+        }
+
+        .price-value {
+            font-size: 1rem;
+        }
+
+        .balance-highlight {
+            font-size: 1.3rem;
         }
     }
 
-    @media (max-width: 576px) {
-        .action-button {
-            width: 100%;
-        }
-
-        .job-header-card .d-flex.flex-wrap.gap-2 {
-            width: 100%;
-        }
+    .deleteFollowup, .deleteCall, .deleteNote {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.85rem;
+        opacity: 0.7;
+        transition: opacity 0.2s;
     }
 
+    .deleteFollowup:hover, .deleteCall:hover, .deleteNote:hover {
+        opacity: 1;
+    }
 </style>
 @endsection
 
@@ -397,15 +439,13 @@
 <div class="job-detail-container">
     <div class="container-fluid">
 
-        <!-- Job Header -->
+        <!-- Job Header with Action Buttons -->
         <div class="job-header-card">
             <div class="row align-items-center">
-                <div class="col-md-6 col-lg-5">
-                    <div class="d-flex align-items-center mb-2 flex-wrap">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center mb-2">
                         <h2 class="mb-0 me-3">{{ $job->title }}</h2>
-                        <span class="job-status-badge bg-{{ $job->status }}">
-                            {{ ucfirst(str_replace('_', ' ', $job->status)) }}
-                        </span>
+                        <span class="job-status-badge">{{ ucfirst(str_replace('_', ' ', $job->status)) }}</span>
                     </div>
                     <p class="mb-0" style="opacity: 0.95; font-weight: 500;">
                         <i class="las la-tag me-2"></i>{{ $job->job_code }}
@@ -413,181 +453,146 @@
                     </p>
                 </div>
 
-                <div class="col-md-6 col-lg-7 mt-3 mt-md-0">
-                    <div class="d-flex justify-content-md-end align-items-center flex-wrap gap-2">
-                        @php
-                            $user = auth()->user();
-                            $canEdit = in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']);
-                        @endphp
+                <div class="col-md-8 text-md-end mt-3 mt-md-0">
+                    <a href="{{ route('jobs.index') }}" class="btn btn-light action-button me-2">
+                        <i class="las la-arrow-left me-2"></i>Back to Work Orders
+                    </a>
 
-                        <a href="{{ route('jobs.index') }}" class="btn btn-light action-button">
-                            <i class="las la-arrow-left me-1"></i>Back to Jobs
-                        </a>
+                    @php
+                        $user = auth()->user();
+                    @endphp
 
-                        @if($canEdit)
-                            <button type="button" class="btn btn-primary action-button editJobBtn" data-id="{{ $job->id }}">
-                                <i class="las la-edit me-1"></i>Edit
-                            </button>
-                        @endif
+                    @if($user->role === 'super_admin' || $user->role === 'lead_manager' || $user->role === 'telecallers')
+                        <button type="button" class="btn btn-primary action-button me-2 editJobBtn" data-id="{{ $job->id }}">
+                            <i class="las la-edit me-2"></i>Edit
+                        </button>
+                    @endif
 
-                        @if(auth()->user()->role === 'super_admin')
-                            <button type="button" class="btn btn-success action-button assignJobBtn" data-id="{{ $job->id }}">
-                                <i class="las la-user-check me-1"></i>Assign
-                            </button>
-
-                            @if($job->status === 'pending')
-                            <button type="button" class="btn btn-info action-button" onclick="confirmJobStatus({{ $job->id }})">
-                                <i class="las la-check-double me-1"></i>Confirm
-                            </button>
-                            @endif
-
-                            <button type="button" class="btn btn-danger action-button" onclick="deleteJob({{ $job->id }})">
-                                <i class="las la-trash-alt me-1"></i>Delete
-                            </button>
-                        @endif
-
-                        @if(auth()->user()->role === 'field_staff' && auth()->id() === $job->assigned_to)
-                            @if($job->status === 'assigned')
-                                <button type="button" class="btn btn-success action-button" onclick="startJob({{ $job->id }})">
-                                    <i class="las la-play me-1"></i>Start Job
-                                </button>
-                            @endif
-                            @if($job->status === 'in_progress')
-                                <button type="button" class="btn btn-success action-button" onclick="completeJob({{ $job->id }})">
-                                    <i class="las la-check-circle me-1"></i>Complete Job
-                                </button>
-                            @endif
-                        @endif
-                    </div>
+                    @if($user->role === 'super_admin')
+                        <button type="button" class="btn btn-danger action-button" onclick="deleteJob()">
+                            <i class="las la-trash-alt me-2"></i>Delete
+                        </button>
+                    @endif
                 </div>
             </div>
         </div>
 
-        <!-- TOP SECTION: Service & Job Details -->
         <div class="row">
             <!-- Left Column -->
             <div class="col-lg-4">
 
-                <!-- Amount Card - Enhanced with Payment Details -->
+                <!-- PRICE DETAILS CARD -->
                 @if($job->amount)
-                <div class="amount-card">
-                    <h5><i class="las la-rupee-sign me-2"></i>Financial Details</h5>
+                <div class="price-card">
+                    <h5><i class="las la-rupee-sign"></i>Financial Details</h5>
 
-                    <!-- Total Amount -->
-                    <div class="mb-3">
-                        <small style="opacity: 0.9; display: block; margin-bottom: 0.3rem;">Total Amount</small>
-                        <div class="amount-value">₹{{ number_format($job->amount, 2) }}</div>
+                    <div class="price-row">
+                        <span class="price-label">Total Amount</span>
+                        <span class="price-value">₹{{ number_format($job->amount, 2) }}</span>
                     </div>
 
-                    <!-- Amount Paid -->
-                    <div class="mb-3 pb-3" style="border-bottom: 1px solid rgba(255,255,255,0.2);">
-                        <small style="opacity: 0.9; display: block; margin-bottom: 0.3rem;">Amount Paid</small>
-                        <div style="font-size: 1.3rem; font-weight: 700; color: #fff;">
-                            ₹{{ number_format($job->amount_paid ?? 0, 2) }}
-                        </div>
+                    <div class="price-row">
+                        <span class="price-label">Amount Paid</span>
+                        <span class="price-value">₹{{ number_format($job->amount_paid ?? 0, 2) }}</span>
                     </div>
 
-                    <!-- Balance Amount -->
-                    @php
-                        $balance = $job->amount - ($job->amount_paid ?? 0);
-                        $paymentStatus = '';
-                        $statusIcon = '';
-
-                        if ($balance <= 0) {
-                            $paymentStatus = 'Fully Paid';
-                            $statusIcon = 'la-check-circle';
-                        } elseif (($job->amount_paid ?? 0) > 0) {
-                            $paymentStatus = 'Partially Paid';
-                            $statusIcon = 'la-clock';
-                        } else {
-                            $paymentStatus = 'Unpaid';
-                            $statusIcon = 'la-exclamation-circle';
-                        }
-                    @endphp
-
-                    <div>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small style="opacity: 0.9;">Balance Amount</small>
-                            <span class="badge bg-light text-dark">
-                                <i class="las {{ $statusIcon }} me-1"></i>{{ $paymentStatus }}
-                            </span>
-                        </div>
-                        <div style="font-size: 1.5rem; font-weight: 800; color: {{ $balance > 0 ? '#fbbf24' : '#fff' }};">
-                            ₹{{ number_format($balance, 2) }}
-                        </div>
+                    @if($job->payment_mode)
+                    <div class="price-row">
+                        <span class="price-label">Payment Mode</span>
+                        <span class="price-value text-uppercase">{{ str_replace('_', ' ', $job->payment_mode) }}</span>
                     </div>
+                    @endif
+
+                    <div class="price-row">
+                        <span class="price-label">Balance Amount</span>
+                        <span class="price-value balance-highlight">₹{{ number_format($job->amount - ($job->amount_paid ?? 0), 2) }}</span>
+                    </div>
+                </div>
+                @else
+                <div class="info-card text-center">
+                    <i class="las la-money-bill-wave" style="font-size: 3rem; opacity: 0.15; color: #cbd5e0;"></i>
+                    <p class="text-muted mb-0 mt-3" style="font-weight: 500;">Financial details not set</p>
                 </div>
                 @endif
 
-                <!-- Customer Info -->
+                <!-- Customer Information Section -->
                 @if($job->customer)
                 <div class="customer-link-card">
-                    <h6><i class="las la-user me-2"></i>Customer Information</h6>
+                    <h6><i class="las la-user-check me-2"></i>Customer Information</h6>
                     <div class="mb-2">
                         <strong>Customer Code:</strong>
                         <span class="badge bg-success ms-2">{{ $job->customer->customer_code }}</span>
                     </div>
-                    <div class="mb-2">
+                    <div class="mb-3">
                         <strong>Name:</strong> {{ $job->customer->name }}
                     </div>
-                    <div class="mb-3">
-                        <strong>Phone:</strong> {{ $job->customer->phone }}
-                    </div>
-                    <a href="{{ route('customers.show', $job->customer->id) }}" class="btn view-customer-btn">
+                    <a href="{{ route('customers.show', $job->customer->id) }}" class="btn view-profile-btn">
                         <i class="las la-external-link-alt me-2"></i>View Customer Profile
+                    </a>
+                </div>
+                @endif
+
+                <!-- Related Lead Section -->
+                @if($job->lead)
+                <div class="related-lead-card">
+                    <h6><i class="las la-link me-2"></i>Related Lead</h6>
+                    <div class="mb-2">
+                        <strong>Lead Code:</strong>
+                        <span class="badge bg-primary ms-2">{{ $job->lead->lead_code }}</span>
+                    </div>
+                    <div class="mb-2">
+                        <strong>Name:</strong> {{ $job->lead->name }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Status:</strong>
+                        <span class="badge bg-{{ $job->lead->status == 'approved' ? 'success' : 'warning' }}">{{ ucfirst($job->lead->status) }}</span>
+                    </div>
+                    <a href="{{ route('leads.show', $job->lead->id) }}" class="btn view-lead-btn">
+                        <i class="las la-external-link-alt me-2"></i>View Lead Details
                     </a>
                 </div>
                 @endif
 
             </div>
 
-            <!-- Middle Column - Service Details -->
-            <div class="col-lg-4">
+            <!-- Right Column -->
+            <div class="col-lg-8">
 
-                <!-- Service Information -->
+                <!-- Job Details -->
                 <div class="info-card">
                     <div class="info-card-header">
-                        <h5><i class="las la-tools"></i>Service Details</h5>
+                        <h5><i class="las la-briefcase"></i>Work Order Details</h5>
                     </div>
 
+                    @if($job->branch)
                     <div class="info-row">
-                        <span class="info-label">Service Type</span>
-                        <span class="info-value">
-                            @if($job->lead && $job->lead->service_type)
-                                <span class="badge bg-info">{{ ucfirst(str_replace('_', ' ', $job->lead->service_type)) }}</span>
-                            @elseif($job->services->first())
-                                <span class="badge bg-info">{{ ucfirst(str_replace('_', ' ', $job->services->first()->service_type)) }}</span>
-                            @else
-                                <span class="text-muted">N/A</span>
-                            @endif
-                        </span>
+                        <span class="info-label">Branch</span>
+                        <span class="info-value">{{ $job->branch->name }}</span>
                     </div>
+                    @endif
 
-                    {{-- Show job services if available --}}
                     @if($job->services && $job->services->count() > 0)
                     <div class="info-row" style="flex-direction: column; align-items: flex-start;">
                         <div class="d-flex justify-content-between align-items-center w-100 mb-2">
                             <span class="info-label">Services</span>
-                            <span class="badge bg-primary">
-                                {{ $job->services->count() }} {{ Str::plural('Service', $job->services->count()) }}
-                            </span>
+                            <span class="badge bg-primary">{{ $job->services->count() }} {{ Str::plural('Service', $job->services->count()) }}</span>
                         </div>
 
                         <!-- Badge Style Display -->
-                        <div class="services-section mb-3">
+                        {{-- <div class="services-badges mb-3">
                             @foreach($job->services as $service)
                                 <span class="service-badge">
-                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-1"></i>
+                                    <i class="las la-{{ $service->service_type == 'cleaning' ? 'broom' : ($service->service_type == 'pestcontrol' ? 'bug' : 'cogs') }} me-1"></i>
                                     {{ $service->name }}
                                     @if($service->pivot && $service->pivot->quantity > 1)
-                                        <span class="quantity-badge">× {{ $service->pivot->quantity }}</span>
+                                        <span class="quantity-badge">{{ $service->pivot->quantity }}x</span>
                                     @endif
                                 </span>
                             @endforeach
-                        </div>
+                        </div> --}}
 
-                        <!-- Detailed List View -->
-                        <div class="service-list-table">
+                        <!-- Detailed List View (Same as Index Page) -->
+                        <div class="service-list-table" style="width: 100%;">
                             @php
                                 $totalQuantity = $job->services->sum(function($service) {
                                     return $service->pivot->quantity ?? 1;
@@ -595,13 +600,13 @@
                             @endphp
 
                             @foreach($job->services as $service)
-                            <div class="service-list-item">
-                                <span class="service-name">
-                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-2 text-primary"></i>
+                            <div class="service-list-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: #f8fafc; border-radius: 6px; margin-bottom: 0.5rem; border: 1px solid #e2e8f0;">
+                                <span class="service-name" style="font-weight: 600; color: var(--text-primary);">
+                                    <i class="las la-{{ $service->service_type == 'cleaning' ? 'broom' : ($service->service_type == 'pestcontrol' ? 'bug' : 'cogs') }} me-2 text-primary"></i>
                                     {{ $service->name }}
                                     <small class="text-muted ms-1">({{ ucfirst(str_replace('_', ' ', $service->service_type)) }})</small>
                                 </span>
-                                <span class="service-qty">
+                                <span class="service-qty" style="background: var(--primary-blue); color: #fff; padding: 0.25rem 0.75rem; border-radius: 5px; font-size: 0.85rem; font-weight: 600;">
                                     Qty: {{ $service->pivot->quantity ?? 1 }}
                                 </span>
                             </div>
@@ -609,112 +614,13 @@
 
                             @if($totalQuantity > $job->services->count())
                             <div class="mt-2 text-end">
-                                <small class="text-muted">
-                                    <strong>Total Items:</strong> {{ $totalQuantity }}
-                                </small>
+                                <small class="text-muted"><strong>Total Items:</strong> {{ $totalQuantity }}</small>
                             </div>
                             @endif
                         </div>
                     </div>
-
-                    {{-- Fallback to lead services --}}
-                    @elseif($job->lead && $job->lead->services && $job->lead->services->count() > 0)
-                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
-                        <div class="d-flex justify-content-between align-items-center w-100 mb-2">
-                            <span class="info-label">Services (from Lead)</span>
-                            <span class="badge bg-info">
-                                {{ $job->lead->services->count() }} {{ Str::plural('Service', $job->lead->services->count()) }}
-                            </span>
-                        </div>
-
-                        <!-- Badge Style Display -->
-                        <div class="services-section mb-3">
-                            @foreach($job->lead->services as $service)
-                                <span class="service-badge">
-                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-1"></i>
-                                    {{ $service->name }}
-                                    @if($service->pivot && $service->pivot->quantity > 1)
-                                        <span class="quantity-badge">× {{ $service->pivot->quantity }}</span>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </div>
-
-                        <!-- Detailed List View -->
-                        <div class="service-list-table">
-                            @php
-                                $totalQuantity = $job->lead->services->sum(function($service) {
-                                    return $service->pivot->quantity ?? 1;
-                                });
-                            @endphp
-
-                            @foreach($job->lead->services as $service)
-                            <div class="service-list-item">
-                                <span class="service-name">
-                                    <i class="las la-{{ $service->service_type === 'cleaning' ? 'broom' : ($service->service_type === 'pest_control' ? 'bug' : 'cogs') }} me-2 text-primary"></i>
-                                    {{ $service->name }}
-                                    <small class="text-muted ms-1">({{ ucfirst(str_replace('_', ' ', $service->service_type)) }})</small>
-                                </span>
-                                <span class="service-qty">
-                                    Qty: {{ $service->pivot->quantity ?? 1 }}
-                                </span>
-                            </div>
-                            @endforeach
-
-                            @if($totalQuantity > $job->lead->services->count())
-                            <div class="mt-2 text-end">
-                                <small class="text-muted">
-                                    <strong>Total Items:</strong> {{ $totalQuantity }}
-                                </small>
-                            </div>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- Single service fallback --}}
-                    @elseif($job->service)
-                    <div class="info-row">
-                        <span class="info-label">Service</span>
-                        <span class="info-value">
-                            <span class="service-badge">
-                                <i class="las la-cogs me-1"></i>
-                                {{ $job->service->name }}
-                            </span>
-                        </span>
-                    </div>
                     @endif
 
-
-                    @if($job->description)
-                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
-                        <span class="info-label mb-2">Description</span>
-                        <span class="info-value" style="text-align: left; font-size: 0.9rem;">{{ $job->description }}</span>
-                    </div>
-                    @endif
-
-                    @if($job->customer_instructions)
-                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
-                        <span class="info-label mb-2">Customer Instructions</span>
-                        <span class="info-value" style="text-align: left; font-size: 0.9rem;">{{ $job->customer_instructions }}</span>
-                    </div>
-                    @endif
-                </div>
-
-            </div>
-
-            <!-- Right Column - Job Details -->
-            <div class="col-lg-4">
-
-                <!-- Job Details -->
-                <div class="info-card">
-                    <div class="info-card-header">
-                        <h5><i class="las la-briefcase"></i>Job Information</h5>
-                    </div>
-
-                    <div class="info-row">
-                        <span class="info-label">Branch</span>
-                        <span class="info-value">{{ $job->branch->name }}</span>
-                    </div>
 
                     @if($job->location)
                     <div class="info-row">
@@ -725,18 +631,16 @@
 
                     <div class="info-row">
                         <span class="info-label">Assigned To</span>
-                        <span class="info-value">
-                            {{ $job->assignedTo->name ?? 'Unassigned' }}
-                        </span>
+                        <span class="info-value">{{ $job->assignedTo->name ?? 'Unassigned' }}</span>
                     </div>
 
                     @if($job->scheduled_date)
                     <div class="info-row">
                         <span class="info-label">Scheduled Date</span>
                         <span class="info-value">
-                            {{ $job->scheduled_date->format('d M Y') }}
+                            {{ \Carbon\Carbon::parse($job->scheduled_date)->format('d M Y') }}
                             @if($job->scheduled_time)
-                                <br><small>{{ $job->scheduled_time }}</small>
+                                <br><small>{{ \Carbon\Carbon::parse($job->scheduled_time)->format('h:i A') }}</small>
                             @endif
                         </span>
                     </div>
@@ -779,50 +683,360 @@
                         <span class="info-value">{{ $job->completed_at->format('d M Y, h:i A') }}</span>
                     </div>
                     @endif
-                </div>
 
-            </div>
-        </div>
-
-        <!-- BOTTOM SECTION: Customer Notes - Full Width -->
-        @if($job->customer)
-        <div class="notes-full-width">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">
-                    <i class="las la-sticky-note text-warning me-2"></i>
-                    Customer Notes
-                    <span class="badge bg-secondary ms-2">{{ $job->customer->customerNotes->count() }}</span>
-                </h5>
-            </div>
-
-            @if($job->customer->customerNotes->count() > 0)
-                <div class="notes-container">
-                    @foreach($job->customer->customerNotes->sortByDesc('created_at') as $note)
-                    <div class="note-compact">
-                        <div class="note-header">
-                            <div>
-                                <strong>{{ $note->createdBy->name }}</strong>
-                                <small class="d-block text-muted mt-1">
-                                    <i class="las la-clock me-1"></i>{{ $note->created_at->diffForHumans() }}
-                                </small>
-                            </div>
-                            @if($note->job)
-                            <span class="badge bg-info">{{ $note->job->job_code }}</span>
-                            @endif
-                        </div>
-                        <p class="mt-2">{{ $note->note }}</p>
+                    @if($job->description)
+                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
+                        <span class="info-label mb-2">Description</span>
+                        <span class="info-value" style="text-align: left;">{{ $job->description }}</span>
                     </div>
-                    @endforeach
-                </div>
-            @else
-                <div class="empty-state">
-                    <i class="las la-clipboard-list"></i>
-                    <p class="mb-0">No customer notes available</p>
-                </div>
-            @endif
-        </div>
-        @endif
+                    @endif
 
+                    @if($job->customer_instructions)
+                    <div class="info-row" style="flex-direction: column; align-items: flex-start;">
+                        <span class="info-label mb-2">Customer Instructions</span>
+                        <span class="info-value" style="text-align: left;">{{ $job->customer_instructions }}</span>
+                    </div>
+                    @endif
+                </div>
+
+                <!-- Scheduled Followups -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="las la-calendar-check"></i>Scheduled Followups</h5>
+                            <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addFollowupModal">
+                                <i class="las la-plus me-1"></i>Add Followup
+                            </button>
+                        </div>
+                    </div>
+
+                    @if($job->followups && $job->followups->count() > 0)
+                        <div class="followup-timeline">
+                            @foreach($job->followups as $followup)
+                            <div class="followup-item {{ $followup->followup_date->isToday() ? 'today' : '' }} {{ $followup->followup_date->isPast() && $followup->status == 'pending' ? 'overdue' : '' }} {{ $followup->status == 'completed' ? 'completed' : '' }}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="badge bg-{{ $followup->priority == 'high' ? 'danger' : ($followup->priority == 'medium' ? 'warning' : 'info') }}">
+                                            <i class="las la-flag me-1"></i>{{ ucfirst($followup->priority) }}
+                                        </span>
+                                        @if($followup->followup_date->isToday())
+                                            <span class="badge bg-warning ms-2">Today</span>
+                                        @endif
+                                        @if($followup->followup_date->isPast() && $followup->status == 'pending')
+                                            <span class="badge bg-danger ms-2">Overdue</span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-{{ $followup->status == 'completed' ? 'success' : ($followup->status == 'cancelled' ? 'secondary' : 'primary') }}">
+                                            {{ ucfirst($followup->status) }}
+                                        </span>
+                                        @if(auth()->user()->role == 'super_admin' || $followup->created_by == auth()->id() || $followup->assigned_to == auth()->id())
+                                            <button class="btn btn-sm btn-danger ms-2 deleteFollowup" data-id="{{ $followup->id }}" title="Delete Followup">
+                                                <i class="las la-trash"></i>
+                                            </button>
+                                        @endif
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1">
+                                            <strong><i class="las la-calendar me-1"></i>Date:</strong> {{ $followup->followup_date->format('d M Y') }}
+                                            @if($followup->followup_time)
+                                                <br><strong><i class="las la-clock me-1"></i>Time:</strong> {{ \Carbon\Carbon::parse($followup->followup_time)->format('h:i A') }}
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1">
+                                            <strong><i class="las la-user me-1"></i>Assigned To:</strong> {{ $followup->assignedTo->name ?? 'N/A' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                @if($followup->notes)
+                                <div class="mt-2 p-2 bg-light rounded">
+                                    <small class="text-muted">{{ $followup->notes }}</small>
+                                </div>
+                                @endif
+                                @if($followup->status == 'pending' && (auth()->user()->role == 'super_admin' || $followup->assigned_to == auth()->id()))
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-success markFollowupComplete" data-id="{{ $followup->id }}">
+                                        <i class="las la-check me-1"></i>Mark Complete
+                                    </button>
+                                </div>
+                                @endif
+                            </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="empty-state">
+                            <i class="las la-calendar-times"></i>
+                            <p class="mb-0">No followups scheduled yet</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Call Logs -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="las la-phone"></i>Call Logs</h5>
+                            <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addCallModal">
+                                <i class="las la-plus me-1"></i>Add Call
+                            </button>
+                        </div>
+                    </div>
+
+                    @if($job->calls && $job->calls->count() > 0)
+                        @foreach($job->calls as $call)
+                        <div class="call-log-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>{{ $call->user->name }}</strong>
+                                    <span class="badge bg-{{ $call->outcome == 'completed' ? 'success' : ($call->outcome == 'issue_reported' ? 'danger' : 'warning') }} ms-2">
+                                        {{ ucfirst(str_replace('_', ' ', $call->outcome)) }}
+                                    </span>
+                                    <p class="text-muted small mb-1 mt-1">
+                                        {{ \Carbon\Carbon::parse($call->call_date)->format('d M Y') }}
+                                        @if($call->duration)
+                                            • Duration: {{ $call->duration }} min
+                                        @endif
+                                    </p>
+                                    @if($call->notes)
+                                    <p class="mb-0 small">{{ $call->notes }}</p>
+                                    @endif
+                                </div>
+                                @if(auth()->user()->role == 'super_admin' || auth()->user()->role == 'lead_manager' || $call->user_id == auth()->id())
+                                    <button class="btn btn-sm btn-danger deleteCall" data-id="{{ $call->id }}" title="Delete Call">
+                                        <i class="las la-trash"></i>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="empty-state">
+                            <i class="las la-phone-slash"></i>
+                            <p class="mb-0">No call logs yet</p>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Notes -->
+                <div class="info-card">
+                    <div class="info-card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="las la-sticky-note"></i>Notes</h5>
+                            <button class="btn btn-sm btn-primary action-button" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                                <i class="las la-plus me-1"></i>Add Note
+                            </button>
+                        </div>
+                    </div>
+
+                    @if($job->notes && $job->notes->count() > 0)
+                        @foreach($job->notes as $note)
+                        <div class="note-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between">
+                                        <strong>{{ $note->createdBy->name }}</strong>
+                                        <small class="text-muted">{{ $note->created_at->diffForHumans() }}</small>
+                                    </div>
+                                    <p class="mb-0 mt-2">{{ $note->note }}</p>
+                                </div>
+                                @if(auth()->user()->role == 'superadmin' || auth()->user()->role == 'lead_manager' || $note->created_by == auth()->id())
+                                    <button class="btn btn-sm btn-danger ms-2 deleteNote" data-id="{{ $note->id }}" title="Delete Note">
+                                        <i class="las la-trash"></i>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                        @endforeach
+                    @else
+                        <div class="empty-state">
+                            <i class="las la-comment-slash"></i>
+                            <p class="mb-0">No notes yet</p>
+                        </div>
+                    @endif
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Add Followup Modal -->
+<div class="modal fade" id="addFollowupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="las la-calendar-plus me-2"></i>Schedule Followup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addFollowupForm">
+                @csrf
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Followup Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="followup_date" required min="{{ date('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Followup Time</label>
+                            <input type="time" class="form-control" name="followup_time">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Time Preference for Callback</label>
+                        <select class="form-select" name="callback_time_preference">
+                            <option value="anytime">Anytime</option>
+                            <option value="morning">Morning (9 AM - 12 PM)</option>
+                            <option value="afternoon">Afternoon (12 PM - 4 PM)</option>
+                            <option value="evening">Evening (4 PM - 8 PM)</option>
+                        </select>
+                        <small class="text-muted">Best time to reach the customer</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Priority <span class="text-danger">*</span></label>
+                        <select class="form-select" name="priority" required>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" name="notes" rows="3" placeholder="Add notes about this followup..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Schedule Followup</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Call Modal -->
+<div class="modal fade" id="addCallModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Log Call</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addCallForm">
+                @csrf
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="call_date" class="form-label">Call Date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="call_date" name="call_date" required value="{{ date('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="duration" class="form-label">Duration (minutes)</label>
+                            <input type="number" class="form-control" id="duration" name="duration" min="0" placeholder="e.g., 5">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="outcome" class="form-label">Call Outcome <span class="text-danger">*</span></label>
+                        <select class="form-select" id="outcome" name="outcome" required>
+                            <option value="">Select Outcome</option>
+                            <option value="completed">Completed</option>
+                            <option value="rescheduled">Rescheduled</option>
+                            <option value="issue_reported">Issue Reported</option>
+                            <option value="follow_up_needed">Follow-up Needed</option>
+                            <option value="no_answer">No Answer</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="call_notes" class="form-label">Call Notes</label>
+                        <textarea class="form-control" id="call_notes" name="notes" rows="3" placeholder="Enter call details..."></textarea>
+                    </div>
+
+                    <!-- Followup Section -->
+                    <div id="followupSection" style="display: none;">
+                        <hr>
+                        <h6 class="mb-3"><i class="las la-calendar-plus"></i> Schedule Followup</h6>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="followup_date" class="form-label">Followup Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="followup_date" name="followup_date" min="{{ date('Y-m-d') }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="followup_time" class="form-label">Followup Time</label>
+                                <input type="time" class="form-control" id="followup_time" name="followup_time">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="callback_time_preference" class="form-label">Time Preference for Callback</label>
+                            <select class="form-select" id="callback_time_preference" name="callback_time_preference">
+                                <option value="anytime">Anytime</option>
+                                <option value="morning">Morning (9 AM - 12 PM)</option>
+                                <option value="afternoon">Afternoon (12 PM - 4 PM)</option>
+                                <option value="evening">Evening (4 PM - 8 PM)</option>
+                            </select>
+                            <small class="text-muted">Best time to reach the customer</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="followup_priority" class="form-label">Priority <span class="text-danger">*</span></label>
+                            <select class="form-select" id="followup_priority" name="followup_priority">
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="followup_notes" class="form-label">Followup Notes</label>
+                            <textarea class="form-control" id="followup_notes" name="followup_notes" rows="2" placeholder="What needs to be discussed in the followup?"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Call & Followup</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Note Modal -->
+<div class="modal fade" id="addNoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Note</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addNoteForm">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="note" class="form-label">Note <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="note" name="note" rows="4" required placeholder="Enter note..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Note</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -1058,6 +1272,268 @@
             allowClear: true,
             dropdownParent: $('#assignJobModal'),
             width: '100%'
+        });
+
+        // Show/Hide followup section based on call outcome
+        $('#outcome').on('change', function() {
+            let outcome = $(this).val();
+            if (outcome === 'follow_up_needed' || outcome === 'rescheduled') {
+                $('#followupSection').slideDown();
+                let tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                $('#followup_date').val(tomorrow.toISOString().split('T')[0]);
+                $('#followup_date').prop('required', true);
+            } else {
+                $('#followupSection').slideUp();
+                $('#followup_date').prop('required', false);
+                $('#followup_date').val('');
+                $('#followup_time').val('');
+                $('#followup_notes').val('');
+            }
+        });
+
+        // Submit Add Call Form with Followup
+        $('#addCallForm').on('submit', function(e) {
+            e.preventDefault();
+            let formData = new FormData(this);
+
+            $.ajax({
+                url: '{{ route("jobs.addCall", $job->id) }}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    $('#addCallModal').modal('hide');
+                    let message = response.message;
+                    if (response.followup_created) {
+                        message += '<br><small class="text-success">Followup scheduled successfully!</small>';
+                    }
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        html: message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    Swal.fire('Error!', 'Failed to log call', 'error');
+                }
+            });
+        });
+
+        // Submit Add Followup Form
+        $('#addFollowupForm').on('submit', function(e) {
+            e.preventDefault();
+            let formData = new FormData(this);
+
+            $.ajax({
+                url: '{{ route("jobs.addFollowup", $job->id) }}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    $('#addFollowupModal').modal('hide');
+                    $('#addFollowupForm')[0].reset();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: response.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    Swal.fire('Error!', 'Failed to schedule followup', 'error');
+                }
+            });
+        });
+
+        // Submit Add Note Form
+        $('#addNoteForm').on('submit', function(e) {
+            e.preventDefault();
+            let formData = new FormData(this);
+
+            $.ajax({
+                url: '{{ route("jobs.addNote", $job->id) }}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    $('#addNoteModal').modal('hide');
+                    $('#note').val('');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: response.message,
+                        timer: 2000,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                },
+                error: function(xhr) {
+                    Swal.fire('Error!', 'Failed to add note', 'error');
+                }
+            });
+        });
+
+        // Mark followup as complete
+        $(document).on('click', '.markFollowupComplete', function() {
+            var followupId = $(this).data('id');
+
+            Swal.fire({
+                title: 'Complete Followup?',
+                text: 'Mark this followup as completed',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Complete',
+                confirmButtonColor: '#10b981'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `/job-followups/${followupId}/complete`,
+                        type: 'POST',
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Completed!',
+                                    text: response.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error', 'Could not complete followup', 'error');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Delete Followup
+        $(document).on('click', '.deleteFollowup', function() {
+            var followupId = $(this).data('id');
+
+            Swal.fire({
+                title: 'Delete Followup?',
+                text: 'This action cannot be undone',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Delete',
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `/jobs/{{ $job->id }}/followups/${followupId}`,
+                        type: 'DELETE',
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: response.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete followup', 'error');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Delete Call Log
+        $(document).on('click', '.deleteCall', function() {
+            var callId = $(this).data('id');
+
+            Swal.fire({
+                title: 'Delete Call Log?',
+                text: 'This action cannot be undone',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Delete',
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `/jobs/{{ $job->id }}/calls/${callId}`,
+                        type: 'DELETE',
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: response.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete call log', 'error');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Delete Note
+        $(document).on('click', '.deleteNote', function() {
+            var noteId = $(this).data('id');
+
+            Swal.fire({
+                title: 'Delete Note?',
+                text: 'This action cannot be undone',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Delete',
+                confirmButtonColor: '#ef4444',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `/jobs/{{ $job->id }}/notes/${noteId}`,
+                        type: 'DELETE',
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: response.message,
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete note', 'error');
+                        }
+                    });
+                }
+            });
         });
 
         // Load services when service type is selected

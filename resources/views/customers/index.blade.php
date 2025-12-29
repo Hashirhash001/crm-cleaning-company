@@ -93,8 +93,20 @@
                             <option value="low">Low Priority</option>
                         </select>
                     </div>
+                    <!-- Add to filters section -->
+                    @if(auth()->user()->role === 'super_admin')
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Branch</label>
+                        <select class="form-select" id="branchFilter">
+                            <option value="">All Branches</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @endif
 
-                    <div class="col-md-6">
+                    <div class="col-md-3">
                         <label class="form-label fw-semibold">Search</label>
                         <input type="text" class="form-control" id="searchCustomer" placeholder="Search by name, email, phone or code...">
                     </div>
@@ -133,8 +145,10 @@
                             <tr>
                                 <th class="sortable" data-column="code">Customer Code</th>
                                 <th class="sortable" data-column="name">Name</th>
-                                <th class="sortable" data-column="email">Email</th>
                                 <th>Phone</th>
+                                @if(auth()->user()->role === 'super_admin')
+                                    <th class="sortable" data-column="branch">Branch</th>
+                                @endif
                                 <th class="sortable" data-column="priority">Priority</th>
                                 <th class="sortable" data-column="total-jobs">Total Jobs</th>
                                 <th class="sortable" data-column="completed-jobs">Completed Jobs</th>
@@ -398,6 +412,7 @@
                 let params = {
                     priority: $('#priorityFilter').val(),
                     search: $('#searchCustomer').val(),
+                    branch_id: $('#branchFilter').val(),
                     sort_column: currentSort.column,
                     sort_direction: currentSort.direction
                 };
@@ -487,6 +502,15 @@
                     loadCustomers();
                 }, 500);
             });
+
+            // Branch filter (for super admin)
+            $('#branchFilter').on('change', function() {
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(function() {
+                    loadCustomers();
+                }, 300);
+            });
+
 
             // ============================================
             // RESET FILTERS

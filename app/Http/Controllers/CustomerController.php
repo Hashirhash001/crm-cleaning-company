@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\CustomerNote;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -24,22 +26,26 @@ class CustomerController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $query = Customer::with(['lead', 'jobs']);
+        $query = Customer::with(['branch', 'lead', 'jobs']);
 
-        // Telecallers can only see their assigned customers
-        if ($user->role === 'telecallers') {
-            $query->where(function($q) use ($user) {
-                $q->whereHas('jobs', function($jobQuery) use ($user) {
-                    $jobQuery->where('assigned_to', $user->id);
-                })->orWhereHas('lead', function($leadQuery) use ($user) {
-                    $leadQuery->where('assigned_to', $user->id);
-                });
-            });
+        // Role-based access control
+        if ($user->role === 'super_admin') {
+            // Super admin sees all customers
+        } elseif (in_array($user->role, ['lead_manager', 'telecallers'])) {
+            // Branch users see only their branch customers
+            $query->where('branch_id', $user->branch_id);
+        } else {
+            abort(403, 'Unauthorized');
         }
 
         // Filter by priority
         if ($request->filled('priority')) {
             $query->where('priority', $request->priority);
+        }
+
+        // Filter by branch
+        if ($request->filled('branch_id')) {
+            $query->where('branch_id', $request->branch_id);
         }
 
         // Filter by active status
@@ -58,12 +64,13 @@ class CustomerController extends Controller
             });
         }
 
-        $sortColumn = $request->get('sort_column', 'created_at');
+        $sortColumn = $request->get('sort_column', 'completed-jobs');
         $sortDirection = $request->get('sort_direction', 'desc');
 
         $query->sort($sortColumn, $sortDirection);
 
         $customers = $query->paginate(15);
+        $branches = Branch::where('is_active', true)->get();
 
         // Return JSON for AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
@@ -79,7 +86,7 @@ class CustomerController extends Controller
             ]);
         }
 
-        return view('customers.index', compact('customers'));
+        return view('customers.index', compact('customers', 'branches'));
     }
 
     public function create()
@@ -94,7 +101,9 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         try {
-            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
+            $user = auth()->user();
+
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 if ($request->ajax()) {
                     return response()->json([
                         'success' => false,
@@ -104,21 +113,45 @@ class CustomerController extends Controller
                 return back()->with('error', 'Unauthorized.');
             }
 
+            // Determine branch_id
+            $branchId = $user->role === 'super_admin'
+                ? $request->branch_id
+                : $user->branch_id;
+
+            // Validation with composite unique constraints (email and phone unique per branch)
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
-                'email' => 'nullable|email|unique:customers,email',
-                'phone' => 'required|string|max:20|unique:customers,phone',
+                'email' => [
+                    'nullable',
+                    'email',
+                    // Unique email per branch
+                    Rule::unique('customers', 'email')->where(function ($query) use ($branchId) {
+                        return $query->where('branch_id', $branchId);
+                    }),
+                ],
+                'phone' => [
+                    'required',
+                    'string',
+                    'max:20',
+                    // Unique phone per branch
+                    Rule::unique('customers', 'phone')->where(function ($query) use ($branchId) {
+                        return $query->where('branch_id', $branchId);
+                    }),
+                ],
                 'address' => 'nullable|string|max:500',
                 'priority' => 'required|in:low,medium,high',
                 'notes' => 'nullable|string|max:1000',
+                'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
             ], [
                 'name.required' => 'Customer name is required',
                 'email.email' => 'Please enter a valid email address',
-                'email.unique' => 'This email is already registered with another customer',
+                'email.unique' => 'This email is already registered with another customer in this branch',
                 'phone.required' => 'Phone number is required',
-                'phone.unique' => 'This phone number is already registered with another customer',
+                'phone.unique' => 'This phone number is already registered with another customer in this branch',
                 'priority.required' => 'Priority level is required',
                 'priority.in' => 'Please select a valid priority level',
+                'branch_id.required' => 'Branch is required',
+                'branch_id.exists' => 'Selected branch is invalid',
             ]);
 
             if ($validator->fails()) {
@@ -140,12 +173,14 @@ class CustomerController extends Controller
                 'address' => $validated['address'] ?? null,
                 'priority' => $validated['priority'],
                 'notes' => $validated['notes'] ?? null,
+                'branch_id' => $branchId,
                 'is_active' => true,
             ]);
 
             Log::info('Customer created manually', [
                 'customer_id' => $customer->id,
                 'customer_code' => $customer->customer_code,
+                'branch_id' => $branchId,
                 'created_by' => auth()->id()
             ]);
 
@@ -188,16 +223,16 @@ class CustomerController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->role === 'telecallers') {
-            $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
-                      || ($customer->lead && $customer->lead->assigned_to == $user->id);
-
-            if (!$hasAccess) {
-                abort(403, 'Unauthorized. You can only view customers assigned to you.');
+        // Authorization check based on role
+        if ($user->role === 'telecallers' || $user->role === 'lead_manager') {
+            // Branch-based access control for non-super-admin users
+            if ($customer->branch_id !== $user->branch_id) {
+                abort(403, 'Unauthorized. You can only view customers from your branch.');
             }
         }
 
-        $customer->load(['jobs', 'customerNotes.createdBy', 'customerNotes.job', 'completedJobs', 'lead']);
+        // Load relationships
+        $customer->load(['jobs', 'customerNotes.createdBy', 'customerNotes.job', 'completedJobs', 'lead', 'branch']);
 
         return view('customers.show', compact('customer'));
     }
@@ -205,17 +240,43 @@ class CustomerController extends Controller
     public function update(Request $request, Customer $customer)
     {
         try {
-            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
+            $user = auth()->user();
+
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized. Only Super Admin, Lead Manager or Telecallers can update customers.'
                 ], 403);
             }
 
+            // Authorization: Check if user can update this customer (branch-based)
+            if ($user->role !== 'super_admin' && $customer->branch_id !== $user->branch_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You can only update customers from your branch'
+                ], 403);
+            }
+
+            // Validation with composite unique (excluding current customer)
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'email' => 'nullable|email|unique:customers,email,' . $customer->id,
-                'phone' => 'nullable|string|max:20',
+                'email' => [
+                    'nullable',
+                    'email',
+                    // Unique email per branch, excluding this customer
+                    Rule::unique('customers', 'email')
+                        ->where('branch_id', $customer->branch_id)
+                        ->ignore($customer->id),
+                ],
+                'phone' => [
+                    'nullable',
+                    'string',
+                    'max:20',
+                    // Unique phone per branch, excluding this customer
+                    Rule::unique('customers', 'phone')
+                        ->where('branch_id', $customer->branch_id)
+                        ->ignore($customer->id),
+                ],
                 'address' => 'nullable|string',
                 'priority' => 'required|in:low,medium,high',
                 'notes' => 'nullable|string',
@@ -223,7 +284,11 @@ class CustomerController extends Controller
 
             $customer->update($validated);
 
-            Log::info('Customer updated', ['customer_id' => $customer->id]);
+            Log::info('Customer updated', [
+                'customer_id' => $customer->id,
+                'branch_id' => $customer->branch_id,
+                'updated_by' => $user->id
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -392,7 +457,7 @@ class CustomerController extends Controller
         }
     }
 
-        /**
+    /**
      * Get customer jobs (for note modal dropdown)
      * API endpoint for AJAX calls
      */
@@ -516,5 +581,4 @@ class CustomerController extends Controller
             ], 500);
         }
     }
-
 }

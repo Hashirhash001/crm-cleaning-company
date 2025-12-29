@@ -608,6 +608,13 @@
                         <button type="submit" class="btn btn-primary me-2" id="submitBtn">
                             <i class="las la-save me-1"></i> Create Lead
                         </button>
+                        {{-- TELECALLER ONLY: Create & Confirm Button --}}
+                        @if(auth()->user()->role === 'telecallers')
+                        <button type="button" class="btn btn-success" id="createAndConfirmBtn">
+                            <i class="las la-check-circle me-1"></i> Create & Confirm
+                        </button>
+                        @endif
+                        {{-- ADMIN/LEAD MANAGER: Create & Convert to Work Order --}}
                         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
                             <button type="button" class="btn btn-success" id="createAndConvertBtn">
                                 <i class="las la-briefcase me-1"></i> Create & Convert to Work Order
@@ -995,6 +1002,151 @@
                             scrollTop: $('.is-invalid:first').offset().top - 100
                         }, 500);
                     }
+                }
+            });
+        });
+
+        // ============================================
+        // CREATE & CONFIRM BUTTON (TELECALLERS ONLY)
+        // ============================================
+        $('#createAndConfirmBtn').on('click', function() {
+            // Validate form first
+            if (!validateForm()) {
+                return;
+            }
+
+            // Check if amount is set
+            let amount = parseFloat($('#amount').val());
+            if (!amount || amount <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Amount Required',
+                    text: 'Please enter the total service cost before confirming the lead.',
+                    confirmButtonColor: '#f59e0b'
+                });
+                $('#amount').focus().addClass('is-invalid');
+                return;
+            }
+
+            // Confirm action
+            Swal.fire({
+                title: 'Create Lead with Confirmed Status?',
+                html: `
+                    <div class="text-start">
+                        <p class="mb-3">This will create the lead with <strong class="text-success">Confirmed</strong> status.</p>
+                        <div class="alert alert-info mb-3">
+                            <p class="mb-2"><strong>Lead Details:</strong></p>
+                            <p class="mb-1"><i class="las la-user me-1"></i> ${$('#name').val()}</p>
+                            <p class="mb-1"><i class="las la-phone me-1"></i> ${$('#phone').val()}</p>
+                            <p class="mb-0"><i class="las la-rupee-sign me-1"></i> Amount: <strong>₹${amount.toFixed(2)}</strong></p>
+                        </div>
+                        <div class="alert alert-success mb-0">
+                            <i class="las la-info-circle me-1"></i>
+                            The lead will be ready for admin approval to convert to Work Order.
+                        </div>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: '<i class="las la-check me-2"></i>Yes, Create as Confirmed',
+                confirmButtonColor: '#10b981',
+                cancelButtonText: 'Cancel',
+                width: '550px'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Creating Confirmed Lead...',
+                        html: 'Please wait while we create the lead',
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        willOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Create FormData and set status to 'confirmed'
+                    let formData = new FormData($('#createLeadForm')[0]);
+                    formData.set('status', 'confirmed'); // Override status to confirmed
+
+                    $.ajax({
+                        url: '{{ route("leads.store") }}',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Lead Created & Confirmed!',
+                                    html: `
+                                        <div class="text-start">
+                                            <p class="mb-3">Lead created successfully with <strong class="text-success">Confirmed</strong> status!</p>
+                                            <div class="alert alert-success mb-3">
+                                                <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.leadcode}</span></p>
+                                                <p class="mb-2"><strong>Name:</strong> ${response.name}</p>
+                                                <p class="mb-0"><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
+                                            </div>
+                                            <div class="alert alert-info mb-0">
+                                                <i class="las la-check-circle me-1"></i>
+                                                This lead is now ready for admin approval.
+                                            </div>
+                                        </div>
+                                    `,
+                                    confirmButtonText: 'View Lead',
+                                    confirmButtonColor: '#10b981',
+                                    showCancelButton: true,
+                                    cancelButtonText: 'Create Another Lead',
+                                    width: '550px'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        window.location.href = '{{ route("leads.show", ":id") }}'.replace(':id', response.lead_id);
+                                    } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                        window.location.reload();
+                                    }
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            let message = 'Failed to create confirmed lead';
+                            let errors = [];
+
+                            if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                                Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
+                                    errors = errors.concat(errorArray);
+                                });
+                                message = `<ul class="text-start mb-0">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
+                            } else if (xhr.responseJSON?.message) {
+                                message = xhr.responseJSON.message;
+                            }
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error Creating Lead',
+                                html: message,
+                                confirmButtonColor: '#ef4444',
+                                confirmButtonText: 'OK'
+                            });
+
+                            // Show inline validation errors
+                            if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                                Object.keys(xhr.responseJSON.errors).forEach(function(field) {
+                                    let input = $(`[name="${field}"], [name="${field}[]"]`).first();
+                                    if (input.length) {
+                                        input.addClass('is-invalid');
+                                        input.after(`<div class="invalid-feedback d-block">${xhr.responseJSON.errors[field][0]}</div>`);
+                                    }
+                                });
+
+                                // Scroll to first error
+                                $('html, body').animate({
+                                    scrollTop: $('.is-invalid').first().offset().top - 100
+                                }, 500);
+                            }
+                        }
+                    });
                 }
             });
         });

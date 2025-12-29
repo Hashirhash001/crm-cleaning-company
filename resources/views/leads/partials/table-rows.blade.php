@@ -77,6 +77,7 @@
                 'location_not_available' => 'secondary',
                 'night_work_demanded' => 'dark',
                 'customisation' => 'info',
+                'confirmed' => 'success',
                 'approved' => 'success',
                 'rejected' => 'danger',
             ];

@@ -129,7 +129,7 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
                                     <i class="iconoir-task-list menu-icon"></i>
-                                    <span>Jobs</span>
+                                    <span>Work Orders</span>
                                 </a>
                             </li>
 
@@ -254,7 +254,7 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
                                     <i class="iconoir-task-list menu-icon"></i>
-                                    <span>Jobs
+                                    <span>Work Orders
                                         @php
                                             // Count jobs from leads created by this telecaller
                                             $myJobsCount = \App\Models\Job::whereHas('lead', function($query) {
@@ -274,7 +274,7 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
                                     <i class="iconoir-task-list menu-icon"></i>
-                                    <span>My Jobs
+                                    <span>My Work Orders
                                         @php
                                             $myJobsCount = \App\Models\Job::where('assigned_to', auth()->id())
                                                 ->where('status', 'pending')

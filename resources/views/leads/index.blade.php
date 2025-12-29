@@ -981,6 +981,33 @@
                 width: 250px;
             }
         }
+
+        /* Active state colors */
+        #viewModeToggle .btn-outline-primary.active {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+        }
+
+        #viewModeToggle .btn-outline-warning.active {
+            background-color: #ffc107;
+            border-color: #ffc107;
+            color: #000;
+        }
+
+        /* NEW: Pending Approval button active state */
+        #viewModeToggle .btn-outline-info.active {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #000;
+        }
+
+        #viewModeToggle .btn-outline-success.active {
+            background-color: #198754;
+            border-color: #198754;
+            color: white;
+        }
+
     </style>
 @endsection
 
@@ -1043,6 +1070,7 @@
                                         Demanded</option>
                                     <option value="customisation"
                                         {{ request('status') == 'customisation' ? 'selected' : '' }}>Customisation</option>
+                                    <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
                                     <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>
                                         Approved</option>
                                     <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>
@@ -1205,7 +1233,7 @@
                     </div>
                 </div>
 
-                <!-- VIEW MODE TOGGLE - ADD HERE -->
+                <!-- VIEW MODE TOGGLE -->
                 <div class="btn-group w-100" role="group" id="viewModeToggle">
                     <button type="button"
                         class="btn btn-outline-primary {{ !request('status') && !request('mode') ? 'active' : '' }}"
@@ -1219,10 +1247,18 @@
                         <i class="las la-clock me-1"></i> Open Leads
                     </button>
 
+                    <!-- NEW: Pending Approval (Confirmed Status) -->
+                    <button type="button"
+                        class="btn btn-outline-info {{ request('status') == 'confirmed' ? 'active' : '' }}"
+                        data-status="confirmed"
+                        data-mode="">
+                        <i class="las la-hourglass-half me-1"></i> Pending Approval
+                    </button>
+
                     <button type="button"
                         class="btn btn-outline-success {{ request('status') == 'approved' ? 'active' : '' }}"
                         data-status="approved" data-mode="">
-                        <i class="las la-check-circle me-1"></i> Work Orders / jobs
+                        <i class="las la-check-circle me-1"></i> Work Orders
                     </button>
                 </div>
 
@@ -1609,9 +1645,7 @@
                 loadLeads();
             });
 
-            // ============================================
             // STATUS FILTER CHANGE HANDLER
-            // ============================================
             $('#filterStatus').on('change', function() {
                 let value = $(this).val();
 
@@ -1627,6 +1661,10 @@
 
                 if (value === 'approved') {
                     $('#viewModeToggle button[data-status="approved"]').addClass('active');
+                    modeInput.val('');
+                } else if (value === 'confirmed') {
+                    // NEW: Sync with Pending Approval button
+                    $('#viewModeToggle button[data-status="confirmed"]').addClass('active');
                     modeInput.val('');
                 } else if (value === '') {
                     // Check if we're in open mode

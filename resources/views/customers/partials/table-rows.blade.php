@@ -11,8 +11,14 @@
                 <h6 class="m-0">{{ $customer->name }}</h6>
             </a>
         </td>
-        <td><a href="mailto:{{ $customer->email }}">{{ $customer->email }}</a></td>
         <td>{{ $customer->phone ?? 'N/A' }}</td>
+        @if(auth()->user()->role === 'super_admin')
+        <td>
+            <span class="badge bg-info">
+                {{ $customer->branch->name ?? 'N/A' }}
+            </span>
+        </td>
+        @endif
         <td>
             @if($customer->priority === 'high')
                 <span class="badge bg-danger">High Priority</span>

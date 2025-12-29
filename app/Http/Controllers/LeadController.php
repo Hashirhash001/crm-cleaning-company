@@ -63,7 +63,8 @@ class LeadController extends Controller
 
         if ($mode === 'open') {
             // Open leads = anything NOT approved
-            $query->where('status', '!=', 'approved');
+            $query->where('status', '!=', 'approved')
+                ->where('status', '!=', 'confirmed');
         } elseif ($mode === 'approved' || $request->status === 'approved') {
             // Work Orders = approved leads only
             $query->where('status', 'approved');
@@ -267,7 +268,7 @@ class LeadController extends Controller
                 'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
-                'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation',
+                'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,confirmed',
             ]);
 
             // Auto-detect service_type from first selected service
@@ -1139,6 +1140,7 @@ class LeadController extends Controller
                     'priority' => 'medium',
                     'notes' => $lead->description,
                     'lead_id' => $lead->id,
+                    'branch_id' => $lead->branch_id,
                     'is_active' => true,
                 ]);
 

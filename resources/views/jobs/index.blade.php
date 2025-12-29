@@ -324,11 +324,11 @@
     <div class="row">
         <div class="col-sm-12">
             <div class="page-title-box d-md-flex justify-content-md-between align-items-center">
-                <h4 class="page-title">Jobs Management</h4>
+                <h4 class="page-title">Work Orders Management</h4>
                 <div class="">
                     <ol class="breadcrumb mb-0">
                         <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
-                        <li class="breadcrumb-item active">Jobs</li>
+                        <li class="breadcrumb-item active">Work Orders</li>
                     </ol>
                 </div>
             </div>
@@ -426,12 +426,12 @@
         <div class="col-lg-12">
             <div class="card jobs-card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h4 class="card-title mb-0">Jobs List (<span id="jobCount">{{ $jobs->total() }}</span> total)</h4>
+                    <h4 class="card-title mb-0">Work Orders List (<span id="jobCount">{{ $jobs->total() }}</span> total)</h4>
                     <!-- Add Job Button -->
                     @if(auth()->user()->role === 'super_admin')
                     <div class="col-auto">
                         <button type="button" class="btn btn-primary" id="addJobBtn">
-                            <i class="las la-plus me-1"></i> Add Job
+                            <i class="las la-plus me-1"></i> Add Work Order
                         </button>
                     </div>
                     @endif
@@ -477,7 +477,7 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="jobModalLabel">Add Job</h5>
+                <h5 class="modal-title" id="jobModalLabel">Add Work Order</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="jobForm">
@@ -617,7 +617,7 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Job</button>
+                    <button type="submit" class="btn btn-primary">Save Work Order</button>
                 </div>
             </form>
         </div>
@@ -642,7 +642,7 @@
                         <div class="d-flex align-items-center">
                             <i class="las la-info-circle fs-20 me-2"></i>
                             <div>
-                                <strong>Job Code:</strong> <span id="assign_job_code"></span><br>
+                                <strong>Work Order Code:</strong> <span id="assign_job_code"></span><br>
                                 <strong>Title:</strong> <span id="assign_job_title"></span>
                             </div>
                         </div>
@@ -680,7 +680,7 @@
                             @endif
                         </select>
                         <small class="text-muted">
-                            <i class="las la-info-circle"></i> Select a staff member to assign this job to
+                            <i class="las la-info-circle"></i> Select a staff member to assign this Work Order to
                         </small>
                         <span class="error-text assigned_to_error text-danger d-block mt-1"></span>
                     </div>
@@ -698,7 +698,7 @@
                         <i class="las la-times me-1"></i>Cancel
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="las la-check me-1"></i>Assign Job
+                        <i class="las la-check me-1"></i>Assign Work Order
                     </button>
                 </div>
             </form>
@@ -996,7 +996,7 @@
             $('#addJobBtn').click(function() {
                 $('#jobForm')[0].reset();
                 $('#job_id').val('');
-                $('#jobModalLabel').text('Add Job');
+                $('#jobModalLabel').text('Add Work Order');
                 $('.error-text').text('');
                 $('#branch_id').val('');
                 $('#amount').val('');
@@ -1203,7 +1203,7 @@
                     },
                     error: function(xhr) {
                         console.error('Error loading assignment:', xhr);
-                        Swal.fire('Error!', 'Failed to load job data', 'error');
+                        Swal.fire('Error!', 'Failed to load Work Order data', 'error');
                     }
                 });
             });
@@ -1229,7 +1229,7 @@
                     },
                     error: function(xhr) {
                         console.error('Assign error:', xhr);
-                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to assign job', 'error');
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to assign Work Order', 'error');
                     }
                 });
             });
@@ -1252,7 +1252,7 @@
                             url: '/jobs/' + jobId,
                             type: 'DELETE',
                             success: function() {
-                                Swal.fire('Deleted!', 'Job deleted successfully', 'success').then(() => {
+                                Swal.fire('Deleted!', 'Work Order deleted successfully', 'success').then(() => {
                                     loadJobs();
                                 });
                             },
@@ -1269,7 +1269,7 @@
                 let jobId = $(this).data('id');
 
                 Swal.fire({
-                    title: 'Confirm Job Status?',
+                    title: 'Confirm Work Order Status?',
                     text: 'This will change the job status to confirmed.',
                     icon: 'question',
                     showCancelButton: true,
@@ -1319,7 +1319,7 @@
                             url: '/jobs/' + jobId + '/start',
                             type: 'POST',
                             success: function() {
-                                Swal.fire('Started!', 'Job started successfully', 'success').then(() => {
+                                Swal.fire('Started!', 'Work Order started successfully', 'success').then(() => {
                                     loadJobs();
                                 });
                             },
@@ -1347,7 +1347,7 @@
                             url: '/jobs/' + jobId + '/complete',
                             type: 'POST',
                             success: function() {
-                                Swal.fire('Completed!', 'Job completed successfully', 'success').then(() => {
+                                Swal.fire('Completed!', 'Work Order completed successfully', 'success').then(() => {
                                     loadJobs();
                                 });
                             },

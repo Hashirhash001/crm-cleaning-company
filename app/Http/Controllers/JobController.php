@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Job;
 use App\Models\User;
 use App\Models\Branch;
+use App\Models\JobCall;
+use App\Models\JobNote;
 use App\Models\Service;
 use App\Models\Customer;
+use App\Models\JobFollowup;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -111,9 +114,7 @@ class JobController extends Controller
 
         // If user is telecaller, show jobs from their assigned leads
         if ($user->role === 'telecallers') {
-            $query->whereHas('lead', function($q) use ($user) {
-                $q->where('assigned_to', $user->id);
-            });
+            $query->where('assigned_to', $user->id);
         }
 
         // ============================================
@@ -253,10 +254,14 @@ class JobController extends Controller
             'lead.services',
             'customer.customerNotes.createdBy',
             'customer.customerNotes.job',
-            'services', // Load job services
+            'services',
             'service',
             'assignedTo',
-            'createdBy'
+            'createdBy',
+            'followups.assignedTo',
+            'followups.createdBy',
+            'calls.user',
+            'notes.createdBy'
         ]);
 
         // Fetch telecallers and field staff separately for assignment
@@ -757,6 +762,323 @@ class JobController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error creating job: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Add followup to job
+     */
+    public function addFollowup(Request $request, Job $job)
+    {
+        try {
+            $validated = $request->validate([
+                'followup_date' => 'required|date|after_or_equal:today',
+                'followup_time' => 'nullable|date_format:H:i',
+                'callback_time_preference' => 'nullable|in:morning,afternoon,evening,anytime',
+                'priority' => 'required|in:low,medium,high',
+                'notes' => 'nullable|string|max:1000',
+            ]);
+
+            JobFollowup::create([
+                'job_id' => $job->id,
+                'followup_date' => $validated['followup_date'],
+                'followup_time' => $validated['followup_time'] ?? null,
+                'callback_time_preference' => $validated['callback_time_preference'] ?? 'anytime',
+                'priority' => $validated['priority'],
+                'notes' => $validated['notes'] ?? null,
+                'assigned_to' => $job->assigned_to ?? auth()->id(),
+                'created_by' => auth()->id(),
+                'status' => 'pending',
+            ]);
+
+            Log::info('Job followup scheduled', [
+                'job_id' => $job->id,
+                'created_by' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup scheduled successfully!',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Add job followup error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error scheduling followup: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Complete a followup
+     */
+    public function completeFollowup(JobFollowup $followup)
+    {
+        try {
+            if ($followup->status !== 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Followup already completed'
+                ]);
+            }
+
+            $followup->update([
+                'status' => 'completed',
+                'completed_at' => now()
+            ]);
+
+            Log::info('Job followup completed', ['followup_id' => $followup->id]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup marked as completed!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Complete job followup error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error completing followup'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a followup
+     */
+    public function deleteFollowup(Job $job, JobFollowup $followup)
+    {
+        try {
+            $user = auth()->user();
+
+            // Only super_admin or creator can delete
+            if ($user->role !== 'super_admin' && $followup->created_by !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
+
+            if ($followup->job_id !== $job->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Followup does not belong to this job'
+                ], 400);
+            }
+
+            $followup->delete();
+
+            Log::info('Job followup deleted', [
+                'job_id' => $job->id,
+                'followup_id' => $followup->id,
+                'deleted_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete job followup error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting followup'
+            ], 500);
+        }
+    }
+
+    /**
+     * Add call log to job
+     */
+    public function addCall(Request $request, Job $job)
+    {
+        try {
+            $validated = $request->validate([
+                'call_date' => 'required|date',
+                'duration' => 'nullable|integer|min:0',
+                'outcome' => 'required|in:completed,rescheduled,issue_reported,follow_up_needed,no_answer,other',
+                'notes' => 'nullable|string|max:1000',
+                'followup_date' => 'nullable|date|after_or_equal:today',
+                'followup_time' => 'nullable|date_format:H:i',
+                'callback_time_preference' => 'nullable|in:morning,afternoon,evening,anytime',
+                'followup_priority' => 'nullable|in:low,medium,high',
+                'followup_notes' => 'nullable|string|max:1000',
+            ]);
+
+            // Create call log
+            JobCall::create([
+                'job_id' => $job->id,
+                'user_id' => auth()->id(),
+                'call_date' => $validated['call_date'],
+                'duration' => $validated['duration'] ?? null,
+                'outcome' => $validated['outcome'],
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            $followupCreated = false;
+
+            // Create followup if needed
+            if (in_array($validated['outcome'], ['follow_up_needed', 'rescheduled']) && isset($validated['followup_date'])) {
+                JobFollowup::create([
+                    'job_id' => $job->id,
+                    'followup_date' => $validated['followup_date'],
+                    'followup_time' => $validated['followup_time'] ?? null,
+                    'callback_time_preference' => $validated['callback_time_preference'] ?? 'anytime',
+                    'priority' => $validated['followup_priority'] ?? 'medium',
+                    'notes' => $validated['followup_notes'] ?? null,
+                    'assigned_to' => $job->assigned_to ?? auth()->id(),
+                    'created_by' => auth()->id(),
+                    'status' => 'pending',
+                ]);
+
+                $followupCreated = true;
+            }
+
+            Log::info('Job call logged', [
+                'job_id' => $job->id,
+                'user_id' => auth()->id(),
+                'followup_created' => $followupCreated,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Call logged successfully!',
+                'followup_created' => $followupCreated,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Add job call error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error logging call: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a call log
+     */
+    public function deleteCall(Job $job, JobCall $call)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization
+            if (!in_array($user->role, ['super_admin', 'lead_manager']) && $call->user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
+
+            if ($call->job_id !== $job->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Call does not belong to this job'
+                ], 400);
+            }
+
+            $call->delete();
+
+            Log::info('Job call deleted', [
+                'job_id' => $job->id,
+                'call_id' => $call->id,
+                'deleted_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Call log deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete job call error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting call log'
+            ], 500);
+            }
+    }
+
+    /**
+     * Add note to job
+     */
+    public function addNote(Request $request, Job $job)
+    {
+        try {
+            $validated = $request->validate([
+                'note' => 'required|string|max:1000',
+            ]);
+
+            JobNote::create([
+                'job_id' => $job->id,
+                'created_by' => auth()->id(),
+                'note' => $validated['note'],
+            ]);
+
+            Log::info('Job note added', [
+                'job_id' => $job->id,
+                'created_by' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Note added successfully!',
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Add job note error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error adding note: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a note
+     */
+    public function deleteNote(Job $job, JobNote $note)
+    {
+        try {
+            $user = auth()->user();
+
+            // Only super_admin or creator can delete
+            if ($user->role !== 'super_admin' && $note->created_by !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 403);
+            }
+
+            if ($note->job_id !== $job->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Note does not belong to this job'
+                ], 400);
+            }
+
+            $note->delete();
+
+            Log::info('Job note deleted', [
+                'job_id' => $job->id,
+                'note_id' => $note->id,
+                'deleted_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Note deleted successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Delete job note error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting note'
             ], 500);
         }
     }

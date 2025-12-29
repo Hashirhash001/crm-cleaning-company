@@ -26,28 +26,6 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
-    .job-link {
-        color: #0d6efd;
-        text-decoration: none;
-        font-weight: 500;
-        transition: all 0.2s;
-    }
-
-    .job-link:hover {
-        color: #0a58ca;
-        text-decoration: underline;
-    }
-
-    .job-code-badge {
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .job-code-badge:hover {
-        transform: scale(1.05);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
     .note-card {
         transition: all 0.3s ease;
     }
@@ -111,6 +89,18 @@
             <div class="card-body">
                 <p><strong>Customer Code:</strong><br><span class="badge bg-primary fs-6">{{ $customer->customer_code }}</span></p>
                 <hr>
+
+                {{-- Branch Information --}}
+                @if($customer->branch)
+                <p>
+                    <strong>Branch:</strong><br>
+                    <span class="badge bg-info text-dark">
+                        <i class="las la-building"></i> {{ $customer->branch->name }}
+                    </span>
+                </p>
+                <hr>
+                @endif
+
                 <p><strong>Name:</strong><br>{{ $customer->name }}</p>
                 <p><strong>Email:</strong><br>
                     @if($customer->email)
@@ -338,8 +328,8 @@
                                     {{-- Show related job if exists --}}
                                     @if($note->job)
                                         <a href="{{ route('jobs.show', $note->job->id) }}"
-                                        class="badge bg-info text-decoration-none"
-                                        title="View Related Job: {{ $note->job->title }}">
+                                           class="badge bg-info text-decoration-none"
+                                           title="View Related Job: {{ $note->job->title }}">
                                             <i class="las la-briefcase"></i> {{ $note->job->job_code }}
                                         </a>
                                     @else
@@ -484,9 +474,7 @@
                 });
             });
 
-            // ============================================
             // DELETE NOTE
-            // ============================================
             $(document).on('click', '.deleteNoteBtn', function() {
                 let noteId = $(this).data('note-id');
                 let noteCard = $('#note-' + noteId);
@@ -506,13 +494,11 @@
                             url: '/customers/{{ $customer->id }}/notes/' + noteId,
                             type: 'DELETE',
                             success: function(response) {
-                                // Fade out and remove the note card
                                 noteCard.fadeOut(300, function() {
                                     $(this).remove();
 
-                                    // Check if there are any notes left
                                     if ($('.note-card').length === 0) {
-                                        location.reload(); // Reload to show "no notes" message
+                                        location.reload();
                                     }
                                 });
 

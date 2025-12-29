@@ -147,6 +147,26 @@ class Job extends Model
         return $this->services->pluck('name')->join(', ');
     }
 
+    public function followups()
+    {
+        return $this->hasMany(JobFollowup::class)->latest();
+    }
+
+    public function pendingFollowups()
+    {
+        return $this->hasMany(JobFollowup::class)->where('status', 'pending')->latest();
+    }
+
+    public function calls()
+    {
+        return $this->hasMany(JobCall::class)->latest();
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(JobNote::class)->latest();
+    }
+
     /**
      * Scope for dynamic sorting
      */
