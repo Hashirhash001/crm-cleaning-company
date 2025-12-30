@@ -58,6 +58,11 @@ class LeadFollowup extends Model
         return $query->where('status', 'pending');
     }
 
+    public function getSourceTypeAttribute()
+    {
+        return 'lead';
+    }
+
     public function scopeThisWeek($query)
     {
         return $query->whereBetween('followup_date', [

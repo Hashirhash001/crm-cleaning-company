@@ -108,7 +108,7 @@
     }
 
     .price-updated-info {
-        margin-top: 1.5rem;
+        /* margin-top: 1.5rem; */
         padding-top: 1rem;
         border-top: 1px solid rgba(255,255,255,0.15);
         font-size: 0.85rem;

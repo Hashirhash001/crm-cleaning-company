@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
+use App\Models\Job;
+use App\Models\Lead;
 use App\Models\User;
 use App\Models\Branch;
-use App\Models\Lead;
-use App\Models\LeadFollowup;
 use App\Models\Setting;
+use App\Models\Customer;
+use App\Models\LeadFollowup;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
@@ -26,11 +28,14 @@ class DashboardController extends Controller
             $branches = Branch::where('is_active', true)->get();
 
             // Quick Stats - NOT filtered by branch (overall company stats)
-            $totalCustomers = \App\Models\Customer::count();
+            $totalCustomers = Customer::count();
             $totalUsers = User::count();
             $activeUsers = User::where('is_active', true)->count();
             $pendingLeads = Lead::where('status', 'pending')->count();
-            $activeJobs = \App\Models\Job::whereIn('status', ['pending', 'assigned', 'in_progress'])->count();
+            $confirmedLeads = Lead::where('status', 'confirmed')->count();
+            $approvedLeads = Lead::where('status', 'approved')->count();
+            $pendingWorkOrders = Job::where('status', 'pending')->count();
+            $activeJobs = Job::whereIn('status', ['confirmed'])->count();
 
             // Budget - filtered by branch
             $dailyBudget = Setting::get('daily_budget_limit', 100000);
@@ -87,6 +92,9 @@ class DashboardController extends Controller
                 'approvedMonthly',
                 'totalCustomers',
                 'pendingLeads',
+                'confirmedLeads',
+                'approvedLeads',
+                'pendingWorkOrders',
                 'activeJobs'
             ));
         }
@@ -144,7 +152,8 @@ class DashboardController extends Controller
                 'total' => Lead::where('assigned_to', $user->id)->count(),
                 'pending' => Lead::where('assigned_to', $user->id)->where('status', 'pending')->count(),
                 'site_visit' => Lead::where('assigned_to', $user->id)->where('status', 'site_visit')->count(),
-                'confirmed' => Lead::where('assigned_to', $user->id)->where('status', 'they_will_confirm')->count(),
+                'confirmed' => Lead::where('assigned_to', $user->id)->where('status', 'confirmed')->count(),
+                'approved' => Lead::where('assigned_to', $user->id)->where('status', 'approved')->count(),
             ];
 
             $followupData = $this->getFollowupData($user);
@@ -179,92 +188,214 @@ class DashboardController extends Controller
 
     private function getFollowupData($user, $branchId = null, $dateFrom = null, $dateTo = null)
     {
-        $query = LeadFollowup::with(['lead.services', 'assignedToUser'])->where('status', 'pending');
+        // ========================================
+        // LEAD FOLLOWUPS QUERY
+        // ========================================
+        $leadQuery = LeadFollowup::with(['lead.services', 'assignedToUser'])
+            ->where('status', 'pending');
 
-        // Role-based filtering
+        // Role-based filtering for leads - ONLY ASSIGNED FOR NON-SUPER_ADMIN
         if ($user->role === 'super_admin') {
             if ($branchId) {
-                $query->whereHas('lead', function($q) use ($branchId) {
+                $leadQuery->whereHas('lead', function($q) use ($branchId) {
                     $q->where('branch_id', $branchId);
                 });
             }
-        } elseif ($user->role === 'lead_manager') {
-            $query->whereHas('lead', function($q) use ($user, $branchId) {
-                $q->where('created_by', $user->id);
-                if ($branchId) {
+        } else {
+            // All other roles: ONLY show followups assigned to them
+            $leadQuery->where('assigned_to', $user->id);
+
+            if ($branchId && $user->role === 'lead_manager') {
+                $leadQuery->whereHas('lead', function($q) use ($branchId) {
                     $q->where('branch_id', $branchId);
-                }
-            });
-        } elseif ($user->role === 'telecallers') {
-            $query->where('assigned_to', $user->id);
-        } elseif ($user->role === 'field_staff') {
-            $query->where('assigned_to', $user->id);
+                });
+            }
         }
 
-        // Date filter
+        // Date filter for leads
         if ($dateFrom && $dateTo) {
-            $query->whereBetween('followup_date', [$dateFrom, $dateTo]);
+            $leadQuery->whereBetween('followup_date', [$dateFrom, $dateTo]);
         }
 
-        // Counts
-        $overdue = (clone $query)->where('followup_date', '<', now()->toDateString())->count();
-        $today = (clone $query)->whereDate('followup_date', today())->count();
-        $thisWeek = (clone $query)->whereBetween('followup_date', [now()->startOfWeek(), now()->endOfWeek()])->count();
-        $thisMonth = (clone $query)->whereBetween('followup_date', [now()->startOfMonth(), now()->endOfMonth()])->count();
+        // ========================================
+        // JOB FOLLOWUPS QUERY
+        // ========================================
+        $jobQuery = \App\Models\JobFollowup::with(['job.customer', 'job.services', 'assignedTo'])
+            ->where('status', 'pending');
 
-        // Immediate Followups (Today + Overdue) - for telecallers priority view
-        $immediate = (clone $query)
+        // Role-based filtering for jobs - ONLY ASSIGNED FOR NON-SUPER_ADMIN
+        if ($user->role === 'super_admin') {
+            if ($branchId) {
+                $jobQuery->whereHas('job', function($q) use ($branchId) {
+                    $q->where('branch_id', $branchId);
+                });
+            }
+        } else {
+            // All other roles: ONLY show followups assigned to them
+            $jobQuery->where('assigned_to', $user->id);
+
+            if ($branchId && $user->role === 'lead_manager') {
+                $jobQuery->whereHas('job', function($q) use ($branchId) {
+                    $q->where('branch_id', $branchId);
+                });
+            }
+        }
+
+        // Date filter for jobs
+        if ($dateFrom && $dateTo) {
+            $jobQuery->whereBetween('followup_date', [$dateFrom, $dateTo]);
+        }
+
+        // ========================================
+        // COUNTS (Combined) - FIX: Count ONLY overdue, not today
+        // ========================================
+        $overdueLeads = (clone $leadQuery)->whereDate('followup_date', '<', now()->toDateString())->count();
+        $overdueJobs = (clone $jobQuery)->whereDate('followup_date', '<', now()->toDateString())->count();
+        $overdue = $overdueLeads + $overdueJobs;
+
+        $todayLeads = (clone $leadQuery)->whereDate('followup_date', today())->count();
+        $todayJobs = (clone $jobQuery)->whereDate('followup_date', today())->count();
+        $today = $todayLeads + $todayJobs;
+
+        $thisWeekLeads = (clone $leadQuery)->whereBetween('followup_date', [now()->startOfWeek(), now()->endOfWeek()])->count();
+        $thisWeekJobs = (clone $jobQuery)->whereBetween('followup_date', [now()->startOfWeek(), now()->endOfWeek()])->count();
+        $thisWeek = $thisWeekLeads + $thisWeekJobs;
+
+        $thisMonthLeads = (clone $leadQuery)->whereBetween('followup_date', [now()->startOfMonth(), now()->endOfMonth()])->count();
+        $thisMonthJobs = (clone $jobQuery)->whereBetween('followup_date', [now()->startOfMonth(), now()->endOfMonth()])->count();
+        $thisMonth = $thisMonthLeads + $thisMonthJobs;
+
+        // ========================================
+        // IMMEDIATE FOLLOWUPS (Today + Overdue) - PRIORITY FIRST
+        // ========================================
+        $immediateLeads = (clone $leadQuery)
             ->where('followup_date', '<=', now()->toDateString())
+            ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
             ->orderByRaw("CASE WHEN followup_date < ? THEN 0 ELSE 1 END", [now()->toDateString()])
+            ->orderBy('followup_date')
+            ->orderBy('followup_time')
+            ->get()
+            ->map(function($followup) {
+                $followup->source_type = 'lead';
+                return $followup;
+            });
+
+        $immediateJobs = (clone $jobQuery)
+            ->where('followup_date', '<=', now()->toDateString())
+            ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
+            ->orderByRaw("CASE WHEN followup_date < ? THEN 0 ELSE 1 END", [now()->toDateString()])
+            ->orderBy('followup_date')
+            ->orderBy('followup_time')
+            ->get()
+            ->map(function($followup) {
+                $followup->source_type = 'job';
+                return $followup;
+            });
+
+        $immediate = $immediateLeads->concat($immediateJobs)
+            ->sortBy([
+                fn($a, $b) => ['high' => 1, 'medium' => 2, 'low' => 3][$a->priority] <=> ['high' => 1, 'medium' => 2, 'low' => 3][$b->priority],
+                fn($a, $b) => ($a->followup_date < now()->toDateString() ? 0 : 1) <=> ($b->followup_date < now()->toDateString() ? 0 : 1),
+                'followup_date',
+                'followup_time'
+            ])
+            ->take(20)
+            ->values();
+
+        // ========================================
+        // THIS WEEK'S FOLLOWUPS - PRIORITY FIRST
+        // ========================================
+        $thisWeekLeadsFollowups = (clone $leadQuery)
+            ->where('followup_date', '>', now()->toDateString())
+            ->whereBetween('followup_date', [now()->toDateString(), now()->endOfWeek()])
             ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
             ->orderBy('followup_date')
             ->orderBy('followup_time')
-            ->limit(20)
-            ->get();
+            ->get()
+            ->map(function($followup) {
+                $followup->source_type = 'lead';
+                return $followup;
+            });
 
-        // This Week's Followups (excluding today and overdue)
-        $thisWeekFollowups = (clone $query)
+        $thisWeekJobsFollowups = (clone $jobQuery)
             ->where('followup_date', '>', now()->toDateString())
             ->whereBetween('followup_date', [now()->toDateString(), now()->endOfWeek()])
+            ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
             ->orderBy('followup_date')
             ->orderBy('followup_time')
-            ->limit(20)
-            ->get();
+            ->get()
+            ->map(function($followup) {
+                $followup->source_type = 'job';
+                return $followup;
+            });
 
-        // This Month's Followups (excluding this week)
-        $thisMonthFollowups = (clone $query)
+        $thisWeekFollowups = $thisWeekLeadsFollowups->concat($thisWeekJobsFollowups)
+            ->sortBy([
+                fn($a, $b) => ['high' => 1, 'medium' => 2, 'low' => 3][$a->priority] <=> ['high' => 1, 'medium' => 2, 'low' => 3][$b->priority],
+                'followup_date',
+                'followup_time'
+            ])
+            ->take(20)
+            ->values();
+
+        // ========================================
+        // THIS MONTH'S FOLLOWUPS - PRIORITY FIRST
+        // ========================================
+        $thisMonthLeadsFollowups = (clone $leadQuery)
             ->where('followup_date', '>', now()->endOfWeek())
             ->whereBetween('followup_date', [now()->startOfMonth(), now()->endOfMonth()])
+            ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
             ->orderBy('followup_date')
             ->orderBy('followup_time')
-            ->limit(30)
-            ->get();
+            ->get()
+            ->map(function($followup) {
+                $followup->source_type = 'lead';
+                return $followup;
+            });
 
-        // Weekly Followups - for admin/lead_manager view
-        $weeklyFollowups = (clone $query)
-            ->whereBetween('followup_date', [$dateFrom ?: now()->startOfWeek(), $dateTo ?: now()->endOfWeek()])
+        $thisMonthJobsFollowups = (clone $jobQuery)
+            ->where('followup_date', '>', now()->endOfWeek())
+            ->whereBetween('followup_date', [now()->startOfMonth(), now()->endOfMonth()])
+            ->orderByRaw("CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END")
             ->orderBy('followup_date')
             ->orderBy('followup_time')
-            ->limit(50)
-            ->get();
+            ->get()
+            ->map(function($followup) {
+                $followup->source_type = 'job';
+                return $followup;
+            });
 
-        // Overdue Followups
-        $overdueFollowups = (clone $query)
-            ->where('followup_date', '<', now()->toDateString())
-            ->orderBy('followup_date')
-            ->orderBy('followup_time')
-            ->limit(50)
-            ->get();
+        $thisMonthFollowups = $thisMonthLeadsFollowups->concat($thisMonthJobsFollowups)
+            ->sortBy([
+                fn($a, $b) => ['high' => 1, 'medium' => 2, 'low' => 3][$a->priority] <=> ['high' => 1, 'medium' => 2, 'low' => 3][$b->priority],
+                'followup_date',
+                'followup_time'
+            ])
+            ->take(30)
+            ->values();
 
-        // Site Visits This Week - for telecallers
+        // ========================================
+        // SITE VISITS - FOR SUPER_ADMIN AND TELECALLERS
+        // ========================================
         $siteVisitsThisWeek = collect();
-        if ($user->role === 'telecallers') {
-            $siteVisitsThisWeek = Lead::where('assigned_to', $user->id)
-                ->where('status', 'site_visit')
+        if ($user->role === 'telecallers' || $user->role === 'super_admin') {
+            $siteVisitsQuery = Lead::where('status', 'site_visit')
                 ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
-                ->with('services')
+                ->with('services');
+
+            // For telecallers, only their assigned leads
+            if ($user->role === 'telecallers') {
+                $siteVisitsQuery->where('assigned_to', $user->id);
+            }
+
+            // For super_admin, apply branch filter if set
+            if ($user->role === 'super_admin' && $branchId) {
+                $siteVisitsQuery->where('branch_id', $branchId);
+            }
+
+            $siteVisitsThisWeek = $siteVisitsQuery
                 ->orderBy('created_at', 'desc')
-                ->limit(10)
+                ->limit(20)
                 ->get();
         }
 
@@ -277,8 +408,6 @@ class DashboardController extends Controller
             'thisWeekFollowups' => $thisWeekFollowups,
             'thisMonthFollowups' => $thisMonthFollowups,
             'siteVisitsThisWeek' => $siteVisitsThisWeek,
-            'weeklyFollowups' => $weeklyFollowups,
-            'overdueFollowups' => $overdueFollowups,
         ];
     }
 }

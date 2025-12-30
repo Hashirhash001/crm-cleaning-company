@@ -249,6 +249,10 @@ class JobController extends Controller
             return back()->with('error', 'Unauthorized');
         }
 
+        if ($user->role === 'telecallers' && $job->assigned_to !== $user->id) {
+            abort(403, 'You can only view jobs assigned to you.');
+        }
+
         $job->load([
             'branch',
             'lead.services',
@@ -291,6 +295,10 @@ class JobController extends Controller
                 ], 403);
             }
 
+            if ($user->role === 'telecallers' && $job->assigned_to !== $user->id) {
+                abort(403, 'You can only edit jobs assigned to you.');
+            }
+
             // Format the job data properly
             $jobData = $job->toArray();
 
@@ -304,16 +312,12 @@ class JobController extends Controller
                 $jobData['scheduled_time'] = substr($job->scheduled_time, 0, 5); // Get HH:MM
             }
 
-            // Get service type from lead or job
-            if ($job->lead && $job->lead->service_type) {
-                $jobData['service_type'] = $job->lead->service_type;
-            } else {
-                // Try to infer from services
-                $firstService = $job->services->first();
-                if ($firstService) {
-                    $jobData['service_type'] = $firstService->service_type;
-                }
-            }
+            // Load services from job_service pivot table
+            $services = $job->services;
+
+            // Get service_type from the services table (not from leads)
+            $firstService = $services->first();
+            $jobData['service_type'] = $firstService ? $firstService->service_type : 'other';
 
             // Get service IDs
             $jobData['service_ids'] = $job->services->pluck('id')->toArray();
@@ -343,6 +347,10 @@ class JobController extends Controller
                     'success' => false,
                     'message' => 'Unauthorized'
                 ], 403);
+            }
+
+            if ($user->role === 'telecallers' && $job->assigned_to !== $user->id) {
+                abort(403, 'You can only update jobs assigned to you.');
             }
 
             $validated = $request->validate([

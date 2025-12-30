@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\FollowupController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadBulkImportController;
@@ -89,6 +90,7 @@ Route::middleware('auth')->group(function () {
 
     // Job Management
     // Job Followups
+    Route::get('/followups', [FollowupController::class, 'index'])->name('followups.index');
     Route::post('/jobs/{job}/followups', [JobController::class, 'addFollowup'])->name('jobs.addFollowup');
     Route::post('/job-followups/{followup}/complete', [JobController::class, 'completeFollowup'])->name('jobs.completeFollowup');
     Route::delete('/jobs/{job}/followups/{followup}', [JobController::class, 'deleteFollowup'])->name('jobs.deleteFollowup');
