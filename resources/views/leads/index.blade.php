@@ -341,8 +341,8 @@
         }
 
         /* ============================================
-               MOBILE RESPONSIVE STYLES
-               ============================================ */
+                   MOBILE RESPONSIVE STYLES
+                   ============================================ */
 
         /* Tablets and below (768px) */
         @media (max-width: 768px) {
@@ -1007,7 +1007,6 @@
             border-color: #198754;
             color: white;
         }
-
     </style>
 @endsection
 
@@ -1070,7 +1069,8 @@
                                         Demanded</option>
                                     <option value="customisation"
                                         {{ request('status') == 'customisation' ? 'selected' : '' }}>Customisation</option>
-                                    <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
+                                    <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>
+                                        Confirmed</option>
                                     <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>
                                         Approved</option>
                                     <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>
@@ -1250,8 +1250,7 @@
                     <!-- NEW: Pending Approval (Confirmed Status) -->
                     <button type="button"
                         class="btn btn-outline-info {{ request('status') == 'confirmed' ? 'active' : '' }}"
-                        data-status="confirmed"
-                        data-mode="">
+                        data-status="confirmed" data-mode="">
                         <i class="las la-hourglass-half me-1"></i> Pending Approval
                     </button>
 
@@ -1308,111 +1307,110 @@
         </div>
     </div>
 
-    <!-- Single Assign Modal -->
+    <!-- Assign Lead Modal (Updated like Assign Job Modal) -->
     <div class="modal fade" id="assignLeadModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+
+                <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="las la-user-plus me-2"></i>Assign Lead to Telecaller
+                        <i class="las la-user-plus me-2"></i>Assign Lead
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+
                 <form id="assignLeadForm">
                     @csrf
+
+                    <!-- Lead id -->
                     <input type="hidden" id="assign_lead_id" name="lead_id">
 
+                    <!-- Branch is locked to lead -->
+                    <input type="hidden" id="assign_branch" name="branch_id">
+
                     <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Lead Information</label>
-                            <div class="lead-info-box">
-                                <p class="mb-2">
-                                    <span class="lead-info-label">
-                                        <i class="las la-tag"></i> Lead Code:
-                                    </span>
-                                    <span class="lead-info-value" id="assign_lead_code"></span>
-                                </p>
-                                <p class="mb-0">
-                                    <span class="lead-info-label">
-                                        <i class="las la-user"></i> Name:
-                                    </span>
-                                    <span class="lead-info-value" id="assign_lead_name"></span>
-                                </p>
+
+                        <!-- Lead Information (like Job Information block) -->
+                        <div class="alert alert-info mb-3">
+                            <div class="d-flex align-items-center">
+                                <i class="las la-info-circle fs-20 me-2"></i>
+                                <div>
+                                    <strong>Lead Code:</strong> <span id="assign_lead_code"></span><br>
+                                    <strong>Name:</strong> <span id="assign_lead_name"></span>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Branch Selection -->
-                        @if (auth()->user()->role === 'super_admin')
-                            <div class="mb-3">
-                                <label for="assign_branch" class="form-label fw-semibold">
-                                    <i class="las la-building me-1"></i>Select Branch <span class="text-danger">*</span>
-                                </label>
-                                <select class="form-select" id="assign_branch" name="branch_id" required>
-                                    <option value="">Choose branch...</option>
-                                    @foreach ($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
-                                <small class="text-muted">
-                                    <i class="las la-info-circle"></i> Lead's current branch will be pre-selected
-                                </small>
-                            </div>
-                        @else
-                            <input type="hidden" id="assign_branch" name="branch_id"
-                                value="{{ auth()->user()->branch_id }}">
-
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Branch</label>
-                                <div class="alert alert-info mb-0 py-2">
-                                    <i class="las la-building me-1"></i>
-                                    <strong
-                                        id="assign_branch_display">{{ auth()->user()->branch->name ?? 'N/A' }}</strong>
+                        <!-- Branch restriction note (same style as job assign modal) -->
+                        <div class="alert alert-warning py-2 mb-3">
+                            <div class="d-flex align-items-start">
+                                <i class="las la-shield-alt fs-18 me-2 mt-1"></i>
+                                <div>
+                                    <strong>Branch restriction:</strong>
+                                    Only telecallers who belong to this Lead’s branch will appear in this list.
+                                    Assigning a telecaller from another branch is blocked to prevent reporting/assignment
+                                    conflicts.
+                                    <br>
+                                    <small class="text-muted">
+                                        If the correct telecaller is not listed, verify the telecaller’s Branch in
+                                        Users/Staff settings.
+                                    </small>
                                 </div>
                             </div>
-                        @endif
+                        </div>
+
+                        <!-- Locked Branch display (like job modal behavior: context is fixed) -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="las la-building me-1"></i>Branch
+                            </label>
+                            <div class="alert alert-info mb-0 py-2">
+                                <i class="las la-building me-1"></i>
+                                <strong id="assign_branch_display">—</strong>
+                            </div>
+                            <small class="text-muted">
+                                <i class="las la-lock"></i> Branch is auto-selected from the lead and cannot be changed.
+                            </small>
+                        </div>
 
                         <!-- Telecaller Selection -->
                         <div class="mb-3">
                             <label for="assign_telecaller" class="form-label fw-semibold">
-                                <i class="las la-user-tie me-1"></i>Select Telecaller <span class="text-danger">*</span>
+                                <i class="las la-user-tie me-1"></i>Select Telecaller
+                                <span class="text-danger">*</span>
                             </label>
-                            <select class="form-select" id="assign_telecaller" name="assigned_to" required
-                                @if (auth()->user()->role === 'super_admin') disabled @endif>
-                                <option value="">
-                                    @if (auth()->user()->role === 'super_admin')
-                                        Please select a branch first...
-                                    @else
-                                        Choose telecaller...
-                                    @endif
-                                </option>
+
+                            <select class="form-select" id="assign_telecaller" name="assigned_to" required>
+                                <option value="">Loading telecallers...</option>
                             </select>
+
                             <small class="text-muted">
-                                <i class="las la-info-circle"></i>
-                                @if (auth()->user()->role === 'super_admin')
-                                    Select a branch above to see available telecallers
-                                @else
-                                    Only telecallers from your branch are shown
-                                @endif
+                                <i class="las la-info-circle"></i> Only telecallers from the lead’s branch are shown
                             </small>
+
+                            <span class="error-text assigned_to_error text-danger d-block mt-1"></span>
                         </div>
 
-                        <!-- Notes -->
+                        <!-- Notes (Optional) -->
                         <div class="mb-3">
-                            <label for="assign_notes" class="form-label fw-semibold">
-                                <i class="las la-comment me-1"></i>Notes (Optional)
+                            <label for="assign_notes" class="form-label">
+                                <i class="las la-comment me-1"></i>Assignment Notes (Optional)
                             </label>
-                            <textarea class="form-control" id="assign_notes" name="notes" rows="3"
+                            <textarea class="form-control" id="assign_notes" name="notes" rows="2"
                                 placeholder="Add any notes about this assignment..."></textarea>
                         </div>
+
                     </div>
+
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                            <i class="las la-times me-1"></i> Cancel
+                            <i class="las la-times me-1"></i>Cancel
                         </button>
                         <button type="submit" class="btn btn-primary">
-                            <i class="las la-check me-1"></i> Assign Lead
+                            <i class="las la-check me-1"></i>Assign Lead
                         </button>
                     </div>
+
                 </form>
             </div>
         </div>
@@ -1459,18 +1457,23 @@
 
                         <!-- Branch Filter -->
                         @if (auth()->user()->role === 'super_admin')
+                            <!-- Branch (LOCKED) -->
                             <div class="mb-3">
-                                <label for="bulkbranch" class="form-label fw-semibold">
-                                    <i class="las la-building me-1"></i>Select Branch <span class="text-danger">*</span>
+                                <label class="form-label fw-semibold">
+                                    <i class="las la-building me-1"></i>Branch
+                                    <span class="text-danger">*</span>
                                 </label>
-                                <select class="form-select" id="bulkbranch" name="branch_id" required>
-                                    <option value="">Choose branch...</option>
-                                    @foreach ($branches as $branch)
-                                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                    @endforeach
-                                </select>
+
+                                {{-- Hidden input for submission (JS will set this) --}}
+                                <input type="hidden" id="bulkbranch" name="branch_id" value="">
+
+                                {{-- Locked display text --}}
+                                <div class="form-control bg-light" style="cursor: not-allowed;">
+                                    <span id="bulk_branch_display">N/A</span>
+                                </div>
+
                                 <small class="text-muted">
-                                    <i class="las la-info-circle"></i> Select a branch to see available telecallers
+                                    <i class="las la-lock"></i> Branch is locked based on selected leads
                                 </small>
                             </div>
                         @else
@@ -1935,37 +1938,34 @@
                 }
             });
 
-            // Single Assign Lead
+            // Single Assign Lead (updated for new modal structure)
             $(document).on('click', '.assignLeadBtn', function() {
-                let leadId = $(this).data('id');
-                let leadName = $(this).data('name');
-                let leadCode = $(this).data('code');
-                let branchId = $(this).data('branch');
+                const leadId = $(this).data('id');
+                const leadName = $(this).data('name');
+                const leadCode = $(this).data('code');
+                const branchId = $(this).data('branch');
 
-                console.log('Single Assign - Lead Details:', {
-                    leadId: leadId,
-                    leadName: leadName,
-                    leadCode: leadCode,
-                    branchId: branchId
-                });
-
+                // Fill lead info
                 $('#assign_lead_id').val(leadId);
-                $('#assign_lead_name').text(leadName);
-                $('#assign_lead_code').text(leadCode);
-                $('#assign_lead_branch').val(branchId);
+                $('#assign_lead_name').text(leadName || '—');
+                $('#assign_lead_code').text(leadCode || '—');
                 $('#assign_notes').val('');
 
-                // Find branch name
-                let branch = allBranches.find(b => b.id == branchId);
-                console.log('Found Branch:', branch);
-                $('#assign_lead_branch_name').text(branch ? branch.name : 'N/A');
+                // LOCK branch: set hidden input + display text
+                $('#assign_branch').val(branchId);
 
-                // Filter telecallers by branch
-                let telecallerSelect = $('#assign_telecaller');
+                const branch = allBranches.find(b => String(b.id) === String(branchId));
+                $('#assign_branch_display').text(branch ? branch.name : 'N/A');
+
+                // Telecaller dropdown
+                const telecallerSelect = $('#assign_telecaller');
+                telecallerSelect.prop('disabled', true);
+                telecallerSelect.html('<option value="">Loading telecallers...</option>');
+
+                const filteredTelecallers = allTelecallers.filter(t => String(t.branch_id) === String(
+                    branchId));
+
                 telecallerSelect.html('<option value="">Choose telecaller...</option>');
-
-                let filteredTelecallers = allTelecallers.filter(t => t.branch_id == branchId);
-                console.log('Filtered Telecallers for branch ' + branchId + ':', filteredTelecallers);
 
                 filteredTelecallers.forEach(function(telecaller) {
                     telecallerSelect.append(
@@ -1977,19 +1977,22 @@
                 });
 
                 if (filteredTelecallers.length === 0) {
-                    telecallerSelect.append(
+                    telecallerSelect.html(
                         '<option value="" disabled>No telecallers in this branch</option>');
-                    console.warn('No telecallers found for branch:', branchId);
                 }
+
+                telecallerSelect.prop('disabled', false);
 
                 $('#assignLeadModal').modal('show');
             });
 
+
+            // Submit Assign Lead Form
             $('#assignLeadForm').on('submit', function(e) {
                 e.preventDefault();
 
-                let leadId = $('#assign_lead_id').val();
-                let formData = $(this).serialize();
+                const leadId = $('#assign_lead_id').val();
+                const formData = $(this).serialize();
 
                 $.ajax({
                     url: `/leads/${leadId}/assign`,
@@ -1997,6 +2000,7 @@
                     data: formData,
                     success: function(response) {
                         $('#assignLeadModal').modal('hide');
+
                         Swal.fire({
                             icon: 'success',
                             title: 'Assigned!',
@@ -2013,6 +2017,7 @@
                     }
                 });
             });
+
 
             // Bulk Assign branch filter
             $('#bulk_branch').on('change', function() {
@@ -2094,6 +2099,7 @@
                 $('#selectedleadspreview').html('');
 
                 let selectedLeads = [];
+                let branchIdsSet = new Set();
                 let previewHtml = '';
                 let branchCounts = {};
                 let statusCounts = {
@@ -2111,6 +2117,11 @@
                     let status = $(this).data('status');
 
                     selectedLeads.push(leadId);
+
+                    // ✅ NEW: add branch to set (for multi-branch restriction)
+                    if (branchId !== null && branchId !== undefined && String(branchId).trim() !== '') {
+                        branchIdsSet.add(String(branchId));
+                    }
 
                     // Count by status
                     if (status === 'approved') {
@@ -2151,27 +2162,70 @@
                 console.log('Selected Leads Count:', selectedLeads.length);
                 console.log('Status Counts:', statusCounts);
                 console.log('Branch Counts:', branchCounts);
+                console.log('Branch Set:', [...branchIdsSet]);
 
-                // ===== FIX: Update the count properly =====
+                // ===== KEEP EXISTING: Update the count properly =====
                 $('#selectedcount').text(selectedLeads.length);
 
                 // Update preview
                 $('#selectedleadspreview').html(previewHtml);
 
-                // Reset form
+                // ✅ NEW RESTRICTION (does not remove any existing features):
+                // If leads are from multiple branches, show message and stop here.
+                if (selectedLeads.length > 0 && branchIdsSet.size > 1) {
+
+                    // Create readable branch list for message (optional, uses allBranches if available)
+                    let branchNames = [];
+                    if (typeof allBranches !== 'undefined' && Array.isArray(allBranches)) {
+                        branchNames = [...branchIdsSet].map(id => {
+                            let br = allBranches.find(b => String(b.id) === String(id));
+                            return br ? br.name : `Branch #${id}`;
+                        });
+                    } else {
+                        branchNames = [...branchIdsSet].map(id => `Branch #${id}`);
+                    }
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Multiple branches selected',
+                        html: `
+                            Bulk assignment is allowed only for leads from the <b>same branch</b>.<br>
+                            Selected branches: <b>${branchNames.join(', ')}</b><br><br>
+                            Please select leads from one branch and try again.
+                        `,
+                        confirmButtonText: 'OK'
+                    });
+
+                    return; // stop opening modal
+                }
+
+                // Reset form (KEEP EXISTING)
                 $('#bulkbranch').val('');
                 $('#bulknotes').val('');
                 $('#bulktelecaller')
                     .html('<option value="">Please select a branch first...</option>')
                     .prop('disabled', true);
 
-                // Auto-select branch if all from same branch
+                // Auto-select & LOCK branch if all from same branch
                 let branchIds = Object.keys(branchCounts);
                 if (branchIds.length === 1 && branchIds[0] != 'null' && branchIds[0] != 'undefined') {
-                    $('#bulkbranch').val(branchIds[0]).trigger('change');
+
+                    // 1) set hidden input (for form submit)
+                    $('#bulkbranch').val(branchIds[0]);
+
+                    // 2) set read-only display text (for locked UI)
+                    if (typeof allBranches !== 'undefined' && Array.isArray(allBranches)) {
+                        const br = allBranches.find(b => String(b.id) === String(branchIds[0]));
+                        $('#bulk_branch_display').text(br ? br.name : 'N/A');
+                    } else {
+                        $('#bulk_branch_display').text('N/A');
+                    }
+
+                    // 3) keep existing behaviour: load telecallers via change handler
+                    $('#bulkbranch').trigger('change');
                 }
 
-                // Show warning for approved leads
+                // Show warning for approved leads (KEEP EXISTING)
                 if (statusCounts.approved > 0) {
                     $('#approvedLeadsWarning').remove();
 
@@ -2191,7 +2245,7 @@
                     $('#bulkAssignModal .modal-body').prepend(warningHtml);
                 }
 
-                // Show modal
+                // Show modal (KEEP EXISTING)
                 $('#bulkAssignModal').modal('show');
             });
 
@@ -2336,11 +2390,11 @@
                                             <strong class="text-primary">${response.count} leads</strong>
                                         </div>
                                         ${response.approved_count > 0 ? `
-                                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                                                <span class="text-muted">Approved Leads:</span>
-                                                <strong class="text-success">${response.approved_count}</strong>
-                                            </div>
-                                            ` : ''}
+                                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                                    <span class="text-muted">Approved Leads:</span>
+                                                    <strong class="text-success">${response.approved_count}</strong>
+                                                </div>
+                                                ` : ''}
                                         <div class="d-flex justify-content-between align-items-center pt-1">
                                             <span class="text-muted">Assigned To:</span>
                                             <strong class="text-info">${response.telecaller_name}</strong>

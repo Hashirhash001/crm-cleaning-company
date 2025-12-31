@@ -27,6 +27,12 @@ class JobFollowup extends Model
         'completed_at' => 'datetime',
     ];
 
+    // Override date serialization for JSON
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d');
+    }
+
     public function job()
     {
         return $this->belongsTo(Job::class);

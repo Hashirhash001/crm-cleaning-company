@@ -85,7 +85,7 @@ class Customer extends Model
 
     public function completedJobs()
     {
-        return $this->jobs()->where('status', 'completed');
+        return $this->jobs()->where('status', 'completed')->orwhere('status', 'confirmed');
     }
 
     // Priority helpers

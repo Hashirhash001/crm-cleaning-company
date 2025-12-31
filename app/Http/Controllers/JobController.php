@@ -196,7 +196,7 @@ class JobController extends Controller
             $jobCode = 'JOB' . str_pad($jobCount + 1, 4, '0', STR_PAD_LEFT);
 
             $job = Job::create([
-                'job_code' => $jobCode,
+                // 'job_code' => $jobCode,
                 'title' => $validated['title'],
                 'customer_id' => $validated['customer_id'] ?? null,
                 'service_id' => $validated['service_ids'][0] ?? null, // First service for backward compatibility
@@ -268,6 +268,8 @@ class JobController extends Controller
             'notes.createdBy'
         ]);
 
+        $branches = Branch::all();
+
         // Fetch telecallers and field staff separately for assignment
         $telecallers = User::where('role', 'telecallers')
             ->where('is_active', true)
@@ -279,7 +281,7 @@ class JobController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'branch_id']);
 
-        return view('jobs.show', compact('job', 'telecallers', 'field_staff'));
+        return view('jobs.show', compact('job', 'telecallers', 'field_staff', 'branches'));
     }
 
     public function edit(Job $job)
@@ -321,6 +323,8 @@ class JobController extends Controller
 
             // Get service IDs
             $jobData['service_ids'] = $job->services->pluck('id')->toArray();
+
+            $jobData['servicequantities'] = $services->pluck('pivot.quantity', 'id')->toArray();
 
             return response()->json([
                 'success' => true,
@@ -368,6 +372,8 @@ class JobController extends Controller
                 'service_type' => 'nullable|in:cleaning,pest_control,other',
                 'service_ids' => 'nullable|array',
                 'service_ids.*' => 'exists:services,id',
+                'service_quantities' => 'nullable|array',
+                'service_quantities.*' => 'nullable|integer|min:1',
                 'status' => 'nullable|in:pending,confirmed,in_progress,completed,cancelled',
             ]);
 
@@ -429,8 +435,10 @@ class JobController extends Controller
             if (isset($validated['service_ids']) && count($validated['service_ids']) > 0) {
                 // Build service data with quantities
                 $serviceData = [];
+                $quantities = $validated['service_quantities'] ?? [];
+
                 foreach ($validated['service_ids'] as $serviceId) {
-                    $quantity = $validated['service_quantities'][$serviceId] ?? 1;
+                    $quantity = $quantities[$serviceId] ?? 1;
                     $serviceData[$serviceId] = ['quantity' => $quantity];
                 }
 
@@ -471,7 +479,7 @@ class JobController extends Controller
                     $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
                 }
 
-                Log::info('Job edited - related lead updated', [
+                Log::info('work order edited - related lead updated', [
                     'job_id' => $job->id,
                     'lead_id' => $lead->id,
                     'amount_changed' => $amountChanged,
@@ -480,7 +488,7 @@ class JobController extends Controller
                 ]);
             }
 
-            Log::info('Job updated', [
+            Log::info('work order updated', [
                 'job_id' => $job->id,
                 'updated_by' => $user->id,
                 'amount_changed' => $amountChanged,
@@ -489,9 +497,9 @@ class JobController extends Controller
                 'status_changed_to_pending' => $newStatus === 'pending',
             ]);
 
-            $message = 'Job updated successfully!';
+            $message = 'work order updated successfully!';
             if (($amountChanged || $amountPaidChanged || $servicesChanged) && $job->lead_id) {
-                $message .= ' Job status changed to pending for admin approval. Related lead has also been updated.';
+                $message .= ' work order status changed to pending for admin approval. Related lead has also been updated.';
             }
 
             return response()->json([
@@ -500,10 +508,10 @@ class JobController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Job update error: ' . $e->getMessage());
+            Log::error('work order update error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating job: ' . $e->getMessage()
+                'message' => 'Error updating work order: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -517,22 +525,22 @@ class JobController extends Controller
             if ($user->role !== 'super_admin') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Only super admin can delete jobs'
+                    'message' => 'Only super admin can delete work order'
                 ], 403);
             }
 
             $jobCode = $job->job_code;
             $job->delete();
 
-            Log::info('Job deleted', ['job_code' => $jobCode, 'deleted_by' => $user->id]);
+            Log::info('work order deleted', ['job_code' => $jobCode, 'deleted_by' => $user->id]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Job deleted successfully!'
+                'message' => 'work order deleted successfully!'
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Job delete error: ' . $e->getMessage());
+            Log::error('work order delete error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Error deleting job'
@@ -557,6 +565,15 @@ class JobController extends Controller
                 'assigned_to' => 'required|exists:users,id'
             ]);
 
+            $userToAssign = User::findOrFail($validated['assigned_to']);
+
+            if ((int)$userToAssign->branch_id !== (int)$job->branch_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected staff does not belong to this branch.'
+                ], 422);
+            }
+
             $job->update([
                 'assigned_to' => $validated['assigned_to'],
                 'assigned_at' => now(),
@@ -572,7 +589,7 @@ class JobController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Job assigned to ' . $assignedUser->name . ' successfully!'
+                'message' => 'work order assigned to ' . $assignedUser->name . ' successfully!'
             ]);
 
         } catch (\Exception $e) {
@@ -730,7 +747,7 @@ class JobController extends Controller
             $jobCode = 'JOB' . str_pad($jobCount + 1, 4, '0', STR_PAD_LEFT);
 
             $job = Job::create([
-                'job_code' => $jobCode,
+                // 'job_code' => $jobCode,
                 'customer_id' => $validated['customer_id'],
                 'service_id' => $validated['service_ids'][0] ?? null,
                 'title' => $validated['title'],

@@ -37,6 +37,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/customers/{customer}/notes', [CustomerController::class, 'getCustomerNotes'])
         ->name('api.customers.notes');
 
+    Route::get('/customers/by-branch', [CustomerController::class, 'byBranch'])
+    ->name('customers.byBranch');
+
     // Customer Management
     Route::resource('customers', CustomerController::class)->only(['index', 'show', 'edit', 'update', 'create', 'store', 'destroy']);
     Route::post('customers/{customer}/notes', [CustomerController::class, 'addNote'])->name('customers.addNote');

@@ -24,6 +24,12 @@ class LeadFollowup extends Model
         'completed_at' => 'datetime',
     ];
 
+    // Override date serialization for JSON
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d');
+    }
+
     // Add accessor for readable callback time preference
     public function getCallbackTimePreferenceLabelAttribute()
     {

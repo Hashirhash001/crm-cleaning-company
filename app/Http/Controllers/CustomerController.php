@@ -581,4 +581,18 @@ class CustomerController extends Controller
             ], 500);
         }
     }
+
+    public function byBranch(Request $request)
+    {
+        $request->validate([
+            'branch_id' => 'required|exists:branches,id'
+        ]);
+
+        $customers = Customer::where('branch_id', $request->branch_id)
+            ->orderBy('name')
+            ->get(['id','name','customer_code','phone']);
+
+        return response()->json($customers);
+    }
+
 }

@@ -769,6 +769,15 @@ class LeadController extends Controller
                 'notes' => 'nullable|string'
             ]);
 
+            $userToAssign = User::findOrFail($validated['assigned_to']);
+
+            if ((int)$userToAssign->branch_id !== (int)$lead->branch_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected staff does not belong to this branch.'
+                ], 422);
+            }
+
             $lead->update([
                 'assigned_to' => $validated['assigned_to']
             ]);
@@ -828,6 +837,24 @@ class LeadController extends Controller
             $telecaller = User::find($validated['assigned_to']);
             $count = 0;
             $approvedCount = 0;
+
+            $leads = Lead::whereIn('id', $validated['lead_ids'])->get(['id','branch_id']);
+
+            $uniqueBranches = $leads->pluck('branch_id')->filter()->unique();
+
+            if ($uniqueBranches->count() !== 1) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bulk assignment is allowed only for leads from the same branch.'
+                ], 422);
+            }
+
+            if ((int)$telecaller->branch_id !== (int)$uniqueBranches[0]) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected staff does not belong to this branch.'
+                ], 422);
+            }
 
             foreach ($validated['lead_ids'] as $leadId) {
                 $lead = Lead::find($leadId);
@@ -1246,7 +1273,7 @@ class LeadController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected',
+            'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,approved,rejected,confirmed',
         ]);
 
         if ($validated['status'] === 'approved') {

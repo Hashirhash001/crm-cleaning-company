@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Job extends Model
 {
@@ -40,6 +41,11 @@ class Job extends Model
         'amount' => 'decimal:2',
         'amount_paid' => 'decimal:2',
     ];
+
+    protected function serializeDate(\DateTimeInterface $date)
+    {
+        return $date->format('Y-m-d');
+    }
 
     // NEW: Calculate balance amount
     public function getBalanceAmountAttribute()
@@ -113,11 +119,38 @@ class Job extends Model
         });
     }
 
+    // Generate unique job code (includes soft-deleted + race condition handling)
     public static function generateJobCode()
     {
-        $lastJob = self::orderBy('id', 'desc')->first();
-        $number = $lastJob ? (int)substr($lastJob->job_code, 3) + 1 : 1;
-        return 'JOB' . str_pad($number, 3, '0', STR_PAD_LEFT);
+        // Use a database lock to prevent race conditions
+        return DB::transaction(function () {
+            // Get the highest job number from existing codes (including soft-deleted)
+            $maxNumber = self::withTrashed()
+                ->selectRaw('MAX(CAST(SUBSTRING(job_code, 4) AS UNSIGNED)) as max_number')
+                ->value('max_number');
+
+            // Start from the next number
+            $nextNumber = $maxNumber ? $maxNumber + 1 : 1;
+
+            // Keep trying until we find a unique code
+            $attempts = 0;
+            do {
+                $jobCode = 'JOB' . $nextNumber;
+                $exists = self::withTrashed()->where('job_code', $jobCode)->exists();
+
+                if ($exists) {
+                    $nextNumber++;
+                    $attempts++;
+
+                    // Prevent infinite loop
+                    if ($attempts > 100) {
+                        throw new \Exception('Unable to generate unique job code after 100 attempts');
+                    }
+                }
+            } while ($exists);
+
+            return $jobCode;
+        });
     }
 
     public function customer()

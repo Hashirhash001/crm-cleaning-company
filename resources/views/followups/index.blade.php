@@ -27,7 +27,7 @@
     /* Table Container */
     .table-container {
         overflow-x: auto;
-        overflow-y: hidden;
+        overflow-y: auto;
         max-height: 600px;
         position: relative;
         width: 100%;
