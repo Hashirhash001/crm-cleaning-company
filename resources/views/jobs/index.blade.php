@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Jobs Management')
+@section('title', 'Work Orders Management')
 
 @section('extra-css')
     <link href="{{ asset('assets/libs/simple-datatables/style.css') }}" rel="stylesheet" type="text/css" />
@@ -1188,7 +1188,7 @@
             $(document).on('change', '#statusFilter, #branchFilter, #serviceFilter, #dateFrom, #dateTo',
                 function() {
                     loadJobs();
-                });
+            });
 
             // Pagination click handler
             $(document).on('click', '.pagination a', function(e) {

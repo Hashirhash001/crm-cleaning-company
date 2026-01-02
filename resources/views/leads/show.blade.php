@@ -506,7 +506,7 @@
                             !in_array($lead->status, ['approved', 'rejected'])
                             && (
                                 $user->role === 'lead_manager'
-                                || ($user->role === 'telecallers' && $lead->assigned_to === $user->id)
+                                || ($user->role === 'telecallers' && $lead->branch_id === $user->branch_id)
                             )
                         )
                     )

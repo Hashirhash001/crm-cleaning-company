@@ -238,10 +238,12 @@ class CustomerController extends Controller
             }
         }
 
+        $branches = Branch::all();
+
         // Load relationships
         $customer->load(['jobs', 'customerNotes.createdBy', 'customerNotes.job', 'completedJobs', 'lead', 'branch']);
 
-        return view('customers.show', compact('customer'));
+        return view('customers.show', compact('customer', 'branches'));
     }
 
     public function update(Request $request, Customer $customer)

@@ -1157,6 +1157,17 @@
                                 </div>
                             @endif
 
+                            @if(auth()->user()->role === 'telecallers')
+                            <div class="col-3">
+                                <label class="form-label fw-semibold mb-2">My Leads</label>
+                                <select class="form-select" name="assignedto" id="telecallerAssignedFilter">
+                                    <option value="">All Branch Leads</option>
+                                    <option value="me" {{ request('assignedto') === 'me' ? 'selected' : '' }}>My Assigned Leads</option>
+                                    <option value="unassigned" {{ request('assignedto') === 'unassigned' ? 'selected' : '' }}>Unassigned Leads</option>
+                                </select>
+                            </div>
+                            @endif
+
                             <!-- Search -->
                             <div class="col-3">
                                 <label class="form-label fw-semibold mb-2">Search</label>
@@ -1721,6 +1732,14 @@
             function loadLeads(url = null) {
                 let requestUrl = url || '{{ route('leads.index') }}';
 
+                let assignedFilterVal = null;
+
+                if ($('#telecallerAssignedFilter').length) {
+                    assignedFilterVal = $('#telecallerAssignedFilter').val();
+                } else if ($('#filterassignedto').length) {
+                    assignedFilterVal = $('#filterassignedto').val();
+                }
+
                 let params = {
                     status: $('#filterStatus').val(),
                     branch_id: $('#branchFilter').val(),
@@ -1728,7 +1747,7 @@
                     search: $('#searchInput').val(),
                     date_from: $('#dateFromFilter').val(),
                     date_to: $('#dateToFilter').val(),
-                    assigned_to: $('#filterassignedto').val(),
+                    assignedto: assignedFilterVal,
                     service_id: $('#serviceFilter').val(),
                     sort_column: currentSort.column,
                     sort_direction: currentSort.direction,

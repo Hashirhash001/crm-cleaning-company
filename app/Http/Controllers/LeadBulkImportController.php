@@ -312,8 +312,7 @@ class LeadBulkImportController extends Controller
             'csv_file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
         ]);
 
-        // Increase execution time for large imports
-        set_time_limit(600); // 10 minutes
+        set_time_limit(600);
         ini_set('memory_limit', '512M');
 
         try {
@@ -345,8 +344,7 @@ class LeadBulkImportController extends Controller
 
                     Log::info("Processing sheet: {$sheetName} with {$highestRow} rows and {$highestColumn} columns");
 
-                    // Check row limit
-                    if ($highestRow > 2001) { // 2000 data rows + 1 header
+                    if ($highestRow > 2001) {
                         $skippedSheets[] = [
                             'name' => $sheetName,
                             'reason' => 'Sheet has ' . ($highestRow - 1) . ' rows. Maximum allowed is 2000 rows per sheet.'
@@ -354,12 +352,12 @@ class LeadBulkImportController extends Controller
                         continue;
                     }
 
-                    // Find header row dynamically
+                    // Find header row dynamically (first 5 rows)
                     $headerRow = null;
                     for ($row = 1; $row <= 5; $row++) {
                         $rowData = $worksheet->rangeToArray('A' . $row . ':' . $highestColumn . $row, null, true, false)[0];
                         foreach ($rowData as $cell) {
-                            if (stripos($cell, 'Customer Name') !== false) {
+                            if (stripos((string)$cell, 'Customer Name') !== false) {
                                 $headerRow = $row;
                                 break 2;
                             }
@@ -377,7 +375,6 @@ class LeadBulkImportController extends Controller
 
                     Log::info("Found header at row {$headerRow} in sheet {$sheetName}");
 
-                    // Read header row and create column mapping
                     $headerArray = $worksheet->rangeToArray('A' . $headerRow . ':' . $highestColumn . $headerRow, null, true, false)[0];
                     $columnMapping = $this->mapColumns($headerArray);
 
@@ -393,18 +390,16 @@ class LeadBulkImportController extends Controller
                         continue;
                     }
 
-                    // Data starts after header
                     $startRow = $headerRow + 1;
 
                     for ($row = $startRow; $row <= $highestRow; $row++) {
                         $rowArray = $worksheet->rangeToArray('A' . $row . ':' . $highestColumn . $row, null, true, false)[0];
 
-                        // Extract customer name
                         $customerName = isset($rowArray[$columnMapping['customer_name']])
-                            ? trim($rowArray[$columnMapping['customer_name']])
+                            ? trim((string)$rowArray[$columnMapping['customer_name']])
                             : '';
 
-                        // Skip empty rows
+                        // Skip empty rows and template rows
                         if (
                             empty($customerName) ||
                             stripos($customerName, 'Customer Name') !== false ||
@@ -413,22 +408,15 @@ class LeadBulkImportController extends Controller
                             continue;
                         }
 
-                        // Extract Contact Number
-                        $contactNumber = '';
+                        // Extract raw phone cell
+                        $rawPhone = null;
                         if (isset($columnMapping['contact_number']) && isset($rowArray[$columnMapping['contact_number']])) {
                             $rawPhone = $rowArray[$columnMapping['contact_number']];
-
-                            if (!empty($rawPhone)) {
-                                if (is_numeric($rawPhone)) {
-                                    $contactNumber = number_format($rawPhone, 0, '', '');
-                                } else {
-                                    $contactNumber = strval($rawPhone);
-                                }
-                                $contactNumber = preg_replace('/[^0-9]/', '', $contactNumber);
-                            }
                         }
 
-                        // Build row data
+                        // Split into primary + alternative
+                        [$primaryPhone, $altPhone] = $this->extractPhones($rawPhone);
+
                         $rowData = [
                             'sheet_name' => $sheetName,
                             'excel_row' => $row,
@@ -441,7 +429,8 @@ class LeadBulkImportController extends Controller
                             'paid' => $this->getColumnValue($rowArray, $columnMapping, 'paid'),
                             'telecaller_name' => $this->getColumnValue($rowArray, $columnMapping, 'telecaller_name'),
                             'office_number' => $this->getColumnValue($rowArray, $columnMapping, 'office_number'),
-                            'contact_number' => $contactNumber,
+                            'contact_number' => $primaryPhone,
+                            'phone_alternative' => $altPhone,
                             'payment_mode' => $this->getColumnValue($rowArray, $columnMapping, 'payment_mode'),
                             'address' => $this->getColumnValue($rowArray, $columnMapping, 'address'),
                             'district' => $this->getColumnValue($rowArray, $columnMapping, 'district'),
@@ -490,7 +479,6 @@ class LeadBulkImportController extends Controller
             $createdJobs = 0;
             $failedRowsData = [];
 
-            // Store initial progress in cache
             $progressKey = "import_progress_{$import->id}";
             Cache::put($progressKey, [
                 'total' => $totalRows,
@@ -504,7 +492,6 @@ class LeadBulkImportController extends Controller
                 'jobs_created' => 0,
             ], now()->addMinutes(30));
 
-            // Process in chunks of 100 rows
             $chunkSize = 100;
             $chunks = array_chunk($records, $chunkSize);
 
@@ -512,15 +499,13 @@ class LeadBulkImportController extends Controller
                 Log::info("Processing chunk " . ($chunkIndex + 1) . " of " . count($chunks));
 
                 foreach ($chunk as $index => $row) {
-                    try {
-                        $rowIdentifier = "{$row['sheet_name']} Row {$row['excel_row']}";
+                    $rowIdentifier = "{$row['sheet_name']} Row {$row['excel_row']}";
 
-                        // DEBUG: Log every row being processed
+                    try {
                         Log::info("========== PROCESSING ROW {$rowIdentifier} ==========");
                         Log::info("Customer Name: {$row['customer_name']}");
                         Log::info("Phone: {$row['contact_number']}");
 
-                        // Update progress cache every 5 rows for smoother updates
                         if ($processedRows % 5 === 0) {
                             Cache::put($progressKey, [
                                 'total' => $totalRows,
@@ -535,18 +520,15 @@ class LeadBulkImportController extends Controller
                             ], now()->addMinutes(30));
                         }
 
-                        // Clean phone
+                        // Clean phones
                         $phone = $this->cleanPhoneNumber($row['contact_number']);
-                        $phoneAlternative = null;
+                        $phoneAlternative = $this->cleanPhoneNumber($row['phone_alternative'] ?? null);
 
                         // ===== VALIDATION =====
-
-                        // 1. Customer name is required
                         if (empty($row['customer_name'])) {
                             throw new \Exception("Customer name is required");
                         }
 
-                        // 2. Phone is required (10-15 digits)
                         if (empty($phone) || strlen($phone) < 10 || strlen($phone) > 15) {
                             throw new \Exception("Valid phone number (10-15 digits) required");
                         }
@@ -563,75 +545,21 @@ class LeadBulkImportController extends Controller
                             $branch = Branch::first();
                         }
 
-                        // 3. Service validation
-                        $service = null;
+                        // 3. Service validation (MULTI)
                         $serviceType = 'cleaning';
-                        $serviceIds = [];
-
-                        if (!empty($row['work_description'])) {
-                            $serviceMapping = $this->getServiceMapping();
-                            $workDescription = strtoupper(trim($row['work_description']));
-
-                            // Try exact mapping first
-                            $dbServiceName = $serviceMapping[$workDescription] ?? null;
-
-                            // Fuzzy match
-                            if (!$dbServiceName) {
-                                foreach ($serviceMapping as $key => $value) {
-                                    if (stripos($workDescription, $key) !== false || stripos($key, $workDescription) !== false) {
-                                        $dbServiceName = $value;
-                                        Log::info("Fuzzy matched '{$workDescription}' to '{$key}' => '{$value}'");
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (!$dbServiceName) {
-                                $dbServiceName = $row['work_description'];
-                            }
-
-                            // Database lookup
-                            $service = Service::whereRaw('LOWER(name) = ?', [strtolower($dbServiceName)])
-                                ->where('is_active', true)
-                                ->first();
-
-                            if (!$service) {
-                                $service = Service::where('is_active', true)
-                                    ->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($dbServiceName) . '%'])
-                                    ->first();
-                            }
-
-                            // Keyword matching
-                            if (!$service) {
-                                if (
-                                    stripos($workDescription, 'DEEP') !== false ||
-                                    stripos($workDescription, 'PACKAGE') !== false ||
-                                    stripos($workDescription, 'FULL') !== false
-                                ) {
-                                    $service = Service::where('is_active', true)
-                                        ->where(function ($query) {
-                                            $query->whereRaw('LOWER(name) LIKE ?', ['%deep%'])
-                                                ->orWhereRaw('LOWER(name) LIKE ?', ['%full house%']);
-                                        })
-                                        ->first();
-
-                                    if ($service) {
-                                        Log::info("Keyword matched '{$workDescription}' to '{$service->name}'");
-                                    }
-                                }
-                            }
-
-                            if ($service) {
-                                $serviceIds[] = $service->id;
-                                $serviceType = $this->detectServiceType($service->name);
-                            }
-                        }
+                        $serviceIds = $this->extractServiceIds($row['work_description'] ?? '');
 
                         if (empty($serviceIds)) {
                             throw new \Exception("Service is required. Work description '{$row['work_description']}' not found in services");
                         }
 
-                        // Find telecaller
+                        // Determine service type based on first resolved service
+                        $firstService = Service::where('is_active', true)->where('id', $serviceIds[0])->first();
+                        if ($firstService) {
+                            $serviceType = $this->detectServiceType($firstService->name);
+                        }
+
+                        // Find telecaller (your existing logic kept)
                         $assignedTo = null;
                         if (!empty($row['telecaller_name'])) {
                             $telecallerName = strtolower(trim($row['telecaller_name']));
@@ -664,25 +592,16 @@ class LeadBulkImportController extends Controller
 
                             if ($telecaller) {
                                 $assignedTo = $telecaller->id;
-                                Log::info("✓ Assigned telecaller: {$telecaller->name} (ID: {$telecaller->id}) to lead: {$row['customer_name']}");
-                            } else {
-                                Log::warning("✗ Telecaller '{$row['telecaller_name']}' not found - Lead will be unassigned");
                             }
                         }
 
-                        // Amount
                         $finalAmount = !empty($row['final_amount']) ? floatval($row['final_amount']) : 0;
 
-                        // Payment status
-                        $paidStatus = strtoupper(trim($row['paid']));
+                        $paidStatus = strtoupper(trim((string)$row['paid']));
                         $isPaymentReceived = in_array($paidStatus, ['RECEIVED', 'YES', 'PAID', 'DONE', 'COMPLETED']);
 
-                        $advancePaid = 0;
-                        if ($finalAmount > 0 && $isPaymentReceived) {
-                            $advancePaid = $finalAmount;
-                        }
+                        $advancePaid = ($finalAmount > 0 && $isPaymentReceived) ? $finalAmount : 0;
 
-                        // Payment mode
                         $paymentMode = null;
                         if (!empty($row['payment_mode'])) {
                             $paymentMode = strtolower(str_replace(' ', '_', trim($row['payment_mode'])));
@@ -691,9 +610,8 @@ class LeadBulkImportController extends Controller
                             }
                         }
 
-                        // Lead source
+                        // Lead source (same as yours)
                         $leadSource = null;
-
                         if (!empty($row['source'])) {
                             $leadSource = LeadSource::whereRaw('LOWER(name) = ?', [strtolower($row['source'])])
                                 ->where('is_active', true)
@@ -730,114 +648,68 @@ class LeadBulkImportController extends Controller
                             $leadSource = LeadSource::where('is_active', true)->first();
                         }
 
-                        // Parse date
-                        $leadCreatedAt = $this->parseExcelDate($row['date']);
-                        if (!$leadCreatedAt) {
-                            $leadCreatedAt = now();
-                        }
+                        $leadCreatedAt = $this->parseExcelDate($row['date']) ?: now();
 
-                        Log::info("Processing row with data:", [
-                            'customer_name' => $row['customer_name'],
-                            'phone' => $phone,
-                            'excel_date' => $row['date'],
-                            'parsed_date' => $leadCreatedAt->format('Y-m-d H:i:s'),
-                            'payment_received' => $isPaymentReceived,
-                        ]);
-
-                        // ==================================================
-                        // DUPLICATE CHECK - ONE CUSTOMER PER PHONE
-                        // ==================================================
+                        // Duplicate checks
                         $existingCustomer = Customer::where('phone', $phone)->first();
                         $existingLead = Lead::where('phone', $phone)->first();
 
-                        // CASE 1: Customer already exists
                         if ($existingCustomer) {
-                            Log::info("Found existing customer {$existingCustomer->customer_code} for phone {$phone}");
-
                             if (!$isPaymentReceived) {
                                 throw new \Exception("Customer with phone {$phone} already exists (Customer Code: {$existingCustomer->customer_code}). Cannot add non-paid entry for existing customer.");
                             }
 
                             $lead = $existingCustomer->lead ?? $existingLead;
-
                             if (!$lead) {
                                 throw new \Exception("Customer exists but no lead found for phone {$phone}");
                             }
 
-                            // Create new job ONLY - DON'T create lead or customer
                             $job = $this->createJobFromLead($lead, $existingCustomer, $serviceIds, $finalAmount, $row, $leadCreatedAt);
-
-                            Log::info("✓ Created additional job {$job->job_code} for existing customer {$existingCustomer->customer_code}");
-
                             $createdJobs++;
                             $successfulRows++;
                             $processedRows++;
-
-                            continue; // IMPORTANT: Skip to next row
+                            continue;
                         }
 
-                        // CASE 2: Lead exists but no customer
                         if ($existingLead) {
-                            Log::info("Found existing lead {$existingLead->lead_code} for phone {$phone}");
-
                             if (!$isPaymentReceived) {
                                 throw new \Exception("Phone {$phone} already exists in leads (Lead Code: {$existingLead->lead_code}). Cannot create duplicate lead without payment.");
                             }
 
-                            // Double-check if customer was created after lead check
                             $existingCustomer = Customer::where('phone', $phone)->first();
-
                             if ($existingCustomer) {
-                                // Customer exists now (race condition or created elsewhere)
-                                Log::info("Customer {$existingCustomer->customer_code} found for phone {$phone}, creating job only");
-
                                 $job = $this->createJobFromLead($existingLead, $existingCustomer, $serviceIds, $finalAmount, $row, $leadCreatedAt);
-                                Log::info("✓ Created job {$job->job_code} for existing customer {$existingCustomer->customer_code}");
                                 $createdJobs++;
-
                                 $successfulRows++;
                                 $processedRows++;
                                 continue;
                             }
 
-                            // Try to create customer
                             try {
                                 $customer = $this->createCustomerFromLead($existingLead, $leadCreatedAt);
-                                Log::info("✓ Created customer {$customer->customer_code} from existing lead {$existingLead->lead_code}");
                                 $createdCustomers++;
 
-                                // Create job
                                 $job = $this->createJobFromLead($existingLead, $customer, $serviceIds, $finalAmount, $row, $leadCreatedAt);
-                                Log::info("✓ Created job {$job->job_code} for new customer {$customer->customer_code}");
                                 $createdJobs++;
 
                                 $successfulRows++;
                                 $processedRows++;
                                 continue;
                             } catch (\Exception $customerError) {
-                                // Customer creation failed (probably duplicate), check again
                                 $existingCustomer = Customer::where('phone', $phone)->first();
-
                                 if ($existingCustomer) {
-                                    Log::warning("Customer creation failed but found existing: {$existingCustomer->customer_code}");
-
                                     $job = $this->createJobFromLead($existingLead, $existingCustomer, $serviceIds, $finalAmount, $row, $leadCreatedAt);
-                                    Log::info("✓ Created job {$job->job_code} for existing customer {$existingCustomer->customer_code}");
                                     $createdJobs++;
 
                                     $successfulRows++;
                                     $processedRows++;
                                     continue;
                                 }
-
-                                // Rethrow if it's a different error
                                 throw $customerError;
                             }
                         }
 
-                        // CASE 3: New lead (phone doesn't exist anywhere)
-                        Log::info("Creating new lead for phone {$phone}");
-
+                        // CASE 3: New lead
                         $lead = Lead::create([
                             'name' => $row['customer_name'],
                             'phone' => $phone,
@@ -846,14 +718,14 @@ class LeadBulkImportController extends Controller
                             'district' => !empty($row['district']) ? $row['district'] : null,
                             'service_type' => $serviceType,
                             'service_id' => $serviceIds[0] ?? null,
-                            'lead_source_id' => $leadSource->id,
+                            'lead_source_id' => $leadSource ? $leadSource->id : null,
                             'amount' => $finalAmount,
                             'advance_paid_amount' => $advancePaid,
                             'payment_mode' => $paymentMode,
                             'amount_updated_at' => $finalAmount > 0 ? $leadCreatedAt : null,
                             'amount_updated_by' => $finalAmount > 0 ? auth()->id() : null,
                             'status' => $isPaymentReceived ? 'approved' : 'pending',
-                            'branch_id' => $branch->id,
+                            'branch_id' => $branch ? $branch->id : null,
                             'created_by' => auth()->id(),
                             'assigned_to' => $assignedTo,
                             'description' => !empty($row['work_description']) ? $row['work_description'] : null,
@@ -863,26 +735,22 @@ class LeadBulkImportController extends Controller
                         $lead->updated_at = $leadCreatedAt;
                         $lead->save();
 
-                        if (!empty($serviceIds)) {
-                            $lead->services()->sync($serviceIds);
-                        }
+                        // Sync ALL services
+                        $lead->services()->sync($serviceIds);
 
-                        Log::info("✓ Created NEW lead: {$lead->lead_code} - {$lead->name} [{$rowIdentifier}]");
-
-                        // Create customer & job if paid
                         if ($isPaymentReceived) {
                             $customer = $this->createCustomerFromLead($lead, $leadCreatedAt);
-                            Log::info("✓ Created customer: {$customer->customer_code} - {$customer->name}");
                             $createdCustomers++;
 
                             $job = $this->createJobFromLead($lead, $customer, $serviceIds, $finalAmount, $row, $leadCreatedAt);
-                            Log::info("✓ Created job: {$job->job_code} for customer {$customer->customer_code}");
                             $createdJobs++;
                         }
 
                         $successfulRows++;
                         $processedRows++;
+
                     } catch (\Exception $e) {
+
                         $errors[] = [
                             'row' => $rowIdentifier,
                             'sheet' => $row['sheet_name'],
@@ -891,7 +759,12 @@ class LeadBulkImportController extends Controller
                             'errors' => [$e->getMessage()],
                         ];
 
-                        $failedRowsData[] = $row;
+                        // IMPORTANT: store data + errors for downloadFailedRows()
+                        $failedRowsData[] = [
+                            'data' => $row,
+                            'errors' => $e->getMessage(),
+                        ];
+
                         $failedRows++;
                         $processedRows++;
 
@@ -902,7 +775,6 @@ class LeadBulkImportController extends Controller
                     }
                 }
 
-                // Update cache after each chunk
                 Cache::put($progressKey, [
                     'total' => $totalRows,
                     'processed' => $processedRows,
@@ -918,7 +790,6 @@ class LeadBulkImportController extends Controller
                 gc_collect_cycles();
             }
 
-            // Final cache update
             Cache::put($progressKey, [
                 'total' => $totalRows,
                 'processed' => $processedRows,
@@ -930,7 +801,6 @@ class LeadBulkImportController extends Controller
                 'jobs_created' => $createdJobs,
             ], now()->addMinutes(30));
 
-            // Update import record
             $import->update([
                 'status' => $failedRows === $totalRows ? 'failed' : 'completed',
                 'processed_rows' => $processedRows,
@@ -944,9 +814,9 @@ class LeadBulkImportController extends Controller
 
             $message = $successfulRows > 0
                 ? "Successfully imported {$successfulRows} leads!" .
-                ($createdCustomers > 0 ? " Created {$createdCustomers} customers." : "") .
-                ($createdJobs > 0 ? " Created {$createdJobs} jobs." : "") .
-                ($failedRows > 0 ? " {$failedRows} rows failed." : "")
+                    ($createdCustomers > 0 ? " Created {$createdCustomers} customers." : "") .
+                    ($createdJobs > 0 ? " Created {$createdJobs} jobs." : "") .
+                    ($failedRows > 0 ? " {$failedRows} rows failed." : "")
                 : "Import failed! All {$failedRows} rows had errors.";
 
             if (count($skippedSheets) > 0) {
@@ -969,6 +839,7 @@ class LeadBulkImportController extends Controller
                 'errors' => $errors,
                 'has_failed_rows' => $failedRows > 0,
             ]);
+
         } catch (\Exception $e) {
             DB::rollBack();
 
@@ -1105,6 +976,82 @@ class LeadBulkImportController extends Controller
         return $default;
     }
 
+    private function extractPhones($raw): array
+    {
+        if (empty($raw)) return [null, null];
+
+        // Preserve big numbers that Excel may store as numeric
+        $raw = is_numeric($raw) ? number_format($raw, 0, '', '') : (string)$raw;
+
+        // Split on common separators: / , ; & whitespace
+        $parts = preg_split('/[\/,;&\s]+/', $raw);
+
+        $numbers = [];
+        foreach ($parts as $p) {
+            $p = preg_replace('/[^0-9]/', '', $p);
+            if (strlen($p) >= 10 && strlen($p) <= 15) {
+                $numbers[] = $p;
+            }
+        }
+
+        $numbers = array_values(array_unique($numbers));
+        return [$numbers[0] ?? null, $numbers[1] ?? null];
+    }
+
+    private function extractServiceIds(?string $workDescription): array
+    {
+        if (empty($workDescription)) return [];
+
+        $serviceMapping = $this->getServiceMapping();
+
+        // Split multiple services like: "KITCHEN DEEP,GENERAL PEST" or "A/B"
+        $parts = preg_split('/[,&+\/]/', $workDescription);
+        $parts = array_values(array_filter(array_map(fn($p) => strtoupper(trim($p)), $parts)));
+
+        $serviceIds = [];
+
+        foreach ($parts as $part) {
+            // map alias -> DB service name
+            $dbServiceName = $serviceMapping[$part] ?? null;
+
+            // fuzzy alias match (same as your logic but per-part)
+            if (!$dbServiceName) {
+                foreach ($serviceMapping as $key => $value) {
+                    if (stripos($part, $key) !== false || stripos($key, $part) !== false) {
+                        $dbServiceName = $value;
+                        break;
+                    }
+                }
+            }
+
+            if (!$dbServiceName) $dbServiceName = $part;
+
+            $service = Service::where('is_active', true)
+                ->whereRaw('LOWER(name) = ?', [strtolower($dbServiceName)])
+                ->first();
+
+            if (!$service) {
+                $service = Service::where('is_active', true)
+                    ->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($dbServiceName) . '%'])
+                    ->first();
+            }
+
+            // optional keyword fallback (keep minimal)
+            if (!$service && stripos($part, 'DEEP') !== false) {
+                $service = Service::where('is_active', true)
+                    ->where(function ($q) {
+                        $q->whereRaw('LOWER(name) LIKE ?', ['%deep%'])
+                        ->orWhereRaw('LOWER(name) LIKE ?', ['%full house%']);
+                    })
+                    ->first();
+            }
+
+            if ($service) $serviceIds[] = $service->id;
+        }
+
+        return array_values(array_unique($serviceIds));
+    }
+
     public function getImportProgress($importId)
     {
         $progressKey = "import_progress_{$importId}";
@@ -1152,11 +1099,8 @@ class LeadBulkImportController extends Controller
             abort(404, 'No failed rows data');
         }
 
-        // 🔍 Debug: Check structure of first failed row
-        Log::info('Failed row structure:', ['first_row' => $failedRows[0] ?? 'empty']);
-
-        $csv = Writer::fromString('');
-        $csv->setOutputBOM(Writer::BOM_UTF8);
+        $csv = \League\Csv\Writer::createFromString('');
+        $csv->setOutputBOM(\League\Csv\Writer::BOM_UTF8);
 
         $headers = [
             'Date',
@@ -1168,57 +1112,65 @@ class LeadBulkImportController extends Controller
             'Paid',
             'Telecaller Name',
             'Contact Number',
+            'Phone Alternative',
             'Payment Mode',
             'Address',
             'District',
             'Source',
-            // '❌ ERROR - Fix and delete this column before re-import',
+            'ERROR - Fix and delete this column before re-import',
         ];
 
         $csv->insertOne($headers);
 
         foreach ($failedRows as $failedRow) {
-            // ✅ Handle multiple possible structures
-            if (isset($failedRow['data'])) {
-                // Structure: ['data' => [...], 'errors' => '...']
-                $rowData = $failedRow['data'];
+
+            // Supports both shapes:
+            // (1) ['data' => [...], 'errors' => '...']
+            // (2) flat row array
+            if (is_array($failedRow) && isset($failedRow['data'])) {
+                $rowData = $failedRow['data'] ?? [];
                 $errorMessage = $failedRow['errors'] ?? 'Unknown error';
             } else {
-                // Flat structure: ['customername' => '...', ...]
-                $rowData = $failedRow;
+                $rowData = is_array($failedRow) ? $failedRow : [];
                 $errorMessage = $failedRow['error'] ?? $failedRow['errors'] ?? 'Unknown error';
             }
 
-            $rowData = $this->convertExcelDates($rowData);
+            if (is_array($errorMessage)) {
+                $errorMessage = implode(' | ', $errorMessage);
+            }
+
+            // if you already have convertExcelDates(), keep this
+            if (method_exists($this, 'convertExcelDates')) {
+                $rowData = $this->convertExcelDates($rowData);
+            }
 
             $orderedRow = [
-                $this->getField($rowData, ['date', 'Date']),
-                $this->getField($rowData, ['company', 'Name of the Company', 'Company']),
-                $this->getField($rowData, ['customername', 'customer_name', 'Customer Name', 'name']),
-                $this->getField($rowData, ['workdescription', 'work_description', 'Work Description']),
-                $this->getField($rowData, ['packageamount', 'package_amount', 'Package Amount']),
-                $this->getField($rowData, ['finalamount', 'final_amount', 'Final Amount']),
-                $this->getField($rowData, ['paid', 'Paid']),
-                $this->getField($rowData, ['telecallername', 'telecaller_name', 'Telecaller Name']),
-                $this->getField($rowData, ['contactnumber', 'contact_number', 'Contact Number']),
-                $this->getField($rowData, ['paymentmode', 'payment_mode', 'Payment Mode']),
-                $this->getField($rowData, ['address', 'Address']),
-                $this->getField($rowData, ['district', 'District']),
-                $this->getField($rowData, ['source', 'Source']),
+                $rowData['date'] ?? '',
+                $rowData['company'] ?? '',
+                $rowData['customer_name'] ?? '',
+                $rowData['work_description'] ?? '',
+                $rowData['package_amount'] ?? '',
+                $rowData['final_amount'] ?? '',
+                $rowData['paid'] ?? '',
+                $rowData['telecaller_name'] ?? '',
+                $rowData['contact_number'] ?? '',
+                $rowData['phone_alternative'] ?? '',
+                $rowData['payment_mode'] ?? '',
+                $rowData['address'] ?? '',
+                $rowData['district'] ?? '',
+                $rowData['source'] ?? '',
+                (string)$errorMessage,
             ];
-
-            // ✅ Add error message - handle arrays
-            // if (is_array($errorMessage)) {
-            //     $errorMessage = implode(' | ', $errorMessage);
-            // }
-            // $orderedRow[] = (string) $errorMessage;
 
             $csv->insertOne($orderedRow);
         }
 
-        return response($csv->toString())
-            ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="failed_rows_' . date('Ymd_His') . '.csv"');
+        $filename = 'failed_rows_' . date('YmdHis') . '.csv';
+
+        return response($csv->toString(), 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
     }
 
     private function getField(array $data, array $possibleKeys): string
@@ -1265,9 +1217,6 @@ class LeadBulkImportController extends Controller
             $file = $request->file('csv_file');
             $extension = $file->getClientOriginalExtension();
             $records = [];
-
-            // [KEEP YOUR EXISTING FILE PARSING CODE HERE - lines 1-100]
-            // ... (same as before until you get $records array)
 
             if (in_array($extension, ['xlsx', 'xls'])) {
                 $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getRealPath());

@@ -15,6 +15,7 @@ use App\Models\LeadSource;
 use App\Models\LeadApproval;
 use App\Models\LeadFollowup;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -48,8 +49,8 @@ class LeadController extends Controller
             // Lead manager sees only their created leads
             $query->where('created_by', $user->id);
         } elseif ($user->role === 'telecallers') {
-            // Telecallers see only assigned leads
-            $query->where('assigned_to', $user->id);
+            // Telecallers see all leads in their branch
+            $query->where('branch_id', $user->branch_id);
         } else {
             abort(403, 'Unauthorized');
         }
@@ -105,11 +106,21 @@ class LeadController extends Controller
         }
 
         // Assigned to filter
-        if ($request->filled('assigned_to')) {
-            if ($request->assigned_to === 'unassigned') {
-                $query->whereNull('assigned_to');
+        if ($request->filled('assignedto')) {
+            if ($user->role === 'telecallers') {
+                // telecaller: only allow me/unassigned
+                if ($request->assignedto === 'me') {
+                    $query->where('assigned_to', $user->id);
+                } elseif ($request->assignedto === 'unassigned') {
+                    $query->whereNull('assigned_to');
+                }
             } else {
-                $query->where('assigned_to', $request->assigned_to);
+                // admin/manager: allow unassigned or numeric telecaller id
+                if ($request->assignedto === 'unassigned') {
+                    $query->whereNull('assigned_to');
+                } else {
+                    $query->where('assigned_to', $request->assignedto);
+                }
             }
         }
 
@@ -245,11 +256,25 @@ class LeadController extends Controller
                 return back()->withInput()->with('error', 'Unauthorized');
             }
 
+            $branchId = $user->role === 'super_admin'
+                ? $request->input('branch_id')
+                : $user->branch_id;
+
             // Validate
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'email' => 'nullable|email|unique:leads,email',
-                'phone' => 'required|string|max:20|unique:leads,phone',
+                'email' => [
+                    'nullable',
+                    'email',
+                    Rule::unique('leads', 'email')->where(fn ($q) => $q->where('branch_id', $branchId)),
+                ],
+
+                'phone' => [
+                    'required',
+                    'string',
+                    'max:20',
+                    Rule::unique('leads', 'phone')->where(fn ($q) => $q->where('branch_id', $branchId)),
+                ],
                 'phone_alternative' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
@@ -257,8 +282,8 @@ class LeadController extends Controller
                 'sqft' => 'nullable|string|max:100',
                 'sqft_custom' => 'nullable|string|max:100',
                 // No service_type required - will auto-detect
-                'service_ids' => 'required|array|min:1',
-                'service_ids.*' => 'exists:services,id',
+                'service_ids' => 'nullable|array',
+                'service_ids.*' => 'nullable:services,id',
                 'service_quantities' => 'nullable|array',
                 'service_quantities.*' => 'nullable|integer|min:1',
                 'lead_source_id' => 'required|exists:lead_sources,id',
@@ -269,11 +294,20 @@ class LeadController extends Controller
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
                 'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,confirmed',
-            ]);
+            ],
+            [
+                'email.unique' => 'This email already exists in this branch.',
+                'phone.unique' => 'This phone number already exists in this branch.',
+            ]
+            );
 
             // Auto-detect service_type from first selected service
-            $firstService = Service::find($validated['service_ids'][0]);
-            $serviceType = $firstService ? $firstService->service_type : 'other';
+            $serviceType = 'other';
+
+            if (!empty($validated['service_ids']) && is_array($validated['service_ids'])) {
+                $firstService = Service::find($validated['service_ids'][0]);
+                $serviceType = $firstService ? $firstService->service_type : 'other';
+            }
 
             // Determine branch
             $branchId = $user->role === 'super_admin' ? $validated['branch_id'] : $user->branch_id;
@@ -327,14 +361,20 @@ class LeadController extends Controller
 
             // Attach selected services WITH quantities
             $serviceData = [];
-            foreach ($validated['service_ids'] as $serviceId) {
-                $quantity = $validated['service_quantities'][$serviceId] ?? 1;
-                $serviceData[$serviceId] = ['quantity' => $quantity];
-            }
-            $lead->services()->attach($serviceData);
 
-            // Set primary service_id for backward compatibility
-            $lead->update(['service_id' => $validated['service_ids'][0] ?? null]);
+            if (!empty($validated['service_ids']) && is_array($validated['service_ids'])) {
+                foreach ($validated['service_ids'] as $serviceId) {
+                    if (!$serviceId) continue;
+
+                    $quantity = $validated['service_quantities'][$serviceId] ?? 1;
+                    $serviceData[$serviceId] = ['quantity' => $quantity];
+                }
+
+                if (!empty($serviceData)) {
+                    $lead->services()->attach($serviceData);
+                    $lead->update(['service_id' => array_key_first($serviceData)]);
+                }
+            }
 
             Log::info('Lead created successfully', [
                 'lead_id' => $lead->id,
@@ -369,10 +409,12 @@ class LeadController extends Controller
                 'user_id' => auth()->id(),
             ]);
 
+            $firstMessage = collect($e->errors())->flatten()->first() ?? 'Validation failed';
+
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation failed',
+                    'message' => $firstMessage,
                     'errors' => $e->errors()
                 ], 422);
             }
@@ -409,8 +451,8 @@ class LeadController extends Controller
             abort(403, 'You can only edit your own leads');
         }
 
-        if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
-            abort(403, 'You can only edit leads assigned to you');
+        if ($user->role === 'telecallers' && $lead->branch_id !== $user->branch_id) {
+            abort(403, 'Unauthorized');
         }
 
         // Get ALL services - no filtering by type
@@ -456,15 +498,8 @@ class LeadController extends Controller
                 return back()->with('error', 'Unauthorized');
             }
 
-            if ($user->role === 'telecallers' && $lead->assigned_to != $user->id) {
-                if ($request->ajax() || $request->wantsJson()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Unauthorized',
-                        'errors' => ['authorization' => ['You can only edit your assigned leads']]
-                    ], 403);
-                }
-                return back()->with('error', 'You can only edit your assigned leads');
+            if ($user->role === 'telecallers' && $lead->branch_id !== $user->branch_id) {
+                abort(403, 'Unauthorized');
             }
 
             if ($user->role === 'lead_manager' && $lead->created_by != $user->id) {
@@ -480,11 +515,29 @@ class LeadController extends Controller
 
             $isApprovedLead = ($lead->status === 'approved');
 
+            $branchId = $user->role === 'super_admin'
+                ? $request->input('branch_id', $lead->branch_id)
+                : $user->branch_id;
+
             // Build validation rules
             $validationRules = [
                 'name' => 'required|string|max:255',
-                'email' => 'nullable|email|unique:leads,email,' . $lead->id,
-                'phone' => 'required|string|max:20|unique:leads,phone,' . $lead->id,
+                'email' => [
+                    'nullable',
+                    'email',
+                    Rule::unique('leads', 'email')
+                        ->where(fn ($q) => $q->where('branch_id', $branchId))
+                        ->ignore($lead->id),
+                ],
+
+                'phone' => [
+                    'required',
+                    'string',
+                    'max:20',
+                    Rule::unique('leads', 'phone')
+                        ->where(fn ($q) => $q->where('branch_id', $branchId))
+                        ->ignore($lead->id),
+                ],
                 'phone_alternative' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
@@ -710,8 +763,8 @@ class LeadController extends Controller
     {
         $user = auth()->user();
 
-        if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
-            abort(403, 'You can only view leads assigned to you.');
+        if ($user->role === 'telecallers' && $lead->branch_id !== $user->branch_id) {
+            abort(403, 'Unauthorized');
         }
 
         if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
@@ -975,6 +1028,10 @@ class LeadController extends Controller
 
     public function addFollowup(Request $request, Lead $lead)
     {
+        $user = auth()->user();
+        if ($user->role === 'telecallers' && $lead->branch_id !== $user->branch_id) {
+            abort(403, 'Unauthorized');
+        }
         try {
             $validated = $request->validate([
                 'followup_date' => 'required|date|after_or_equal:today',
@@ -1030,6 +1087,11 @@ class LeadController extends Controller
 
     public function addNote(Request $request, Lead $lead)
     {
+        $user = auth()->user();
+        if ($user->role === 'telecallers' && $lead->branch_id !== $user->branch_id) {
+            abort(403, 'Unauthorized');
+        }
+
         try {
             $validated = $request->validate([
                 'note' => 'required|string',
@@ -1268,8 +1330,8 @@ class LeadController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if ($user->role === 'telecallers' && $lead->assigned_to !== $user->id) {
-            return response()->json(['message' => 'You can only update status of your assigned leads'], 403);
+        if ($user->role === 'telecallers' && $lead->branch_id !== $user->branch_id) {
+            return response()->json(['message' => 'You can only update status of leads assigned to your branch'], 403);
         }
 
         $validated = $request->validate([
@@ -1529,9 +1591,9 @@ class LeadController extends Controller
         // Search Leads
         $leadsQuery = Lead::query();
 
-        // Telecallers can only search their assigned leads
+        // Telecallers can only search their branch leads
         if ($user->role === 'telecallers') {
-            $leadsQuery->where('assigned_to', $user->id);
+            $leadsQuery->where('branch_id', $user->branch_id);
         }
         // Super admin and lead manager can search all leads
 
@@ -1606,7 +1668,7 @@ class LeadController extends Controller
 
         // Build query
         $query = Lead::with(['branch', 'service', 'source', 'createdBy', 'assignedTo'])
-            ->where('assigned_to', $user->id)
+            ->where('branch_id', $user->branch_id)
             ->where('lead_source_id', $whatsappSource->id);
 
         // Apply additional filters
@@ -1675,7 +1737,7 @@ class LeadController extends Controller
 
         // Build query
         $query = Lead::with(['branch', 'service', 'source', 'createdBy', 'assignedTo'])
-            ->where('assigned_to', $user->id)
+            ->where('branch_id', $user->branch_id)
             ->where('lead_source_id', $googleAdsSource->id);
 
         // Apply additional filters

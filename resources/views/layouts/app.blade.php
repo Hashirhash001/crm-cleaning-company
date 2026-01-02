@@ -181,7 +181,7 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('leads.*') && !request()->routeIs('leads.whatsapp') && !request()->routeIs('leads.google-ads') ? 'active' : '' }}" href="{{ route('leads.index') }}">
                                     <i class="iconoir-send menu-icon"></i>
-                                    <span>My Leads
+                                    <span>Leads
                                         @php
                                             $assignedLeadsCount = \App\Models\Lead::where('assigned_to', auth()->id())
                                                 ->where('status', 'pending')

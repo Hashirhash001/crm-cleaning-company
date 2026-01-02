@@ -385,8 +385,7 @@
                                 <label for="service_type" class="form-label required-field">Type of Service</label>
                                 <select class="form-select @error('service_type') is-invalid @enderror"
                                         id="service_type"
-                                        name="service_type"
-                                        required>
+                                        name="service_type">
                                     <option value="">Select Service Type</option>
                                     <option value="cleaning" {{ old('service_type') == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
                                     <option value="pest_control" {{ old('service_type') == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
@@ -401,15 +400,20 @@
                                 <label for="lead_source_id" class="form-label required-field">Source of the Lead</label>
                                 <select class="form-select @error('lead_source_id') is-invalid @enderror"
                                         id="lead_source_id"
-                                        name="lead_source_id"
-                                        required>
+                                        name="lead_source_id">
+
                                     <option value="">Select Source</option>
+
                                     @foreach($lead_sources as $source)
-                                        <option value="{{ $source->id }}" {{ old('lead_source_id') == $source->id ? 'selected' : '' }}>
+                                        <option value="{{ $source->id }}"
+                                            @selected(
+                                                old('lead_source_id', strtolower($source->name) === 'others' ? $source->id : null) == $source->id
+                                            )>
                                             {{ $source->name }}
                                         </option>
                                     @endforeach
                                 </select>
+
                                 @error('lead_source_id')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
@@ -458,7 +462,7 @@
                                        class="form-control @error('amount') is-invalid @enderror"
                                        id="amount"
                                        name="amount"
-                                       value="{{ old('amount') }}"
+                                       value="{{ old('amount', 0) }}"
                                        step="0.01"
                                        min="0"
                                        placeholder="Enter total cost">
@@ -835,11 +839,11 @@
                 isValid = false;
             }
 
-            if (!$('#service_type').val()) {
-                errors.push('Service type is required');
-                $('#service_type').addClass('is-invalid');
-                isValid = false;
-            }
+            // if (!$('#service_type').val()) {
+            //     errors.push('Service type is required');
+            //     $('#service_type').addClass('is-invalid');
+            //     isValid = false;
+            // }
 
             if (!$('#lead_source_id').val()) {
                 errors.push('Lead source is required');
@@ -847,19 +851,19 @@
                 isValid = false;
             }
 
-            // Check if at least one service is selected
-            if ($('.service-checkbox:checked').length === 0) {
-                errors.push('Please select at least one service');
-                $('#servicesContainer').addClass('is-invalid');
-                isValid = false;
-            }
+            // // Check if at least one service is selected
+            // if ($('.service-checkbox:checked').length === 0) {
+            //     errors.push('Please select at least one service');
+            //     $('#servicesContainer').addClass('is-invalid');
+            //     isValid = false;
+            // }
 
-            // Validate SQFT custom field
-            if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
-                errors.push('Please enter custom SQFT value');
-                $('#sqft_custom').addClass('is-invalid');
-                isValid = false;
-            }
+            // // Validate SQFT custom field
+            // if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
+            //     errors.push('Please enter custom SQFT value');
+            //     $('#sqft_custom').addClass('is-invalid');
+            //     isValid = false;
+            // }
 
             if (!$('#status').val()) {
                 errors.push('Lead status is required');
@@ -879,7 +883,7 @@
             let totalAmount = parseFloat($('#amount').val()) || 0;
             let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
 
-            if (advancePaid > totalAmount && totalAmount > 0) {
+            if (advancePaid > totalAmount && totalAmount !== 0) {
                 errors.push('Advance paid cannot exceed total service cost');
                 $('#advance_paid_amount').addClass('is-invalid');
                 isValid = false;
