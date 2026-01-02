@@ -600,7 +600,7 @@
                 @if($lead->status === 'approved' && $lead->jobs && $lead->jobs->count() > 0)
                     @php $job = $lead->jobs->first(); @endphp
                     <div class="related-job-card">
-                        <h6><i class="las la-briefcase me-2"></i>Related Job (Work Order)</h6>
+                        <h6><i class="las la-briefcase me-2"></i>Related Work order</h6>
                         <div class="mb-2">
                             <strong>Job Code:</strong>
                             <span class="badge bg-primary ms-2">{{ $job->job_code }}</span>
@@ -621,7 +621,7 @@
                             <span class="badge bg-warning">{{ ucfirst($job->status) }}</span>
                         </div>
                         <a href="{{ route('jobs.show', $job->id) }}" class="btn view-job-btn">
-                            <i class="las la-external-link-alt me-2"></i>View Job Details
+                            <i class="las la-external-link-alt me-2"></i>View Work order Details
                         </a>
                     </div>
                 @endif

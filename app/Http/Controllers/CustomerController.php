@@ -26,7 +26,14 @@ class CustomerController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $query = Customer::with(['branch', 'lead', 'jobs']);
+        $query = Customer::with(['branch', 'lead'])
+            ->withCount('jobs')
+            ->withCount([
+                'jobs as completed_jobs_count' => function ($q) {
+                    $q->whereIn('status', ['completed', 'confirmed']);
+                }
+            ]);
+
 
         // Role-based access control
         if ($user->role === 'super_admin') {

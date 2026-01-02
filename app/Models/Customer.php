@@ -85,7 +85,7 @@ class Customer extends Model
 
     public function completedJobs()
     {
-        return $this->jobs()->where('status', 'completed')->orwhere('status', 'confirmed');
+        return $this->jobs()->whereIn('status', ['completed', 'confirmed']);
     }
 
     // Priority helpers
@@ -150,8 +150,8 @@ class Customer extends Model
             case 'completed_jobs':
             case 'completed-jobs':
                 // Sort by completed jobs count
-                return $query->withCount(['jobs as completed_jobs_count' => function ($query) {
-                    $query->where('status', 'completed');
+                return $query->withCount(['jobs as completed_jobs_count' => function ($q) {
+                    $q->whereIn('status', ['completed', 'confirmed']);
                 }])->orderBy('completed_jobs_count', $direction);
 
             case 'created_at':

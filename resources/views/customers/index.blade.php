@@ -150,8 +150,8 @@
                                     <th class="sortable" data-column="branch">Branch</th>
                                 @endif
                                 <th class="sortable" data-column="priority">Priority</th>
-                                <th class="sortable" data-column="total-jobs">Total Jobs</th>
-                                <th class="sortable" data-column="completed-jobs">Completed Jobs</th>
+                                <th class="sortable" data-column="total-jobs">Total Work Orders</th>
+                                <th class="sortable" data-column="completed-jobs">Completed Work Orders</th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
@@ -391,9 +391,11 @@
             // SORTING STATE
             // ============================================
             let currentSort = {
-                column: null,
-                direction: 'asc'
+                column: 'completed-jobs',
+                direction: 'desc'
             };
+
+            updateSortIndicators(currentSort.column, currentSort.direction);
 
             // Store current customer data for modals
             let currentCustomer = {
@@ -432,8 +434,14 @@
                         $('#customerCount').text(response.total);
 
                         if (response.current_sort) {
-                            updateSortIndicators(response.current_sort.column, response.current_sort.direction);
+                            currentSort.column = response.current_sort.column;
+                            currentSort.direction = response.current_sort.direction;
+
+                            updateSortIndicators(currentSort.column, currentSort.direction);
+                        } else {
+                            updateSortIndicators(currentSort.column, currentSort.direction);
                         }
+
 
                         $('#customersTable').removeClass('table-loading');
                     },
@@ -518,8 +526,11 @@
             $('#resetFilters').click(function() {
                 $('#priorityFilter').val('');
                 $('#searchCustomer').val('');
-                currentSort = { column: null, direction: 'asc' };
-                $('.sortable').removeClass('asc desc');
+                $('#branchFilter').val('');
+
+                currentSort = { column: 'completed-jobs', direction: 'desc' };
+                updateSortIndicators(currentSort.column, currentSort.direction);
+
                 loadCustomers();
             });
 

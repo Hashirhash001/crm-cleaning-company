@@ -145,7 +145,7 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <h3 class="mb-0 text-primary">{{ $customer->jobs->count() }}</h3>
-                        <small class="text-muted">Total Jobs</small>
+                        <small class="text-muted">Total Work orders</small>
                     </div>
                 </div>
             </div>
@@ -153,7 +153,7 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <h3 class="mb-0 text-success">{{ $customer->completedJobs->count() }}</h3>
-                        <small class="text-muted">Completed Jobs</small>
+                        <small class="text-muted">Completed Work orders</small>
                     </div>
                 </div>
             </div>
@@ -161,7 +161,7 @@
                 <div class="card">
                     <div class="card-body text-center">
                         <h3 class="mb-0 text-info">{{ $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress'])->count() }}</h3>
-                        <small class="text-muted">Active Jobs</small>
+                        <small class="text-muted">Active Work orders</small>
                     </div>
                 </div>
             </div>
@@ -170,7 +170,7 @@
         <!-- Completed Jobs -->
         <div class="card mb-3">
             <div class="card-header">
-                <h5 class="card-title mb-0">Completed Jobs History</h5>
+                <h5 class="card-title mb-0">Completed Work orders History</h5>
             </div>
             <div class="card-body">
                 @if($customer->completedJobs->count() > 0)
@@ -219,7 +219,7 @@
                         </table>
                     </div>
                 @else
-                    <p class="text-muted text-center py-3">No completed jobs yet.</p>
+                    <p class="text-muted text-center py-3">No completed Work orders yet.</p>
                 @endif
             </div>
         </div>
@@ -412,7 +412,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <small class="text-muted">Link this note to a specific job if relevant</small>
+                        <small class="text-muted">Link this note to a specific Work order if relevant</small>
                     </div>
                     @endif
                 </div>

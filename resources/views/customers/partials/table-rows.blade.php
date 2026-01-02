@@ -3,7 +3,7 @@
         data-name="{{ strtolower($customer->name) }}"
         data-email="{{ strtolower($customer->email) }}"
         data-code="{{ $customer->customer_code }}"
-        data-total-jobs="{{ $customer->jobs->count() }}"
+        data-total-jobs="{{ $customer->jobs_count ?? 0 }}"
         data-completed-jobs="{{ $customer->completed_jobs_count ?? 0 }}">
         <td><span class="badge bg-primary">{{ $customer->customer_code }}</span></td>
         <td>
@@ -28,7 +28,7 @@
                 <span class="badge bg-success">Low</span>
             @endif
         </td>
-        <td><span class="badge bg-info">{{ $customer->jobs->count() }}</span></td>
+        <td><span class="badge bg-info">{{ $customer->jobs_count ?? 0 }}</span></td>
         <td><span class="badge bg-success">{{ $customer->completed_jobs_count ?? 0 }}</span></td>
         <td class="text-end">
             @if(auth()->user()->role === 'super_admin')
