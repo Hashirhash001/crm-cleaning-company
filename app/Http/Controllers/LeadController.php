@@ -1164,7 +1164,7 @@ class LeadController extends Controller
                     'email' => $lead->email ?? null,
                     'phone' => $lead->phone,
                     'address' => $lead->address ?? null,
-                    'priority' => 'medium',
+                    'priority' => 'low',
                     'notes' => $lead->description,
                     'lead_id' => $lead->id,
                     'branch_id' => $lead->branch_id,

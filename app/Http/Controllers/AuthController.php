@@ -44,7 +44,11 @@ class AuthController extends Controller
         ];
 
         // Find user by email
-        $user = User::where('email', $validated['email'])->first();
+        $user = User::query()
+            ->where('email', $validated['email'])
+            ->whereNull('deleted_at')
+            ->where('is_active', true)
+            ->first();
 
         // Check if user exists and is active
         if (!$user) {

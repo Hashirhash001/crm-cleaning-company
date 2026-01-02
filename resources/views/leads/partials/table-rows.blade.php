@@ -8,7 +8,7 @@
         data-source="{{ $lead->source->name }}"
         data-branch="{{ $lead->branch->name ?? 'N/A' }}"
         data-assigned="{{ $lead->assignedTo ? $lead->assignedTo->name : 'Unassigned' }}"
-        data-created-by="{{ $lead->createdBy->name }}"
+        data-created-by="{{ $lead->createdBy->name ?? 'N/A' }}"
         data-date="{{ $lead->created_at->format('Y-m-d') }}"
         data-approved-date="{{ $lead->approved_at ? $lead->approved_at->format('Y-m-d') : 'N/A' }}">
 
@@ -92,7 +92,7 @@
 
         <!-- Source -->
         <td>
-            <span class="badge bg-secondary">{{ $lead->source->name }}</span>
+            <span class="badge bg-secondary">{{ $lead->source->name ?? 'N/A' }}</span>
         </td>
 
         <!-- Branch (Super Admin only) -->
@@ -113,7 +113,7 @@
 
         <!-- Created By (Super Admin only) -->
         @if(auth()->user()->role === 'super_admin')
-            <td>{{ $lead->createdBy->name }}</td>
+            <td>{{ $lead->createdBy->name ?? 'N/A' }}</td>
         @endif
 
         <!-- Created Date -->
