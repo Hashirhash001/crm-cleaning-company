@@ -501,6 +501,20 @@
                             </button>
                         @endif
 
+                        {{-- Complete Job Button - Only show if status is confirmed and user is authorized --}}
+                        @if(
+                            $job->status === 'confirmed' &&
+                            (
+                                $user->role === 'super_admin' ||
+                                $user->role === 'telecallers' ||
+                                ($user->role === 'field_staff' && $user->id === $job->assigned_to)
+                            )
+                        )
+                            <button type="button" class="btn btn-success action-button me-2" onclick="completeJob({{ $job->id }})">
+                                <i class="las la-check-circle me-2"></i>Complete Job
+                            </button>
+                        @endif
+
                         @if ($user->role === 'super_admin')
                             <button type="button" class="btn btn-danger action-button" onclick="deleteJob()">
                                 <i class="las la-trash-alt me-2"></i>Delete
@@ -2145,20 +2159,19 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: '/jobs/' + jobId + '/complete',
+                        url: `/jobs/${jobId}/complete`,
                         type: 'POST',
                         success: function() {
-                            Swal.fire('Completed!', 'work order completed successfully', 'success').then(
-                                () => {
-                                    location.reload();
-                                });
+                            Swal.fire('Completed!', 'Work order completed successfully', 'success')
+                                .then(() => location.reload());
                         },
-                        error: function() {
-                            Swal.fire('Error!', 'Failed to complete job', 'error');
+                        error: function(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to complete job', 'error');
                         }
                     });
                 }
             });
         }
+
     </script>
 @endsection

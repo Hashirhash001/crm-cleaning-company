@@ -32,6 +32,25 @@ class JobController extends Controller
 
         $query = Job::with(['customer', 'services', 'service', 'branch', 'assignedTo', 'createdBy', 'lead']);
 
+        // MODE FILTER (like leads page)
+        $mode = $request->input('mode');
+        $status = $request->input('status');
+
+        // Handle quick filters
+        if ($status === 'approved') {
+            // Approved jobs only
+            $query->where('status', 'approved');
+        } elseif ($status === 'confirmed') {
+            // Pending Approval (confirmed status)
+            $query->where('status', 'confirmed');
+        } elseif ($status === 'completed') {
+            // Completed jobs only
+            $query->where('status', 'completed');
+        } elseif ($status && $status !== '') {
+            // Other individual status filters
+            $query->where('status', $status);
+        }
+
         // Filter by status (including 'confirmed')
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -129,6 +148,18 @@ class JobController extends Controller
         // Paginate instead of get()
         $jobs = $query->paginate(15);
 
+        // Calculate pending approval count (confirmed jobs)
+        if (auth()->user()->role === 'telecallers') {
+            $pendingJobs = Job::where('status', 'pending')->where('assigned_to', auth()->user()->id)->count();
+            $pendingApproval = Job::where('status', 'confirmed')->where('assigned_to', auth()->user()->id)->count();
+        } elseif (auth()->user()->role === 'super_admin') {
+            $pendingJobs = Job::where('status', 'pending')->count();
+            $pendingApproval = Job::where('status', 'confirmed')->count();
+        } else {
+            $pendingApproval = 0;
+            $pendingJobs = 0;
+        }
+
         // Get data for filters
         $branches = Branch::all();
         $customers = Customer::all();
@@ -159,11 +190,13 @@ class JobController extends Controller
             ]);
         }
 
-        return view('jobs.index', compact('jobs', 'branches', 'customers', 'services', 'field_staff', 'telecallers'));
+        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'field_staff', 'telecallers'));
     }
 
     public function store(Request $request)
     {
+        $user = auth()->user();
+
         try {
             // Allow super_admin, lead_manager, and telecallers to create jobs
             if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
@@ -189,11 +222,23 @@ class JobController extends Controller
                 'scheduled_time' => 'nullable|date_format:H:i',
                 'amount' => 'nullable|numeric|min:0',
                 'amount_paid' => 'nullable|numeric|min:0',
+                'confirm_on_creation' => 'nullable|boolean',
             ]);
+
+            if ($user->role === 'telecallers') {
+                $validated['assigned_to'] = $user->id;
+            }
 
             // Generate unique job code
             $jobCount = Job::count();
             $jobCode = 'JOB' . str_pad($jobCount + 1, 4, '0', STR_PAD_LEFT);
+
+            // Determine initial status
+            // If telecaller checked "confirm_on_creation", set status to "confirmed"
+            $initialStatus = 'pending';
+            if ($user->role === 'telecallers' && $request->input('confirm_on_creation') == 1) {
+                $initialStatus = 'confirmed';
+            }
 
             $job = Job::create([
                 // 'job_code' => $jobCode,
@@ -208,8 +253,9 @@ class JobController extends Controller
                 'scheduled_time' => $validated['scheduled_time'] ?? null,
                 'amount' => $validated['amount'] ?? null,
                 'amount_paid' => $validated['amount_paid'] ?? 0,
+                'assigned_to' => $validated['assigned_to'] ?? null,
                 'created_by' => auth()->id(),
-                'status' => 'pending',
+                'status' => $initialStatus,
             ]);
 
             // **ATTACH SELECTED SERVICES WITH QUANTITIES**
@@ -601,44 +647,6 @@ class JobController extends Controller
         }
     }
 
-    // Confirm job status (admin only)
-    public function confirmStatus(Job $job)
-    {
-        try {
-            $user = auth()->user();
-
-            if ($user->role !== 'super_admin') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Only admin can confirm job status'
-                ], 403);
-            }
-
-            $job->update([
-                'status' => 'confirmed',
-                'confirmed_at' => now(),
-                'confirmed_by' => $user->id,
-            ]);
-
-            Log::info('Job status confirmed', [
-                'job_id' => $job->id,
-                'confirmed_by' => $user->id
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Job status confirmed successfully!'
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Job confirm status error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Error confirming job status'
-            ], 500);
-        }
-    }
-
     public function startJob(Job $job)
     {
         try {
@@ -677,20 +685,133 @@ class JobController extends Controller
         }
     }
 
-    public function completeJob(Request $request, Job $job)
+    /**
+     * Telecallers confirm the job (change status to "confirmed")
+     */
+    public function confirmStatus(Request $request, Job $job)
     {
         try {
-            if (auth()->user()->role !== 'field_staff' || auth()->id() !== $job->assigned_to) {
+            $user = auth()->user();
+
+            // Only telecallers can confirm
+            if ($user->role !== 'telecallers') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Only telecallers can confirm jobs'
                 ], 403);
             }
 
-            if ($job->status !== 'in_progress') {
+            // Can only confirm if status is pending
+            if ($job->status !== 'pending') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Job is not in progress'
+                    'message' => 'Job must be in pending status to confirm'
+                ], 400);
+            }
+
+            $job->update([
+                'status' => 'confirmed',
+            ]);
+
+            Log::info('Job confirmed', [
+                'job_id' => $job->id,
+                'confirmed_by' => $user->id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Job confirmed successfully! Waiting for admin approval.'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Job confirm error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error confirming job'
+            ], 500);
+        }
+    }
+
+    /**
+     * Super admin approves confirmed jobs (change status to "approved")
+     */
+    public function approveJob(Request $request, Job $job)
+    {
+        try {
+            $user = auth()->user();
+
+            // Only super_admin can approve
+            if ($user->role !== 'super_admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only Super Admin can approve jobs'
+                ], 403);
+            }
+
+            // Can only approve if status is confirmed
+            if ($job->status !== 'confirmed') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job must be in confirmed status to approve'
+                ], 400);
+            }
+
+            $validated = $request->validate([
+                'approval_notes' => 'nullable|string',
+            ]);
+
+            $job->update([
+                'status' => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'notes' => $validated['approval_notes'] ?? $job->notes,
+            ]);
+
+            Log::info('Job approved', [
+                'job_id' => $job->id,
+                'approved_by' => $user->id
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Job approved successfully!'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Job approve error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error approving job'
+            ], 500);
+        }
+    }
+
+    /**
+     * Updated completeJob method - only allow completion of approved jobs
+     */
+    public function completeJob(Request $request, Job $job)
+    {
+        try {
+            $user = auth()->user();
+
+            $isAuthorized = (
+                ($user->role === 'field_staff' && $user->id === $job->assigned_to) ||
+                $user->role === 'telecallers' ||
+                $user->role === 'super_admin'
+            );
+
+            if (!$isAuthorized) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized to complete this job'
+                ], 403);
+            }
+
+            // Only allow completion if status is "approved" (changed from "confirmed")
+            if ($job->status !== 'approved') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Job must be approved before it can be marked as complete'
                 ], 400);
             }
 
@@ -699,7 +820,11 @@ class JobController extends Controller
                 'completed_at' => now(),
             ]);
 
-            Log::info('Job completed', ['job_id' => $job->id]);
+            Log::info('Job completed', [
+                'job_id' => $job->id,
+                'completed_by' => $user->id,
+                'user_role' => $user->role
+            ]);
 
             return response()->json([
                 'success' => true,

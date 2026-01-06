@@ -106,12 +106,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/jobs/{job}/notes', [JobController::class, 'addNote'])->name('jobs.addNote');
     Route::delete('/jobs/{job}/notes/{note}', [JobController::class, 'deleteNote'])->name('jobs.deleteNote');
 
-    Route::post('/jobs/{job}/confirm-status', [JobController::class, 'confirmStatus'])
-    ->name('jobs.confirm-status');
+    Route::post('jobs/{job}/confirm-status', [JobController::class, 'confirmStatus'])->name('confirmStatus');
+    Route::post('jobs/{job}/approve', [JobController::class, 'approveJob'])->name('approve');
+    Route::post('jobs/{job}/complete', [JobController::class, 'completeJob'])->name('complete');
     Route::resource('jobs', JobController::class);
     Route::post('jobs/{job}/assign', [JobController::class, 'assign'])->name('jobs.assign');
     Route::post('jobs/{job}/start', [JobController::class, 'startJob'])->name('jobs.start');
-    Route::post('jobs/{job}/complete', [JobController::class, 'completeJob'])->name('jobs.complete');
+    // Route::post('jobs/{job}/complete', [JobController::class, 'completeJob'])->name('jobs.complete');
 
     // Duplicate check and direct job creation
     Route::post('leads/check-duplicate', [LeadController::class, 'checkDuplicate'])->name('leads.checkDuplicate');

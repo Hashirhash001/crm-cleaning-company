@@ -31,6 +31,8 @@ class Job extends Model
         'location',
         'scheduled_date',
         'scheduled_time',
+        'approved_by',
+        'approved_at',
     ];
 
     protected $casts = [
@@ -40,7 +42,13 @@ class Job extends Model
         'scheduled_date' => 'date',
         'amount' => 'decimal:2',
         'amount_paid' => 'decimal:2',
+        'approved_at' => 'datetime',
     ];
+
+    public function approvedBy()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
 
     protected function serializeDate(\DateTimeInterface $date)
     {

@@ -357,6 +357,111 @@
             font-weight: 600;
             margin: 0;
         }
+
+        .badge-confirmed {
+            background-color: #8b5cf6;
+            color: #fff;
+        }
+
+        .badge-approved {
+            background-color: #28a745;
+            color: #fff;
+        }
+
+        .text-purple {
+            color: #8b5cf6 !important;
+        }
+
+        /* Quick filter button active states */
+        #viewModeToggle .btn-outline-info.active {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #000;
+        }
+
+        /* Status Badge Colors */
+        .badge-pending {
+            background-color: #ffc107;
+            color: #000;
+        }
+
+        .badge-confirmed {
+            background-color: #8b5cf6; /* Purple for confirmed/awaiting approval */
+            color: #fff;
+        }
+
+        .badge-approved {
+            background-color: #28a745; /* Green for approved */
+            color: #fff;
+        }
+
+        .badge-in_progress {
+            background-color: #0dcaf0;
+            color: #000;
+        }
+
+        .badge-completed {
+            background-color: #198754;
+            color: #fff;
+        }
+
+        .badge-cancelled {
+            background-color: #dc3545;
+            color: #fff;
+        }
+
+        /* Purple text color for confirm button */
+        .text-purple {
+            color: #8b5cf6 !important;
+        }
+
+        .text-purple:hover {
+            color: #7c3aed !important;
+        }
+
+         /* Quick filter button active states */
+        #viewModeToggle .btn-outline-primary.active {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+            color: white;
+        }
+
+        #viewModeToggle .btn-outline-info.active {
+            background-color: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #000;
+        }
+
+        #viewModeToggle .btn-outline-success.active {
+            background-color: #198754;
+            border-color: #198754;
+            color: white;
+        }
+
+        #viewModeToggle .btn-outline-secondary.active {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: white;
+        }
+
+        /* Confirm on creation checkbox styling */
+        #confirmOnCreation {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            border: 2px solid #000;
+        }
+
+        .form-check-label {
+            cursor: pointer;
+        }
+
+        .confirm-info-message {
+            font-size: 0.875rem;
+            border-left: 3px solid #8b5cf6;
+        }
+
     </style>
 @endsection
 
@@ -389,16 +494,12 @@
                                     <label class="form-label fw-semibold mb-2">Filter by Status</label>
                                     <select class="form-select" id="statusFilter" name="status" style="min-width: 140px;">
                                         <option value="">All Status</option>
-                                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>
-                                            Pending</option>
-                                        <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>
-                                            Confirmed</option>
-                                        <option value="in_progress"
-                                            {{ request('status') == 'in_progress' ? 'selected' : '' }}>In Progress</option>
-                                        <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>
-                                            Completed</option>
-                                        <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>
-                                            Cancelled</option>
+                                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                                        <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
+                                        <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
+                                        <option value="in_progress" {{ request('status') == 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                                        <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
+                                        <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                                     </select>
                                 </div>
 
@@ -479,8 +580,16 @@
             <div class="col-lg-12">
                 <div class="card jobs-card">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h4 class="card-title mb-0">Work Orders List (<span id="jobCount">{{ $jobs->total() }}</span>
-                            total)</h4>
+                        <h4 class="card-title mb-0">
+                            Work Orders List
+                            <span id="jobCount">{{ $jobs->total() }}</span> total
+                            @if(auth()->user()->role === 'super_admin' && $pendingApproval > 0)
+                                <span class="badge bg-warning ms-2">{{ $pendingApproval }} Pending Approval</span>
+                            @endif
+                            @if(auth()->user()->role === 'telecallers' && $pendingJobs > 0)
+                                <span class="badge bg-warning ms-2">{{ $pendingJobs }} Pending Jobs</span>
+                            @endif
+                        </h4>
                         <!-- Add Job Button -->
                         @if (auth()->user()->role === 'super_admin' ||
                                 auth()->user()->role === 'lead_manager' ||
@@ -492,6 +601,40 @@
                             </div>
                         @endif
                     </div>
+                    {{-- VIEW MODE TOGGLE - Updated filters --}}
+                    <div class="btn-group w-100" role="group" id="viewModeToggle">
+                        <button type="button"
+                                class="btn btn-outline-primary {{ !request('status') ? 'active' : '' }}"
+                                data-status=""
+                                data-mode="">
+                            All Work Orders
+                        </button>
+
+                        {{-- Pending Approval (confirmed status) --}}
+                        <button type="button"
+                                class="btn btn-outline-info {{ request('status') == 'confirmed' ? 'active' : '' }}"
+                                data-status="confirmed"
+                                data-mode="">
+                            <i class="las la-hourglass-half me-1"></i> Pending Approval
+                        </button>
+
+                        {{-- Approved --}}
+                        <button type="button"
+                                class="btn btn-outline-success {{ request('status') == 'approved' ? 'active' : '' }}"
+                                data-status="approved"
+                                data-mode="">
+                            <i class="las la-check-circle me-1"></i> Approved
+                        </button>
+
+                        {{-- NEW: Completed --}}
+                        <button type="button"
+                                class="btn btn-outline-secondary {{ request('status') == 'completed' ? 'active' : '' }}"
+                                data-status="completed"
+                                data-mode="">
+                            <i class="las la-flag-checkered me-1"></i> Completed
+                        </button>
+                    </div>
+
                     <div class="card-body">
                         <div class="table-container">
                             <table class="table table-hover mb-0" id="jobsTable">
@@ -678,16 +821,32 @@
                             </div>
                         </div>
 
-                        {{-- Customer Instructions --}}
+                        <!-- Customer Instructions -->
                         <div class="row mb-3">
                             <div class="col-12">
                                 <label for="customerinstructions" class="form-label">Customer Instructions</label>
-                                <textarea class="form-control" id="customerinstructions" name="customer_instructions" rows="2"
-                                    placeholder="Special instructions or preferences for this job..."></textarea>
+                                <textarea class="form-control" id="customerinstructions" name="customerinstructions" rows="2" placeholder="Special instructions or preferences for this job..."></textarea>
                                 <small class="text-muted">E.g., Key under doormat, call before arriving, etc.</small>
                                 <span class="error-text customerinstructionserror text-danger d-block mt-1"></span>
                             </div>
                         </div>
+
+                        {{-- NEW: Confirm on Creation - Only for Telecallers --}}
+                        @if(auth()->user()->role === 'telecallers')
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="confirmOnCreation" name="confirm_on_creation" value="1">
+                                        <label class="form-check-label" for="confirmOnCreation">
+                                            <strong>Confirm this work order immediately</strong>
+                                            <small class="d-block text-muted">
+                                                <i class="las la-info-circle"></i> Check this box to mark the job as "Confirmed" and send it directly for admin approval.
+                                            </small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
 
                     </div>
 
@@ -1094,39 +1253,40 @@
             // LOAD JOBS FUNCTION - FIXED
             // ============================================
             function loadJobs(page = 1) {
-                const searchTerm = $('#searchInput').val(); // FIXED: was #jobSearch
+                const searchTerm = $('#searchInput').val();
                 const status = $('#statusFilter').val();
                 const branchId = $('#branchFilter').val();
                 const serviceId = $('#serviceFilter').val();
-                const dateFrom = $('#dateFrom').val(); // FIXED: was #dateFromFilter
-                const dateTo = $('#dateTo').val(); // FIXED: was #dateToFilter
+                const dateFrom = $('#dateFrom').val();
+                const dateTo = $('#dateTo').val();
 
-                console.log('🔍 Loading jobs with:', {
+                console.log('Loading jobs with:', {
                     search: searchTerm,
+                    status: status,
+                    branchId: branchId,
                     sort: currentSort.column,
                     direction: currentSort.direction
                 });
 
                 $.ajax({
-                    url: '{{ route('jobs.index') }}',
+                    url: '{{ route("jobs.index") }}',
                     type: 'GET',
                     data: {
                         search: searchTerm,
-                        status: status,
-                        branch_id: branchId,
-                        service_id: serviceId,
-                        date_from: dateFrom,
-                        date_to: dateTo,
-                        sort_column: currentSort.column, // Use currentSort object
-                        sort_direction: currentSort.direction,
+                        status: status, // Make sure status is sent
+                        branchid: branchId,
+                        serviceid: serviceId,
+                        datefrom: dateFrom,
+                        dateto: dateTo,
+                        sortcolumn: currentSort.column,
+                        sortdirection: currentSort.direction,
                         page: page
                     },
                     beforeSend: function() {
                         $('#jobsTableBody').addClass('table-loading');
                     },
                     success: function(response) {
-                        console.log('✅ Jobs loaded:', response.total, 'results');
-
+                        console.log('Jobs loaded:', response.total, 'results');
                         $('#jobsTableBody').html(response.html);
                         $('#paginationContainer').html(response.pagination);
                         $('#jobCount').text(response.total);
@@ -1137,7 +1297,7 @@
                         $('#jobsTableBody').removeClass('table-loading');
                     },
                     error: function(xhr) {
-                        console.error('❌ Error loading jobs:', xhr);
+                        console.error('Error loading jobs:', xhr);
                         $('#jobsTableBody').removeClass('table-loading');
                         Swal.fire('Error!', 'Failed to load jobs', 'error');
                     }
@@ -1200,12 +1360,32 @@
                 }
             });
 
+            // Show/hide confirmation message based on checkbox
+            $('#confirmOnCreation').on('change', function() {
+                if ($(this).is(':checked')) {
+                    // Optional: Show a small info message
+                    if ($('.confirm-info-message').length === 0) {
+                        $(this).closest('.form-check').after(
+                            '<div class="alert alert-info py-2 mt-2 confirm-info-message">' +
+                            '<i class="las la-check-circle"></i> ' +
+                            'This job will be marked as <strong>Confirmed</strong> and sent directly to admin for approval.' +
+                            '</div>'
+                        );
+                    }
+                } else {
+                    $('.confirm-info-message').remove();
+                }
+            });
+
             // Add Job Button
             $('#addJobBtn').click(function() {
                 $('#jobForm')[0].reset();
                 $('#job_id').val('');
                 $('#jobModalLabel').text('Add Work Order');
                 $('.error-text').text('');
+                // Clear the confirm checkbox
+                $('#confirmOnCreation').prop('checked', false);
+                $('.confirm-info-message').remove();
                 // Only superadmin should clear branch selection
                 @if (auth()->user()->role === 'super_admin')
                     $('#branchid').val('').trigger('change');
@@ -1516,18 +1696,62 @@
                 });
             });
 
-            // Confirm Job Status
+            // VIEW MODE TOGGLE HANDLER (same as leads)
+            $('#viewModeToggle button').on('click', function() {
+                $('#viewModeToggle button').removeClass('active');
+                $(this).addClass('active');
+
+                let status = $(this).data('status');
+                let mode = $(this).data('mode');
+
+                // Update hidden inputs
+                $('#statusFilter').val(status);
+
+                let modeInput = $('#filterMode');
+                if (modeInput.length === 0) {
+                    $('#filterForm').append('<input type="hidden" id="filterMode" name="mode">');
+                    modeInput = $('#filterMode');
+                }
+                modeInput.val(mode);
+
+                loadJobs();
+            });
+
+            // STATUS FILTER CHANGE HANDLER (updated to sync with quick filters)
+            $('#statusFilter').on('change', function() {
+                let value = $(this).val();
+
+                console.log('Status filter changed:', value);
+
+                // Sync viewModeToggle visual state
+                $('#viewModeToggle button').removeClass('active');
+
+                if (value === 'approved') {
+                    $('#viewModeToggle button[data-status="approved"]').addClass('active');
+                } else if (value === 'confirmed') {
+                    $('#viewModeToggle button[data-status="confirmed"]').addClass('active');
+                } else if (value === 'completed') {
+                    $('#viewModeToggle button[data-status="completed"]').addClass('active');
+                } else if (value === '' || !value) {
+                    $('#viewModeToggle button[data-status=""][data-mode=""]').addClass('active');
+                }
+
+                // Load jobs
+                loadJobs();
+            });
+
+            // Confirm Job Button
             $(document).on('click', '.confirmJobBtn', function() {
                 let jobId = $(this).data('id');
 
                 Swal.fire({
-                    title: 'Confirm Work Order Status?',
-                    text: 'This will change the job status to confirmed.',
+                    title: 'Confirm Work Order?',
+                    text: 'This will submit the work order for admin approval.',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Yes, Confirm',
                     cancelButtonText: 'Cancel',
-                    confirmButtonColor: '#28a745',
+                    confirmButtonColor: '#8b5cf6',
                     cancelButtonColor: '#6c757d'
                 }).then((result) => {
                     if (result.isConfirmed) {
@@ -1536,61 +1760,60 @@
                             type: 'POST',
                             success: function(response) {
                                 if (response.success) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Confirmed!',
-                                        text: response.message,
-                                        timer: 2000,
-                                        showConfirmButton: false
-                                    }).then(() => {
-                                        loadJobs();
-                                    });
+                                    Swal.fire('Confirmed!', response.message, 'success')
+                                        .then(() => loadJobs());
                                 }
                             },
                             error: function(xhr) {
-                                Swal.fire('Error', xhr.responseJSON?.message ||
-                                    'Could not confirm job.', 'error');
+                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not confirm job.', 'error');
                             }
                         });
                     }
                 });
             });
 
-            // Start Job
-            $(document).on('click', '.startJobBtn', function() {
+            // Approve Job Button
+            $(document).on('click', '.approveJobBtn', function() {
                 let jobId = $(this).data('id');
 
                 Swal.fire({
-                    title: 'Start Job?',
+                    title: 'Approve Work Order?',
+                    html: '<textarea id="approval_notes" class="swal2-textarea" placeholder="Add approval notes (optional)" style="width: 100%; min-height: 80px; margin: 0 !important;"></textarea>',
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonText: 'Start',
-                    cancelButtonText: 'Cancel'
+                    confirmButtonText: 'Yes, Approve',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d'
                 }).then((result) => {
                     if (result.isConfirmed) {
+                        let notes = $('#approval_notes').val();
+
                         $.ajax({
-                            url: '/jobs/' + jobId + '/start',
+                            url: `/jobs/${jobId}/approve`,
                             type: 'POST',
-                            success: function() {
-                                Swal.fire('Started!', 'Work Order started successfully',
-                                    'success').then(() => {
-                                    loadJobs();
-                                });
+                            data: { approval_notes: notes },
+                            success: function(response) {
+                                if (response.success) {
+                                    Swal.fire('Approved!', response.message, 'success')
+                                        .then(() => loadJobs());
+                                }
                             },
-                            error: function() {
-                                Swal.fire('Error!', 'Failed to start job', 'error');
+                            error: function(xhr) {
+                                Swal.fire('Error', xhr.responseJSON?.message || 'Could not approve job.', 'error');
                             }
                         });
                     }
                 });
             });
 
-            // Complete Job
+            // Update Complete Job Button (already exists, just ensure it checks for approved status)
             $(document).on('click', '.completeJobBtn', function() {
                 let jobId = $(this).data('id');
 
                 Swal.fire({
                     title: 'Complete Job?',
+                    text: 'This will mark the work order as completed',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Complete',
@@ -1598,22 +1821,20 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: '/jobs/' + jobId + '/complete',
+                            url: `/jobs/${jobId}/complete`,
                             type: 'POST',
                             success: function() {
-                                Swal.fire('Completed!',
-                                        'Work Order completed successfully', 'success')
-                                    .then(() => {
-                                        loadJobs();
-                                    });
+                                Swal.fire('Completed!', 'Work order completed successfully', 'success')
+                                    .then(() => loadJobs());
                             },
-                            error: function() {
-                                Swal.fire('Error!', 'Failed to complete job', 'error');
+                            error: function(xhr) {
+                                Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to complete job', 'error');
                             }
                         });
                     }
                 });
             });
+
 
             console.log('✅ Jobs management system initialized');
         });

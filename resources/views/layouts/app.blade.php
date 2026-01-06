@@ -110,10 +110,10 @@
                                     <i class="iconoir-send menu-icon"></i>
                                     <span>Leads
                                         @php
-                                            $pendingCount = \App\Models\Lead::where('status', 'pending')->count();
+                                            $pendingApproval = \App\Models\Lead::where('status', 'confirmed')->count();
                                         @endphp
-                                        @if($pendingCount > 0)
-                                            <span class="badge bg-danger ms-2">{{ $pendingCount }}</span>
+                                        @if($pendingApproval > 0)
+                                            <span class="badge bg-danger ms-2">{{ $pendingApproval }}</span>
                                         @endif
                                     </span>
                                 </a>
@@ -129,7 +129,14 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
                                     <i class="iconoir-task-list menu-icon"></i>
-                                    <span>Work Orders</span>
+                                    <span>Work Orders
+                                        @php
+                                            $pendingConfirmation = \App\Models\Job::where('status', 'confirmed')->count();
+                                        @endphp
+                                        @if($pendingConfirmation > 0)
+                                            <span class="badge bg-danger ms-2">{{ $pendingConfirmation }}</span>
+                                        @endif
+                                    </span>
                                 </a>
                             </li>
 
@@ -183,17 +190,13 @@
                                     <i class="iconoir-send menu-icon"></i>
                                     <span>Leads
                                         @php
-                                            $assignedLeadsCount = \App\Models\Lead::where('assigned_to', auth()->id())
-                                                ->where('status', 'pending')
-                                                ->count();
-                                            $todayFollowups = \App\Models\LeadFollowup::where('assigned_to', auth()->id())
-                                                ->where('status', 'pending')
-                                                ->whereDate('followup_date', today())
+                                            $todayFollowups = \App\Models\Lead::where('assigned_to', auth()->id())
+                                                ->whereNotIn('status', ['approved', 'confirmed', 'rejected'])
                                                 ->count();
                                         @endphp
-                                        @if($assignedLeadsCount > 0 || $todayFollowups > 0)
+                                        @if($todayFollowups > 0)
                                             <span class="badge bg-info ms-2">
-                                                {{ $assignedLeadsCount }}
+                                                {{ $todayFollowups }}
                                                 @if($todayFollowups > 0)
                                                     <i class="las la-bell" title="{{ $todayFollowups }} followups today"></i>
                                                 @endif
@@ -213,7 +216,7 @@
                                             $whatsappCount = $whatsappSource ?
                                                 \App\Models\Lead::where('assigned_to', auth()->id())
                                                     ->where('lead_source_id', $whatsappSource->id)
-                                                    ->where('status', 'pending')
+                                                    ->whereNotIn('status', ['approved', 'confirmed', 'rejected'])
                                                     ->count() : 0;
                                         @endphp
                                         @if($whatsappCount > 0)
@@ -233,7 +236,7 @@
                                             $googleAdsCount = $googleAdsSource ?
                                                 \App\Models\Lead::where('assigned_to', auth()->id())
                                                     ->where('lead_source_id', $googleAdsSource->id)
-                                                    ->where('status', 'pending')
+                                                    ->whereNotIn('status', ['approved', 'confirmed', 'rejected'])
                                                     ->count() : 0;
                                         @endphp
                                         @if($googleAdsCount > 0)
@@ -256,10 +259,8 @@
                                     <i class="iconoir-task-list menu-icon"></i>
                                     <span>Work Orders
                                         @php
-                                            // Count jobs from leads created by this telecaller
-                                            $myJobsCount = \App\Models\Job::whereHas('lead', function($query) {
-                                                $query->where('assigned_to', auth()->id());
-                                            })->whereIn('status', ['pending', 'confirmed'])->count();
+                                            // Count the number of pending jobs
+                                            $myJobsCount = \App\Models\Job::where('assigned_to', auth()->id())->whereIn('status', ['pending'])->count();
                                         @endphp
                                         @if($myJobsCount > 0)
                                             <span class="badge bg-primary ms-2">{{ $myJobsCount }}</span>
@@ -267,7 +268,6 @@
                                     </span>
                                 </a>
                             </li>
-
 
                         @elseif(auth()->user()->role === 'field_staff')
                             <!-- Field Staff Menu -->

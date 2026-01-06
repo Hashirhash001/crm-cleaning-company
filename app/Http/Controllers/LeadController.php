@@ -174,12 +174,18 @@ class LeadController extends Controller
         // ============================================
         if ($user->role === 'super_admin') {
             $pendingcount = Lead::where('status', 'pending')->count();
+            $pendingApproval = Lead::where('status', 'confirmed')->count();
         } elseif ($user->role === 'lead_manager') {
             $pendingcount = Lead::where('status', 'pending')
                 ->where('created_by', $user->id)
                 ->count();
+
+            $pendingApproval = Lead::where('status', 'confirmed')
+                ->where('created_by', $user->id)
+                ->count();
         } else {
             $pendingcount = 0;
+            $pendingApproval = 0;
         }
 
         // Get filter dropdown data
@@ -207,7 +213,7 @@ class LeadController extends Controller
             ]);
         }
 
-        return view('leads.index', compact('leads', 'pendingcount', 'branches', 'services', 'lead_sources', 'telecallers'));
+        return view('leads.index', compact('leads', 'pendingcount', 'pendingApproval', 'branches', 'services', 'lead_sources', 'telecallers'));
     }
 
     public function create()
@@ -1247,7 +1253,7 @@ class LeadController extends Controller
                     'amount' => $lead->amount,
                     'amount_paid' => $lead->advance_paid_amount ?? 0,
                     'scheduled_date' => null,
-                    'status' => 'confirmed',
+                    'status' => 'Approved',
                     'created_by' => auth()->id(),
                     'notes' => 'Auto-created from approved lead: ' . $lead->lead_code . "\n" .
                             'Amount: ₹' . number_format($lead->amount, 2) . "\n" .

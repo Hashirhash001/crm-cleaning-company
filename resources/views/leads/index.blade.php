@@ -1201,8 +1201,8 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">
                         Leads List (<span id="leadCount">{{ $leads->total() }}</span> total)
-                        @if (auth()->user()->role === 'super_admin' && $pendingcount > 0)
-                            <span class="badge bg-warning ms-2">{{ $pendingcount }} Pending Approval</span>
+                        @if (auth()->user()->role === 'super_admin' && $pendingApproval > 0)
+                            <span class="badge bg-warning ms-2">{{ $pendingApproval }} Pending Approval</span>
                         @endif
                     </h4>
 

@@ -46,17 +46,19 @@
             @endif
         </td>
 
-        <!-- Amount Column -->
+        <!-- Payment Details Column -->
         <td>
             @if($job->amount)
                 <div>
-                    {{-- <strong class="text-primary">₹{{ number_format($job->amount, 2) }}</strong> --}}
                     <small class="d-block text-muted">
-                        Paid: ₹{{ number_format($job->amount_paid, 2) }}
+                        Paid: ₹{{ number_format($job->amount_paid ?? 0, 2) }}
                     </small>
-                    @if($job->balance_amount > 0)
+                    @php
+                        $balance = $job->amount - ($job->amount_paid ?? 0);
+                    @endphp
+                    @if($balance > 0)
                         <small class="d-block text-danger">
-                            Balance: ₹{{ number_format($job->balance_amount, 2) }}
+                            Balance: ₹{{ number_format($balance, 2) }}
                         </small>
                     @else
                         <span class="badge bg-success">Fully Paid</span>
@@ -67,12 +69,15 @@
             @endif
         </td>
 
-
         <!-- Status -->
-        <td><span class="badge badge-{{ $job->status }}">{{ ucfirst(str_replace('_', ' ', $job->status)) }}</span></td>
+        <td>
+            <span class="badge badge-{{ $job->status }}">
+                {{ ucfirst(str_replace('_', ' ', $job->status)) }}
+            </span>
+        </td>
 
         <!-- Branch -->
-        <td>{{ $job->branch->name }}</td>
+        <td>{{ $job->branch->name ?? 'N/A' }}</td>
 
         {{-- Show Assigned To and Scheduled Date for super_admin, lead_manager, and telecallers --}}
         @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
@@ -82,7 +87,7 @@
             <!-- Scheduled Date & Time -->
             <td>
                 @if($job->scheduled_date)
-                    {{ $job->scheduled_date->format('d M Y') }}
+                    {{ \Carbon\Carbon::parse($job->scheduled_date)->format('d M Y') }}
                     @if($job->scheduled_time)
                         <br><small class="text-muted">{{ $job->scheduled_time }}</small>
                     @endif
@@ -93,54 +98,90 @@
         @endif
 
         <!-- Actions -->
-        <td style="text-align: center;">
+        <td style="text-align: center; min-width: 200px;">
             <div class="action-icons" style="justify-content: center;">
                 @php
                     $user = auth()->user();
-                    $canEdit = in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']);
                 @endphp
 
+                {{-- View Button - Everyone --}}
+                <a href="{{ route('jobs.show', $job->id) }}" class="text-info" title="View Details">
+                    <i class="las la-eye fs-20"></i>
+                </a>
+
+                {{-- CONFIRM Button - ONLY Telecallers can confirm PENDING jobs --}}
+                @if($user->role === 'telecallers' && $job->status === 'pending')
+                    <a href="javascript:void(0);"
+                       class="text-purple confirmJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Confirm Job">
+                        <i class="las la-check-circle text-success fs-18"></i>
+                    </a>
+                @endif
+
+                {{-- APPROVE Button - ONLY Super Admin approves CONFIRMED jobs --}}
+                @if($user->role === 'super_admin' && $job->status === 'confirmed')
+                    <a href="javascript:void(0);"
+                       class="text-primary approveJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Approve Job">
+                        <i class="las la-check-circle text-success fs-18"></i>
+                    </a>
+                @endif
+
+                {{-- COMPLETE Button - Only for APPROVED jobs --}}
+                @if($job->status === 'approved' &&
+                    ($user->role === 'super_admin' ||
+                     $user->role === 'telecallers' ||
+                     ($user->role === 'field_staff' && $user->id === $job->assigned_to)))
+                    <a href="javascript:void(0);"
+                       class="text-success completeJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Complete Job">
+                        <i class="las la-check-circle fs-20"></i>
+                    </a>
+                @endif
+
+                {{-- START Button - Field Staff can start APPROVED jobs --}}
+                {{-- @if($user->role === 'field_staff' &&
+                    $user->id === $job->assigned_to &&
+                    $job->status === 'approved')
+                    <a href="javascript:void(0);"
+                       class="text-warning startJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Start Job">
+                        <i class="las la-play-circle fs-20"></i>
+                    </a>
+                @endif --}}
+
                 {{-- Edit Button - Available for super_admin, lead_manager, and telecallers --}}
-                @if($canEdit)
-                    <a href="javascript:void(0)" class="editJobBtn" data-id="{{ $job->id }}" title="Edit">
-                        <i class="las la-pen text-secondary fs-18"></i>
+                @if(in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']))
+                    <a href="javascript:void(0);"
+                       class="text-secondary editJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Edit">
+                        <i class="las la-pen fs-20"></i>
+                    </a>
+                @endif
+
+                {{-- Re-assign Button - Super Admin & Lead Manager --}}
+                @if(in_array($user->role, ['super_admin', 'lead_manager']))
+                    <a href="javascript:void(0);"
+                       class="text-info assignJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Re-assign">
+                        <i class="las la-user-check fs-20"></i>
                     </a>
                 @endif
 
                 {{-- Delete Button - Super Admin Only --}}
-                @if(auth()->user()->role === 'super_admin')
-                    <a href="javascript:void(0)" class="deleteJobBtn" data-id="{{ $job->id }}" title="Delete">
-                        <i class="las la-trash-alt text-danger fs-18"></i>
+                @if($user->role === 'super_admin')
+                    <a href="javascript:void(0);"
+                       class="text-danger deleteJobBtn"
+                       data-id="{{ $job->id }}"
+                       title="Delete">
+                        <i class="las la-trash-alt fs-20"></i>
                     </a>
-                    <a href="javascript:void(0)" class="assignJobBtn" data-id="{{ $job->id }}" title="Re-assign">
-                        <i class="las la-user-check text-info fs-18"></i>
-                    </a>
-                @endif
-
-                {{-- Confirm Button - Super Admin Only for Pending Jobs --}}
-                @if(auth()->user()->role === 'super_admin' && $job->status === 'pending')
-                    <button type="button"
-                            class="btn btn-sm confirmJobBtn"
-                            data-id="{{ $job->id }}"
-                            title="Confirm Job"
-                            style="padding: 0; border: none; background: transparent;">
-                        <i class="las la-check-circle text-success fs-18"></i>
-                    </button>
-                @endif
-
-                {{-- Field Staff Actions --}}
-                @if(auth()->user()->role === 'field_staff' && auth()->id() === $job->assigned_to)
-                    @if(in_array($job->status, ['assigned', 'confirmed']))
-                        <a href="javascript:void(0)" class="startJobBtn" data-id="{{ $job->id }}" title="Start Job">
-                            <i class="las la-play text-success fs-18"></i>
-                        </a>
-                    @endif
-
-                    @if($job->status === 'in_progress')
-                        <a href="javascript:void(0)" class="completeJobBtn" data-id="{{ $job->id }}" title="Complete Job">
-                            <i class="las la-check-circle text-success fs-18"></i>
-                        </a>
-                    @endif
                 @endif
             </div>
         </td>
@@ -148,7 +189,7 @@
 @empty
     <tr>
         {{-- Update colspan based on role --}}
-        <td colspan="{{ in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']) ? '10' : '8' }}" class="text-center py-4">
+        <td colspan="{{ in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']) ? '11' : '9' }}" class="text-center py-4">
             <div class="text-center py-5">
                 <i class="las la-briefcase" style="font-size: 4rem; opacity: 0.2;"></i>
                 <p class="text-muted mt-3 mb-0">No jobs found matching your filters</p>
