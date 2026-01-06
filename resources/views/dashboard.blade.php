@@ -784,14 +784,14 @@
             </div>
 
             <div class="col-xl-3 col-lg-6 col-md-6 mb-3">
-                <a href="{{ route('jobs.index', ['status' => 'pending']) }}" class="text-decoration-none">
+                <a href="{{ route('jobs.index', ['status' => 'confirmed']) }}" class="text-decoration-none">
                     <div class="card stat-card mb-0">
                         <div class="card-body">
                             <div class="d-flex align-items-center w-100">
                                 <div class="flex-grow-1">
-                                    <p class="text-muted text-uppercase mb-1 fw-medium fs-12">Pending Work Orders</p>
-                                    <h4 class="mt-0 mb-0 fw-semibold">{{ $pendingWorkOrders }}</h4>
-                                    <small class="text-warning">Pending Confirmation</small>
+                                    <p class="text-muted text-uppercase mb-1 fw-medium fs-12">Confirmed Work Orders</p>
+                                    <h4 class="mt-0 mb-0 fw-semibold">{{ $pendingApprovalWorkOrders }}</h4>
+                                    <small class="text-warning">Awaiting Approval</small>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-soft-info text-info rounded">

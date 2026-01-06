@@ -34,7 +34,7 @@ class DashboardController extends Controller
             $pendingLeads = Lead::where('status', 'pending')->count();
             $confirmedLeads = Lead::where('status', 'confirmed')->count();
             $approvedLeads = Lead::where('status', 'approved')->count();
-            $pendingWorkOrders = Job::where('status', 'pending')->count();
+            $pendingApprovalWorkOrders = Job::where('status', 'confirmed')->count();
             $activeJobs = Job::whereIn('status', ['confirmed'])->count();
 
             // Budget - filtered by branch
@@ -94,7 +94,7 @@ class DashboardController extends Controller
                 'pendingLeads',
                 'confirmedLeads',
                 'approvedLeads',
-                'pendingWorkOrders',
+                'pendingApprovalWorkOrders',
                 'activeJobs'
             ));
         }
