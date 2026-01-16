@@ -226,27 +226,35 @@
     <div class="col-lg-8">
         <!-- Stats Cards -->
         <div class="row mb-3">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0 text-primary">{{ $customer->jobs->count() }}</h3>
-                        <small class="text-muted">Total Work orders</small>
+            <div class="col-md-3">
+                <div class="card h-100 border-success">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <h3 class="mb-1 text-success fw-bold">₹{{ number_format($customer->total_value ?? 0) }}</h3>
+                        <small class="text-muted">Customer Value</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0 text-success">{{ $customer->completedJobs->count() }}</h3>
-                        <small class="text-muted">Completed Work orders</small>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <h3 class="mb-1 text-primary">{{ $customer->jobs->count() }}</h3>
+                        <small class="text-muted">Total Work Orders</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body text-center">
-                        <h3 class="mb-0 text-info">{{ $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress'])->count() }}</h3>
-                        <small class="text-muted">Active Work orders</small>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <h3 class="mb-1 text-success">{{ $customer->completedJobs->count() }}</h3>
+                        <small class="text-muted">Completed Work Orders</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <h3 class="mb-1 text-info">{{ $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress'])->count() }}</h3>
+                        <small class="text-muted">Pending Work Orders</small>
                     </div>
                 </div>
             </div>
@@ -274,7 +282,7 @@
                                     <th>Job Code</th>
                                     <th>Name</th>
                                     <th>Amount</th>
-                                    <th>Completed Date</th>
+                                    <th>Scheduled Date</th>
                                     <th>Assigned To</th>
                                     <th class="text-center">Action</th>
                                 </tr>
@@ -294,12 +302,12 @@
                                     </td>
                                     <td>
                                         @if($job->amount)
-                                            <span class="text-success fw-bold">₹{{ number_format($job->amount, 2) }}</span>
+                                            <span class="text-success fw-bold">₹{{ number_format($job->amount, 0) }}</span>
                                         @else
                                             <span class="text-muted">N/A</span>
                                         @endif
                                     </td>
-                                    <td>{{ $job->completed_at ? $job->completed_at->format('d M Y') : 'N/A' }}</td>
+                                    <td>{{ $job->scheduled_date ? $job->scheduled_date->format('d M Y') : 'N/A' }}</td>
                                     <td>{{ $job->assignedTo->name ?? 'Unassigned' }}</td>
                                     <td class="text-center">
                                         <a href="{{ route('jobs.show', $job->id) }}" class="btn btn-sm btn-outline-primary" title="View Details">
@@ -324,7 +332,7 @@
             </div>
             <div class="card-body">
                 @php
-                    $pendingJobs = $customer->jobs->whereIn('status', ['pending', 'assigned', 'in_progress']);
+                    $pendingJobs = $customer->jobs->whereIn('status', ['pending', 'assigned', 'confirmed', 'postponed', 'work_on_hold']);
                 @endphp
 
                 @if($pendingJobs->count() > 0)
@@ -359,13 +367,17 @@
                                             <span class="badge bg-warning">Pending</span>
                                         @elseif($job->status === 'assigned')
                                             <span class="badge bg-info">Assigned</span>
-                                        @elseif($job->status === 'in_progress')
-                                            <span class="badge bg-primary">In Progress</span>
+                                        @elseif($job->status === 'confirmed')
+                                            <span class="badge bg-success">Confirmed</span>
+                                        @elseif($job->status === 'postponed')
+                                            <span class="badge bg-warning">Postponed</span>
+                                        @elseif($job->status === 'work_on_hold')
+                                            <span class="badge bg-danger">Work on Hold</span>
                                         @endif
                                     </td>
                                     <td>
                                         @if($job->amount)
-                                            <span class="fw-bold">₹{{ number_format($job->amount, 2) }}</span>
+                                            <span class="fw-bold">₹{{ number_format($job->amount, 0) }}</span>
                                         @else
                                             <span class="text-muted">N/A</span>
                                         @endif
@@ -634,6 +646,44 @@ aria-hidden="true">
                     </div>
                 </div>
 
+                {{-- Status Selection - Role-based access --}}
+                @if(auth()->user()->role === 'super_admin' || auth()->user()->role === 'lead_manager' || auth()->user()->role === 'telecallers')
+                    <div class="row mb-3" id="statusDropdownRow">
+                        <div class="col-12">
+                            <label for="jobstatus" class="form-label">
+                                <i class="las la-info-circle me-1"></i> Status
+                            </label>
+                            <select class="form-select" id="jobstatus" name="status">
+                                <option value="pending" selected>Pending</option>
+                                <option value="work_on_hold">Work on Hold</option>
+                                <option value="postponed">Postponed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                            <small class="text-muted">
+                                <i class="las la-shield-alt"></i> You can manually set the status of this work order.
+                            </small>
+                            <span class="error-text statuserror text-danger d-block mt-1"></span>
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Confirm on Creation - Only for Telecallers --}}
+                @if(auth()->user()->role === 'telecallers')
+                    <div class="row mb-3" id="confirmCheckboxRow">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="confirmOnCreation" name="confirm_on_creation" value="1">
+                                <label class="form-check-label" for="confirmOnCreation">
+                                    <strong>Confirm this work order immediately</strong>
+                                    <small class="d-block text-muted">
+                                        <i class="las la-info-circle"></i> Check this box to mark the job as "Confirmed" and send it directly for admin approval.
+                                    </small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
             </div>
 
             <div class="modal-footer">
@@ -827,6 +877,28 @@ aria-hidden="true">
                 loadServices($(this).val());
             });
 
+            // Show/hide confirmation message based on checkbox
+            $('#confirmOnCreation').on('change', function() {
+                if ($(this).is(':checked')) {
+                    // Optional: Show a small info message
+                    if ($('.confirm-info-message').length === 0) {
+                        $(this).closest('.form-check').after(
+                            '<div class="alert alert-info py-2 mt-2 confirm-info-message">' +
+                            '<i class="las la-check-circle"></i> ' +
+                            'This job will be marked as <strong>Confirmed</strong> and sent directly to admin for approval.' +
+                            '</div>'
+                        );
+                    }
+
+                    // Disable status dropdown and reset to pending
+                    $('#jobstatus').val('pending').prop('disabled', true).addClass('bg-light');
+                } else {
+                    $('.confirm-info-message').remove();
+                    // Re-enable status dropdown
+                    $('#jobstatus').prop('disabled', false).removeClass('bg-light');
+                }
+            });
+
             // Form Submit
             $('#jobForm').on('submit', function(e) {
                 e.preventDefault();
@@ -850,6 +922,16 @@ aria-hidden="true">
                 }
 
                 let formData = new FormData(this);
+
+                // Remove status if dropdown is disabled OR hidden
+                if ($('#jobstatus').prop('disabled') || !$('#statusDropdownRow').is(':visible')) {
+                    formData.delete('status');
+                }
+
+                // Remove confirm checkbox if hidden
+                if (!$('#confirmCheckboxRow').is(':visible')) {
+                    formData.delete('confirm_on_creation');
+                }
 
                 // For update, add _method PUT
                 if (jobId) {

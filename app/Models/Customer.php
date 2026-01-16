@@ -85,7 +85,7 @@ class Customer extends Model
 
     public function completedJobs()
     {
-        return $this->jobs()->whereIn('status', ['completed', 'confirmed']);
+        return $this->jobs()->whereIn('status', ['completed', 'approved']);
     }
 
     // Priority helpers
@@ -108,6 +108,14 @@ class Customer extends Model
     public function getCompletedJobsCountAttribute()
     {
         return $this->completedJobs()->count();
+    }
+
+    // Accessor for total customer value
+    public function getTotalValueAttribute()
+    {
+        return $this->jobs()
+            ->whereIn('status', ['completed', 'approved'])
+            ->sum('amount');
     }
 
     // ============================================
@@ -157,6 +165,16 @@ class Customer extends Model
             case 'created_at':
             case 'date':
                 return $query->orderBy('created_at', $direction);
+
+            case 'total_value':
+            case 'customer_value':
+            case 'revenue':
+                // Sort by total amount from completed/approved jobs
+                return $query->withSum([
+                    'jobs as total_value' => function ($q) {
+                        $q->whereIn('status', ['completed', 'approved']);
+                    }
+                ], 'amount')->orderBy('total_value', $direction);
 
             default:
                 return $query->orderBy('created_at', 'desc');

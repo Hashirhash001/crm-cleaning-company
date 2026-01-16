@@ -237,7 +237,7 @@ class Lead extends Model
             }
 
             // Delete pending jobs
-            $lead->jobs()->where('status', 'pending')->delete();
+            $lead->jobs()->delete();
         });
     }
 

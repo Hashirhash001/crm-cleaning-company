@@ -136,7 +136,7 @@
                     if ($user->role === 'super_admin') {
                         $canEdit = true;          // even for approved
                         $canAssign = true;        // even for approved
-                        $canDelete = $lead->status !== 'approved'; // or true if you want
+                        $canDelete = true;
                         $canApprove = $lead->status !== 'approved';
                     }
                     // Lead manager: only on non-approved
@@ -177,7 +177,7 @@
                 @endif
 
                 @if($canDelete)
-                    <a href="javascript:void(0)" class="deleteLeadBtn" data-id="{{ $lead->id }}" data-name="{{ $lead->name }}" title="Delete Lead">
+                    <a href="javascript:void(0)" class="deleteLeadBtn" data-id="{{ $lead->id }}" data-name="{{ $lead->name }}" data-status="{{ $lead->status }}" title="Delete Lead">
                         <i class="las la-trash-alt text-danger fs-18"></i>
                     </a>
                 @endif

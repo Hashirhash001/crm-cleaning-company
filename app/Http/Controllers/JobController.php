@@ -25,105 +25,68 @@ class JobController extends Controller
     {
         $user = auth()->user();
 
-        // Allow telecallers, lead_manager, super_admin, and field_staff to view jobs
+        // Allow telecallers, leadmanager, superadmin, and fieldstaff to view jobs
         if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers'])) {
             return back()->with('error', 'Unauthorized');
         }
 
+        // IMPORTANT: Eager load relationships but don't join them in the main query
         $query = Job::with(['customer', 'services', 'service', 'branch', 'assignedTo', 'createdBy', 'lead']);
 
-        // MODE FILTER (like leads page)
-        $mode = $request->input('mode');
+        // Handle quick filters
         $status = $request->input('status');
 
-        // Handle quick filters
         if ($status === 'approved') {
-            // Approved jobs only
             $query->where('status', 'approved');
         } elseif ($status === 'confirmed') {
-            // Pending Approval (confirmed status)
             $query->where('status', 'confirmed');
         } elseif ($status === 'completed') {
-            // Completed jobs only
             $query->where('status', 'completed');
         } elseif ($status && $status !== '') {
-            // Other individual status filters
             $query->where('status', $status);
         }
 
-        // Filter by status (including 'confirmed')
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
         // Filter by branch
-        if ($request->filled('branch_id')) {
-            $query->where('branch_id', $request->branch_id);
+        if ($request->filled('branchid')) {
+            $query->where('branch_id', $request->branchid);
         }
 
-        // Filter by service - check both single service and multiple services
-        if ($request->filled('service_id')) {
-            $serviceId = $request->service_id;
-            $query->where(function($q) use ($serviceId) {
-                // Check single service_id field
-                $q->where('service_id', $serviceId)
-                // OR check in the many-to-many relationship
-                ->orWhereHas('services', function($subQuery) use ($serviceId) {
-                    $subQuery->where('services.id', $serviceId);
-                });
+        // Filter by service
+        if ($request->filled('serviceid')) {
+            $serviceId = $request->serviceid;
+            $query->whereHas('services', function($subQuery) use ($serviceId) {
+                $subQuery->where('services.id', $serviceId);
             });
         }
 
         // Filter by scheduled date range
-        if ($request->filled('date_from')) {
-            $query->whereDate('scheduled_date', '>=', $request->date_from);
+        if ($request->filled('datefrom')) {
+            $query->whereDate('scheduled_date', '>=', $request->datefrom);
         }
 
-        if ($request->filled('date_to')) {
-            $query->whereDate('scheduled_date', '<=', $request->date_to);
+        if ($request->filled('dateto')) {
+            $query->whereDate('scheduled_date', '<=', $request->dateto);
         }
 
-        // ============================================
         // ENHANCED SEARCH FUNCTIONALITY
-        // ============================================
         if ($request->filled('search')) {
-            $search = $request->search;
-
+            $search = '%' . $request->search . '%';
             $query->where(function($q) use ($search) {
-                // Search by job title
-                $q->where('title', 'like', "%{$search}%")
-
-                // Search by job code
-                ->orWhere('job_code', 'like', "%{$search}%")
-
-                // Search by location
-                ->orWhere('location', 'like', "%{$search}%")
-
-                // Search by customer name
-                ->orWhereHas('customer', function($customerQuery) use ($search) {
-                    $customerQuery->where('name', 'like', "%{$search}%")
-                        // Search by customer code
-                        ->orWhere('customer_code', 'like', "%{$search}%")
-                        // Search by customer phone
-                        ->orWhere('phone', 'like', "%{$search}%");
-                })
-
-                // Search by lead code (if job has a lead)
-                ->orWhereHas('lead', function($leadQuery) use ($search) {
-                    $leadQuery->where('lead_code', 'like', "%{$search}%");
-                })
-
-                // Search by assigned user name
-                ->orWhereHas('assignedTo', function($userQuery) use ($search) {
-                    $userQuery->where('name', 'like', "%{$search}%");
-                });
+                $q->where('title', 'like', $search)
+                    ->orWhere('job_code', 'like', $search)
+                    ->orWhere('location', 'like', $search)
+                    ->orWhereHas('customer', function($customerQuery) use ($search) {
+                        $customerQuery->where('name', 'like', $search)
+                            ->orWhere('customer_code', 'like', $search)
+                            ->orWhere('phone', 'like', $search);
+                    })
+                    ->orWhereHas('lead', function($leadQuery) use ($search) {
+                        $leadQuery->where('lead_code', 'like', $search);
+                    })
+                    ->orWhereHas('assignedTo', function($userQuery) use ($search) {
+                        $userQuery->where('name', 'like', $search);
+                    });
             });
-
-            Log::info('Job search query', [
-                'search_term' => $search,
-                'user_id' => $user->id,
-                'user_role' => $user->role
-            ]);
         }
 
         // If user is field staff, only show their jobs
@@ -131,28 +94,33 @@ class JobController extends Controller
             $query->where('assigned_to', $user->id);
         }
 
-        // If user is telecaller, show jobs from their assigned leads
+        // If user is telecaller, show jobs assigned to them
         if ($user->role === 'telecallers') {
             $query->where('assigned_to', $user->id);
         }
 
-        // ============================================
-        // APPLY SORTING
-        // ============================================
-        $sortColumn = $request->get('sort_column', 'created_at');
-        $sortDirection = $request->get('sort_direction', 'desc');
+        // APPLY SORTING - This must come AFTER all filters but BEFORE pagination
+        $sortColumn = $request->get('sortcolumn', 'created_at');
+        $sortDirection = $request->get('sortdirection', 'desc');
 
-        // Use the scope for sorting
+        // Log the sorting for debugging
+        \Log::info('Applying sort', [
+            'column' => $sortColumn,
+            'direction' => $sortDirection,
+            'user' => $user->id
+        ]);
+
+        // Apply the sort scope
         $query->sort($sortColumn, $sortDirection);
 
-        // Paginate instead of get()
+        // Paginate - This must be LAST
         $jobs = $query->paginate(15);
 
-        // Calculate pending approval count (confirmed jobs)
-        if (auth()->user()->role === 'telecallers') {
-            $pendingJobs = Job::where('status', 'pending')->where('assigned_to', auth()->user()->id)->count();
-            $pendingApproval = Job::where('status', 'confirmed')->where('assigned_to', auth()->user()->id)->count();
-        } elseif (auth()->user()->role === 'super_admin') {
+        // Calculate pending counts
+        if ($user->role === 'telecallers') {
+            $pendingJobs = Job::where('status', 'pending')->where('assigned_to', $user->id)->count();
+            $pendingApproval = Job::where('status', 'confirmed')->where('assigned_to', $user->id)->count();
+        } elseif ($user->role === 'super_admin') {
             $pendingJobs = Job::where('status', 'pending')->count();
             $pendingApproval = Job::where('status', 'confirmed')->count();
         } else {
@@ -165,7 +133,6 @@ class JobController extends Controller
         $customers = Customer::all();
         $services = Service::orderBy('name')->get();
 
-        // Fetch telecallers and field staff separately
         $telecallers = User::where('role', 'telecallers')
             ->where('is_active', true)
             ->orderBy('name')
@@ -185,8 +152,8 @@ class JobController extends Controller
                 'total' => $jobs->total(),
                 'current_sort' => [
                     'column' => $sortColumn,
-                    'direction' => $sortDirection,
-                ],
+                    'direction' => $sortDirection
+                ]
             ]);
         }
 
@@ -222,7 +189,10 @@ class JobController extends Controller
                 'scheduled_time' => 'nullable|date_format:H:i',
                 'amount' => 'nullable|numeric|min:0',
                 'amount_paid' => 'nullable|numeric|min:0',
+                'addon_price' => 'nullable|numeric|min:0',
+                'addon_price_comments' => 'nullable|string|max:1000',
                 'confirm_on_creation' => 'nullable|boolean',
+                'status' => 'nullable|in:pending,work_on_hold,postponed,cancelled',
             ]);
 
             if ($user->role === 'telecallers') {
@@ -236,8 +206,18 @@ class JobController extends Controller
             // Determine initial status
             // If telecaller checked "confirm_on_creation", set status to "confirmed"
             $initialStatus = 'pending';
-            if ($user->role === 'telecallers' && $request->input('confirm_on_creation') == 1) {
+            // Check if confirm checkbox is checked (for telecallers)
+            $confirmChecked = $user->role === 'telecallers' && $request->input('confirm_on_creation') == 1;
+
+            // Priority Logic:
+            // 1. If confirm checkbox is checked, ALWAYS use "confirmed" (checkbox has highest priority)
+            // 2. Otherwise, use the status dropdown value if provided
+            // 3. Otherwise, default to "pending"
+
+            if ($confirmChecked) {
                 $initialStatus = 'confirmed';
+            } elseif ($request->filled('status')) {
+                $initialStatus = $validated['status'];
             }
 
             $job = Job::create([
@@ -253,6 +233,8 @@ class JobController extends Controller
                 'scheduled_time' => $validated['scheduled_time'] ?? null,
                 'amount' => $validated['amount'] ?? null,
                 'amount_paid' => $validated['amount_paid'] ?? 0,
+                'addon_price' => $validated['addon_price'] ?? 0,
+                'addon_price_comments' => $validated['addon_price_comments'] ?? null,
                 'assigned_to' => $validated['assigned_to'] ?? null,
                 'created_by' => auth()->id(),
                 'status' => $initialStatus,
@@ -415,12 +397,15 @@ class JobController extends Controller
                 'customer_instructions' => 'nullable|string',
                 'amount' => 'nullable|numeric|min:0',
                 'amount_paid' => 'nullable|numeric|min:0',
+                'addon_price' => 'nullable|numeric|min:0',
+                'addon_price_comments' => 'nullable|string|max:1000',
                 'service_type' => 'nullable|in:cleaning,pest_control,other',
                 'service_ids' => 'nullable|array',
                 'service_ids.*' => 'exists:services,id',
                 'service_quantities' => 'nullable|array',
                 'service_quantities.*' => 'nullable|integer|min:1',
-                'status' => 'nullable|in:pending,confirmed,in_progress,completed,cancelled',
+                'status' => 'nullable|in:pending,work_on_hold,postponed,cancelled',
+                'confirm_on_creation' => 'nullable|boolean',
             ]);
 
             // Track if amount or services changed
@@ -438,8 +423,15 @@ class JobController extends Controller
             // Determine new status
             $newStatus = $validated['status'] ?? $job->status;
 
+            // Check if confirm checkbox is checked (for telecallers)
+            $confirmChecked = $user->role === 'telecallers' && $request->input('confirm_on_creation') == 1;
+
             // If amount or services changed and job has a lead and is confirmed, set to pending
-            if (($amountChanged || $amountPaidChanged || $servicesChanged) && $job->lead_id) {
+            if ($confirmChecked) {
+                $newStatus = 'confirmed';
+            } elseif ($request->filled('status')) {
+                $newStatus = $validated['status'];
+            } elseif (($amountChanged || $amountPaidChanged || $servicesChanged) && $job->lead_id) {
                 $newStatus = 'pending';
             }
 
@@ -451,6 +443,8 @@ class JobController extends Controller
                 'location' => $validated['location'] ?? null,
                 'description' => $validated['description'] ?? null,
                 'customer_instructions' => $validated['customer_instructions'] ?? null,
+                'addon_price' => $validated['addon_price'] ?? 0,
+                'addon_price_comments' => $validated['addon_price_comments'] ?? null,
                 'status' => $newStatus,
             ];
 
@@ -702,10 +696,10 @@ class JobController extends Controller
             }
 
             // Can only confirm if status is pending
-            if ($job->status !== 'pending') {
+            if (!in_array($job->status, ['pending', 'postponed', 'work_on_hold'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Job must be in pending status to confirm'
+                    'message' => 'Job is not pending'
                 ], 400);
             }
 
@@ -1232,4 +1226,187 @@ class JobController extends Controller
             ], 500);
         }
     }
+
+    public function export(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            // Authorization check
+            if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers'])) {
+                abort(403, 'Unauthorized');
+            }
+
+            // Build query with same filters as index
+            $query = Job::with(['customer', 'services', 'service', 'branch', 'assignedTo', 'createdBy', 'lead']);
+
+            // APPLY ALL FILTERS (same as index method)
+            $status = $request->input('status');
+
+            if ($status === 'approved') {
+                $query->where('status', 'approved');
+            } elseif ($status === 'confirmed') {
+                $query->where('status', 'confirmed');
+            } elseif ($status === 'completed') {
+                $query->where('status', 'completed');
+            } elseif ($status && $status !== '') {
+                $query->where('status', $status);
+            }
+
+            if ($request->filled('branch_id')) {
+                $query->where('branch_id', $request->branch_id);
+            }
+
+            if ($request->filled('service_id')) {
+                $serviceId = $request->service_id;
+                $query->whereHas('services', function($subQuery) use ($serviceId) {
+                    $subQuery->where('services.id', $serviceId);
+                });
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate('scheduled_date', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereDate('scheduled_date', '<=', $request->date_to);
+            }
+
+            if ($request->filled('search')) {
+                $search = '%' . $request->search . '%';
+                $query->where(function($q) use ($search) {
+                    $q->where('title', 'like', $search)
+                        ->orWhere('job_code', 'like', $search)
+                        ->orWhere('location', 'like', $search)
+                        ->orWhereHas('customer', function($customerQuery) use ($search) {
+                            $customerQuery->where('name', 'like', $search)
+                                ->orWhere('customer_code', 'like', $search)
+                                ->orWhere('phone', 'like', $search);
+                        });
+                });
+            }
+
+            // Role-based filtering
+            if ($user->role === 'field_staff') {
+                $query->where('assigned_to', $user->id);
+            }
+
+            if ($user->role === 'telecallers') {
+                $query->where('assigned_to', $user->id);
+            }
+
+            // Check total count
+            $totalCount = $query->count();
+            $exportLimit = 10000;
+
+            Log::info('Job export started', [
+                'user_id' => $user->id,
+                'filters' => $request->all(),
+                'total_jobs' => $totalCount,
+                'exported_jobs' => min($totalCount, $exportLimit)
+            ]);
+
+            if ($totalCount > $exportLimit) {
+                session()->flash('warning', "Only the first {$exportLimit} jobs will be exported. Total: {$totalCount}.");
+            }
+
+            // Generate filename
+            $fileName = 'jobs_export_' . now()->format('Y-m-d_His') . '.csv';
+
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0'
+            ];
+
+            $callback = function() use ($query, $exportLimit) {
+                $file = fopen('php://output', 'w');
+
+                // Add UTF-8 BOM for Excel
+                fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                // CSV Headers
+                fputcsv($file, [
+                    'Job Code',
+                    'Title',
+                    'Customer Name',
+                    'Customer Code',
+                    'Customer Phone',
+                    'Services',
+                    'Service Type',
+                    'Branch',
+                    'Status',
+                    'Amount',
+                    'Amount Paid',
+                    'Balance',
+                    'Add-on Price',
+                    'Location',
+                    'Scheduled Date',
+                    'Scheduled Time',
+                    'Assigned To',
+                    'Created By',
+                    'Approved By',
+                    'Approved At',
+                    'Completed At',
+                    'Created At',
+                    'Description',
+                    'Customer Instructions'
+                ]);
+
+                // Data rows with limit
+                $query->limit($exportLimit)->chunk(1000, function($jobs) use ($file) {
+                    foreach ($jobs as $job) {
+                        // Get services list
+                        $servicesList = $job->services->pluck('name')->join(', ');
+
+                        // Calculate balance
+                        $balance = ($job->amount ?? 0) - ($job->amount_paid ?? 0);
+
+                        // Format status
+                        $statusLabel = ucfirst(str_replace('_', ' ', $job->status));
+
+                        fputcsv($file, [
+                            $job->job_code,
+                            $job->title,
+                            optional($job->customer)->name ?? '',
+                            optional($job->customer)->customer_code ?? '',
+                            optional($job->customer)->phone ?? '',
+                            $servicesList,
+                            optional($job->service)->service_type ?? '',
+                            optional($job->branch)->name ?? '',
+                            $statusLabel,
+                            $job->amount ? number_format($job->amount, 2) : '0.00',
+                            $job->amount_paid ? number_format($job->amount_paid, 2) : '0.00',
+                            number_format($balance, 2),
+                            $job->addon_price ? number_format($job->addon_price, 2) : '0.00',
+                            $job->location ?? '',
+                            $job->scheduled_date ? $job->scheduled_date->format('Y-m-d') : '',
+                            $job->scheduled_time ?? '',
+                            optional($job->assignedTo)->name ?? 'Unassigned',
+                            optional($job->createdBy)->name ?? '',
+                            optional($job->approvedBy)->name ?? '',
+                            $job->approved_at ? $job->approved_at->format('Y-m-d H:i:s') : '',
+                            $job->completed_at ? $job->completed_at->format('Y-m-d H:i:s') : '',
+                            $job->created_at->format('Y-m-d H:i:s'),
+                            $job->description ?? '',
+                            $job->customer_instructions ?? ''
+                        ]);
+                    }
+                });
+
+                fclose($file);
+            };
+
+            return response()->streamDownload($callback, $fileName, $headers);
+
+        } catch (\Exception $e) {
+            Log::error('Job export error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withError('Error exporting jobs: ' . $e->getMessage());
+        }
+    }
+
 }

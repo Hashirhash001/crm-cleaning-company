@@ -18,6 +18,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Exports\LeadsExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class LeadController extends Controller
 {
@@ -296,7 +298,7 @@ class LeadController extends Controller
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
                 'advance_paid_amount' => 'nullable|numeric|min:0|lte:amount',
-                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay',
+                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay,qrcode',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
                 'status' => 'required|in:pending,site_visit,not_accepting_tc,they_will_confirm,date_issue,rate_issue,service_not_provided,just_enquiry,immediate_service,no_response,location_not_available,night_work_demanded,customisation,confirmed',
@@ -559,7 +561,7 @@ class LeadController extends Controller
                 'assigned_to' => 'nullable|exists:users,id',
                 'amount' => 'nullable|numeric|min:0',
                 'advance_paid_amount' => 'nullable|numeric|min:0|lte:amount',
-                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay',
+                'payment_mode' => 'nullable|in:cash,upi,card,bank_transfer,neft,gpay,phonepe,paytm,amazonpay,qrcode',
                 'branch_id' => $user->role === 'super_admin' ? 'required|exists:branches,id' : 'nullable',
                 'description' => 'nullable|string',
             ];
@@ -1137,12 +1139,12 @@ class LeadController extends Controller
                 ], 403);
             }
 
-            if (in_array($lead->status, ['approved'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Can only delete unapproved leads'
-                ], 403);
-            }
+            // if (in_array($lead->status, ['approved'])) {
+            //     return response()->json([
+            //         'success' => false,
+            //         'message' => 'Can only delete unapproved leads'
+            //     ], 403);
+            // }
 
             if ($user->role === 'lead_manager' && $lead->created_by !== $user->id) {
                 return response()->json([
@@ -1918,5 +1920,190 @@ class LeadController extends Controller
             ], 500);
         }
     }
+
+    public function export(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            // Build query with same filters as index
+            $query = Lead::with(['branch', 'services', 'source', 'createdBy', 'assignedTo']);
+
+            // ROLE-BASED ACCESS CONTROL
+            if ($user->role === 'super_admin') {
+                // Super admin sees all leads
+            } elseif ($user->role === 'lead_manager') {
+                $query->where('created_by', $user->id);
+            } elseif ($user->role === 'telecallers') {
+                $query->where('branch_id', $user->branch_id);
+            } else {
+                abort(403, 'Unauthorized');
+            }
+
+            // APPLY ALL YOUR FILTERS (keep existing filter code)
+            $mode = $request->input('mode');
+
+            if ($mode === 'open') {
+                $query->where('status', '!=', 'approved')
+                    ->where('status', '!=', 'confirmed');
+            } elseif ($mode === 'approved' || $request->status === 'approved') {
+                $query->where('status', 'approved');
+            }
+
+            if ($request->filled('status') && !$mode) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->filled('branch_id')) {
+                $query->where('branch_id', $request->branch_id);
+            }
+
+            if ($request->filled('lead_source_id') && $request->lead_source_id != 0) {
+                $query->where('lead_source_id', $request->lead_source_id);
+            }
+
+            if ($request->filled('service_id')) {
+                $serviceId = $request->service_id;
+                $query->whereHas('services', function($subQuery) use ($serviceId) {
+                    $subQuery->where('services.id', $serviceId);
+                });
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+
+            if ($request->filled('assigned_to')) {
+                if ($user->role === 'telecallers') {
+                    if ($request->assigned_to === 'me') {
+                        $query->where('assigned_to', $user->id);
+                    } elseif ($request->assigned_to === 'unassigned') {
+                        $query->whereNull('assigned_to');
+                    }
+                } else {
+                    if ($request->assigned_to === 'unassigned') {
+                        $query->whereNull('assigned_to');
+                    } else {
+                        $query->where('assigned_to', $request->assigned_to);
+                    }
+                }
+            }
+
+            if ($request->filled('search')) {
+                $search = '%' . $request->search . '%';
+                $query->where(function($q) use ($search) {
+                    $q->where('leads.name', 'like', $search)
+                    ->orWhere('leads.email', 'like', $search)
+                    ->orWhere('leads.phone', 'like', $search)
+                    ->orWhere('leads.lead_code', 'like', $search);
+                });
+            }
+
+            // Check total count
+            $totalCount = $query->count();
+            $exportLimit = 10000;
+
+            Log::info('Lead export started', [
+                'user_id' => $user->id,
+                'total_leads' => $totalCount,
+                'exported_leads' => min($totalCount, $exportLimit)
+            ]);
+
+            if ($totalCount > $exportLimit) {
+                session()->flash('warning', "Only the first {$exportLimit} leads will be exported. Total: {$totalCount}.");
+            }
+
+            // Generate filename - CSV format
+            $fileName = 'leads_export_' . now()->format('Y-m-d_His') . '.csv';
+
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0'
+            ];
+
+            $callback = function() use ($query, $exportLimit) {
+                $file = fopen('php://output', 'w');
+
+                // Add UTF-8 BOM for Excel
+                fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                // CSV Headers - Excel will show first row bold by default
+                fputcsv($file, [
+                    'Lead Code',
+                    'Name',
+                    'Email',
+                    'Phone',
+                    'Phone Alternative',
+                    'Address',
+                    'District',
+                    'Property Type',
+                    'SQFT',
+                    'Services',
+                    'Service Type',
+                    'Lead Source',
+                    'Branch',
+                    'Status',
+                    'Amount',
+                    'Advance Paid',
+                    'Balance Amount',
+                    'Payment Mode',
+                    'Assigned To',
+                    'Created By',
+                    'Approved By',
+                    'Approved At',
+                    'Created At',
+                    'Description'
+                ]);
+
+                // Data rows with limit
+                $query->limit($exportLimit)->chunk(1000, function($leads) use ($file) {
+                    foreach ($leads as $lead) {
+                        fputcsv($file, [
+                            $lead->lead_code,
+                            $lead->name,
+                            $lead->email ?? '',
+                            $lead->phone,
+                            $lead->phone_alternative ?? '',
+                            $lead->address ?? '',
+                            $lead->district ?? '',
+                            $lead->property_type ?? '',
+                            $lead->sqft ?? '',
+                            $lead->services_list,
+                            $lead->service_type ?? '',
+                            optional($lead->source)->name ?? '',
+                            optional($lead->branch)->name ?? '',
+                            $lead->status_label,
+                            $lead->amount ?? '',
+                            $lead->advance_paid_amount ?? '',
+                            $lead->balance_amount ?? '',
+                            $lead->payment_mode ?? '',
+                            optional($lead->assignedTo)->name ?? 'Unassigned',
+                            optional($lead->createdBy)->name ?? '',
+                            optional($lead->approvedBy)->name ?? '',
+                            $lead->approved_at ? $lead->approved_at->format('Y-m-d H:i:s') : '',
+                            $lead->created_at->format('Y-m-d H:i:s'),
+                            $lead->description ?? ''
+                        ]);
+                    }
+                });
+
+                fclose($file);
+            };
+
+            return response()->streamDownload($callback, $fileName, $headers);
+
+        } catch (\Exception $e) {
+            Log::error('Lead export error: ' . $e->getMessage());
+            return back()->withError('Error exporting leads: ' . $e->getMessage());
+        }
+    }
+
 
 }

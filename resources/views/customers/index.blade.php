@@ -78,6 +78,33 @@
     </div>
 </div>
 
+<!-- Stats Cards -->
+<div class="row mb-3">
+    <div class="col-md-6">
+        <div class="card border-success h-100">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <h3 class="mb-1 text-success fw-bold" id="totalRevenueDisplay">
+                    ₹{{ number_format($totalRevenue ?? 0) }}
+                </h3>
+                <small class="text-muted">Total Revenue</small>
+                <small class="d-block text-muted" style="font-size: 0.75rem;">
+                    (All Completed/Approved Jobs)
+                </small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <h3 class="mb-1 text-primary" id="totalCustomersDisplay">
+                    {{ $totalCustomers ?? 0 }}
+                </h3>
+                <small class="text-muted">Total Customers</small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Filters Section -->
 <div class="row mb-3">
     <div class="col-12">
@@ -131,11 +158,18 @@
                     Customers List (<span id="customerCount">{{ $customers->total() }}</span> total)
                 </h4>
 
-                @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
-                <a href="{{ route('customers.create') }}" class="btn btn-success">
-                    <i class="las la-plus me-1"></i> Create Customer
-                </a>
-                @endif
+                <div class="d-flex gap-2">
+                    <!-- Add this button next to other action buttons -->
+                    <a href="#" class="btn btn-success" id="exportCustomersBtn">
+                        <i class="las la-file-download me-1"></i> Export CSV
+                    </a>
+
+                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
+                    <a href="{{ route('customers.create') }}" class="btn btn-success">
+                        <i class="las la-plus me-1"></i> Create Customer
+                    </a>
+                    @endif
+                </div>
             </div>
 
             <div class="card-body pt-0">
@@ -150,8 +184,11 @@
                                     <th class="sortable" data-column="branch">Branch</th>
                                 @endif
                                 <th class="sortable" data-column="priority">Priority</th>
-                                <th class="sortable" data-column="total-jobs">Total Work Orders</th>
+                                {{-- <th class="sortable" data-column="total-jobs">Total Work Orders</th> --}}
                                 <th class="sortable" data-column="completed-jobs">Completed Work Orders</th>
+                                <th class="sortable" data-column="customer_value">
+                                    Customer Value
+                                </th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
@@ -433,6 +470,12 @@
                         $('#paginationContainer').html(response.pagination);
                         $('#customerCount').text(response.total);
 
+                        if (response.stats) {
+                            $('#totalRevenueDisplay').text('₹' + response.stats.total_revenue);
+                            $('#totalCustomersDisplay').text(response.stats.total_customers);
+                            $('#activeCustomersDisplay').text(response.stats.active_customers);
+                        }
+
                         if (response.current_sort) {
                             currentSort.column = response.current_sort.column;
                             currentSort.direction = response.current_sort.direction;
@@ -518,7 +561,6 @@
                     loadCustomers();
                 }, 300);
             });
-
 
             // ============================================
             // RESET FILTERS
@@ -912,6 +954,120 @@
                         });
                     }
                 });
+            });
+
+            // Export Button Handler
+            $('#exportCustomersBtn').on('click', function(e) {
+                e.preventDefault();
+
+                let totalCustomers = parseInt($('#customerCount').text()) || 0;
+                let exportLimit = 10000;
+                let willExport = Math.min(totalCustomers, exportLimit);
+
+                // Show warning if exceeding limit
+                if (totalCustomers > exportLimit) {
+                    Swal.fire({
+                        title: 'Export Limit Warning',
+                        html: `
+                            <div class="text-start">
+                                <p><strong>Total Customers:</strong> ${totalCustomers}</p>
+                                <p><strong>Export Limit:</strong> ${exportLimit}</p>
+                                <p class="text-warning mb-0">
+                                    <i class="las la-exclamation-triangle"></i>
+                                    Only the first ${exportLimit} customers will be exported.
+                                </p>
+                                <p class="text-muted mt-2" style="font-size: 13px;">
+                                    Please apply additional filters to reduce the result set.
+                                </p>
+                            </div>
+                        `,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Export Anyway',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#198754',
+                        cancelButtonColor: '#6c757d'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            startExport();
+                        }
+                    });
+                } else {
+                    startExport();
+                }
+
+                function startExport() {
+                    // Show loading
+                    let timerInterval;
+                    Swal.fire({
+                        title: 'Exporting Customers...',
+                        html: `
+                            <div style="text-align: center;">
+                                <p>Processing <strong>${willExport}</strong> customers</p>
+                                <div class="progress mt-3" style="height: 25px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                        role="progressbar" style="width: 100%">
+                                        Generating CSV...
+                                    </div>
+                                </div>
+                                <p class="text-muted mt-3" style="font-size: 13px;">
+                                    <i class="las la-clock"></i> <span id="exportTimer">0</span>s
+                                </p>
+                            </div>
+                        `,
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            let seconds = 0;
+                            timerInterval = setInterval(() => {
+                                seconds++;
+                                $('#exportTimer').text(seconds);
+                            }, 1000);
+                        },
+                        willClose: () => {
+                            clearInterval(timerInterval);
+                        }
+                    });
+
+                    // Build params
+                    let params = new URLSearchParams();
+                    let priority = $('#priorityFilter').val();
+                    let branchId = $('#branchFilter').val();
+                    let isActive = $('#statusFilter').val();
+                    let search = $('#searchInput').val();
+
+                    // Add non-empty filters to params
+                    if (priority && priority !== '') params.append('priority', priority);
+                    if (branchId && branchId !== '') params.append('branch_id', branchId);
+                    if (isActive && isActive !== '') params.append('is_active', isActive);
+                    if (search) params.append('search', search);
+
+                    // Download with iframe
+                    let exportUrl = "{{ route('customers.export') }}" + '?' + params.toString();
+                    let iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = exportUrl;
+                    document.body.appendChild(iframe);
+
+                    // Close loader after delay
+                    setTimeout(() => {
+                        clearInterval(timerInterval);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Export Complete!',
+                            html: `<p><strong>${willExport}</strong> customers exported successfully</p>
+                                <small class="text-muted">Check your Downloads folder</small>`,
+                            timer: 3000,
+                            showConfirmButton: true,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#198754'
+                        });
+
+                        setTimeout(() => {
+                            document.body.removeChild(iframe);
+                        }, 1000);
+                    }, 2000);
+                }
             });
         });
     </script>

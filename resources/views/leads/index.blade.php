@@ -1238,6 +1238,11 @@
                             <i class="las la-file-import me-1"></i> Bulk Import
                         </a>
 
+                        <!-- Replace the current export button with this -->
+                        <a href="#" class="btn btn-success" id="exportLeadsBtn">
+                            <i class="las la-file-download me-1"></i> Export CSV
+                        </a>
+
                         <a href="{{ route('leads.create') }}" class="btn btn-primary">
                             <i class="las la-plus me-1"></i> Create Lead
                         </a>
@@ -2490,10 +2495,17 @@
             $(document).on('click', '.deleteLeadBtn', function() {
                 let leadId = $(this).data('id');
                 let leadName = $(this).data('name');
+                let leadStatus = $(this).data('status');
+
+                let warningText = 'This action cannot be undone!';
+                if (leadStatus === 'approved') {
+                    warningText = '<strong class="text-danger">⚠️ This lead is APPROVED!</strong><br>Deleting it will also delete all related work orders and data.<br><br>Are you sure you want to proceed?';
+                    titleText = '⚠️ Delete Approved Lead?';
+                }
 
                 Swal.fire({
                     title: 'Delete Lead?',
-                    text: `Are you sure you want to delete ${leadName}?`,
+                    html: warningText + `<br><br><strong>Lead:</strong> ${leadName}`,
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonText: 'Yes, Delete',
@@ -2728,6 +2740,124 @@
                     $('#leadsTableBody').append(row);
                 });
             }
+
+            // Export Button Handler - AJAX WITH BLOB
+            $('#exportLeadsBtn').on('click', function(e) {
+                e.preventDefault();
+
+                // Build params
+                let params = {
+                    status: $('#filterStatus').val(),
+                    branch_id: $('#branchFilter').length ? $('#branchFilter').val() : '',
+                    lead_source_id: $('#sourceFilter').val(),
+                    service_id: $('#serviceFilter').val(),
+                    date_from: $('#dateFromFilter').val(),
+                    date_to: $('#dateToFilter').val(),
+                    search: $('#searchInput').val(),
+                    mode: $('#filterMode').val(),
+                    assigned_to: $('#telecallerAssignedFilter').length ?
+                                $('#telecallerAssignedFilter').val() :
+                                ($('#filterassignedto').length ? $('#filterassignedto').val() : '')
+                };
+
+                // Remove empty params
+                Object.keys(params).forEach(key => {
+                    if (!params[key] || params[key] === '') {
+                        delete params[key];
+                    }
+                });
+
+                let totalLeads = $('#leadCount').text();
+                let timerInterval;
+
+                // Show loading
+                Swal.fire({
+                    title: 'Exporting Leads...',
+                    html: `
+                        <div style="text-align: center;">
+                            <p>Processing <strong>${totalLeads}</strong> leads</p>
+                            <div class="progress mt-3" style="height: 25px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                    role="progressbar" style="width: 100%">
+                                    Generating CSV...
+                                </div>
+                            </div>
+                            <p class="text-muted mt-3" style="font-size: 13px;">
+                                <i class="las la-clock"></i> <span id="exportTimer">0</span>s
+                            </p>
+                        </div>
+                    `,
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        let seconds = 0;
+                        timerInterval = setInterval(() => {
+                            seconds++;
+                            $('#exportTimer').text(seconds);
+                        }, 1000);
+                    },
+                    willClose: () => {
+                        clearInterval(timerInterval);
+                    }
+                });
+
+                // AJAX request with blob response
+                $.ajax({
+                    url: "{{ route('leads.export') }}",
+                    type: 'GET',
+                    data: params,
+                    xhrFields: {
+                        responseType: 'blob' // Important for file download
+                    },
+                    success: function(blob, status, xhr) {
+                        clearInterval(timerInterval);
+
+                        // Get filename from header or use default
+                        let filename = 'leads_export.csv';
+                        let disposition = xhr.getResponseHeader('Content-Disposition');
+                        if (disposition && disposition.indexOf('filename=') !== -1) {
+                            let filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                            let matches = filenameRegex.exec(disposition);
+                            if (matches != null && matches[1]) {
+                                filename = matches[1].replace(/['"]/g, '');
+                            }
+                        }
+
+                        // Create download link
+                        let link = document.createElement('a');
+                        link.href = window.URL.createObjectURL(blob);
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+
+                        // Success message
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Export Complete!',
+                            html: `
+                                <p><strong>${totalLeads}</strong> leads exported successfully</p>
+                                <p class="text-muted mb-0"><small>File: ${filename}</small></p>
+                            `,
+                            timer: 3000,
+                            showConfirmButton: true,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#198754'
+                        });
+                    },
+                    error: function(xhr) {
+                        clearInterval(timerInterval);
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Export Failed',
+                            text: xhr.responseJSON?.message || 'Failed to export leads. Please try again.',
+                            confirmButtonColor: '#dc3545'
+                        });
+                    }
+                });
+            });
+
         });
     </script>
 @endsection

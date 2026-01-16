@@ -97,4 +97,12 @@ class User extends Authenticatable
         return $this->is_active;
     }
 
+    /**
+     * Get leads assigned to this user (for telecallers)
+     */
+    public function assignedLeads()
+    {
+        return $this->hasMany(Lead::class, 'assigned_to');
+    }
+
 }

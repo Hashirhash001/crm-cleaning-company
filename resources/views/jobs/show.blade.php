@@ -87,12 +87,12 @@
             border-bottom: none;
             padding-top: 1rem;
             margin-top: 0.5rem;
-            border-top: 2px solid rgba(255, 255, 255, 0.3);
+            /* border-top: 2px solid rgba(255, 255, 255, 0.3); */
         }
 
         .price-label {
-            font-weight: 500;
-            font-size: 0.95rem;
+            font-weight: 600;
+            font-size: 1rem;
             opacity: 0.95;
         }
 
@@ -464,6 +464,33 @@
         .deleteNote:hover {
             opacity: 1;
         }
+        /* Make long comments readable */
+        .price-row.comments-row{
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+        }
+
+        .price-row.comments-row .price-label{
+        flex: none;            /* don’t force label/value columns */
+        width: 100%;
+        }
+
+        .price-row.comments-row .price-value{
+        flex: none;
+        width: 100%;
+        text-align: left;      /* better for paragraphs */
+        font-size: 0.95rem;    /* optional: smaller than amounts */
+        font-weight: 500;      /* optional: not as bold as amounts */
+        line-height: 1.4;
+        }
+
+        .price-value.wrap{
+        white-space: normal;
+        overflow-wrap: anywhere;  /* breaks long strings */
+        word-break: break-word;
+        }
+
     </style>
 @endsection
 
@@ -503,7 +530,7 @@
 
                         {{-- Complete Job Button - Only show if status is confirmed and user is authorized --}}
                         @if(
-                            $job->status === 'confirmed' &&
+                            $job->status === 'approved' &&
                             (
                                 $user->role === 'super_admin' ||
                                 $user->role === 'telecallers' ||
@@ -556,6 +583,21 @@
                                 <span
                                     class="price-value balance-highlight">₹{{ number_format($job->amount - ($job->amount_paid ?? 0), 2) }}</span>
                             </div>
+
+                            @if(($job->addon_price ?? 0) > 0)
+                            <div class="price-row">
+                                <span class="price-label">Add-on Price</span>
+                                <span class="price-value">{{ number_format($job->addon_price, 2) }}</span>
+                            </div>
+                            @endif
+
+                            @if(!empty($job->addon_price_comments))
+                            <div class="price-row comments-row">
+                                <span class="price-label">Add-on Comments</span>
+                                <span class="price-value wrap">{{ $job->addon_price_comments }}</span>
+                            </div>
+                            @endif
+
                         </div>
                     @else
                         <div class="info-card text-center">
@@ -628,19 +670,6 @@
                                     <span class="badge bg-primary">{{ $job->services->count() }}
                                         {{ Str::plural('Service', $job->services->count()) }}</span>
                                 </div>
-
-                                <!-- Badge Style Display -->
-                                {{-- <div class="services-badges mb-3">
-                            @foreach ($job->services as $service)
-                                <span class="service-badge">
-                                    <i class="las la-{{ $service->service_type == 'cleaning' ? 'broom' : ($service->service_type == 'pestcontrol' ? 'bug' : 'cogs') }} me-1"></i>
-                                    {{ $service->name }}
-                                    @if ($service->pivot && $service->pivot->quantity > 1)
-                                        <span class="quantity-badge">{{ $service->pivot->quantity }}x</span>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </div> --}}
 
                                 <!-- Detailed List View (Same as Index Page) -->
                                 <div class="service-list-table" style="width: 100%;">
@@ -1233,6 +1262,20 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
+                                <label class="form-label">Add-on Price</label>
+                                <input type="number" step="0.01" min="0" class="form-control" id="addonPrice" name="addon_price" placeholder="0.00">
+                                <span class="error-text addon_priceerror text-danger d-block mt-1"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Add-on Price Comments</label>
+                                <textarea class="form-control" id="addonPriceComments" name="addon_price_comments" rows="2"></textarea>
+                                <span class="error-text addon_price_commentserror text-danger d-block mt-1"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label class="form-label">Balance Amount</label>
                                 <input type="text" id="balanceAmount" class="form-control" readonly value="0.00">
                             </div>
@@ -1278,6 +1321,44 @@
                                 <span class="error-text customerinstructionserror text-danger d-block mt-1"></span>
                             </div>
                         </div>
+
+                        {{-- Status Selection - Role-based access --}}
+                        @if(auth()->user()->role === 'super_admin' || auth()->user()->role === 'lead_manager' || auth()->user()->role === 'telecallers')
+                            <div class="row mb-3" id="statusDropdownRow">
+                                <div class="col-12">
+                                    <label for="jobstatus" class="form-label">
+                                        <i class="las la-info-circle me-1"></i> Status
+                                    </label>
+                                    <select class="form-select" id="jobstatus" name="status">
+                                        <option value="pending">Pending</option>
+                                        <option value="work_on_hold">Work on Hold</option>
+                                        <option value="postponed">Postponed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                    <small class="text-muted">
+                                        <i class="las la-shield-alt"></i> You can manually set the status of this work order.
+                                    </small>
+                                    <span class="error-text statuserror text-danger d-block mt-1"></span>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Confirm on Creation - Only for Telecallers --}}
+                        @if(auth()->user()->role === 'telecallers')
+                            <div class="row mb-3" id="confirmCheckboxRow">
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="confirmOnCreation" name="confirm_on_creation" value="1">
+                                        <label class="form-check-label" for="confirmOnCreation">
+                                            <strong>Confirm this work order immediately</strong>
+                                            <small class="d-block text-muted">
+                                                <i class="las la-info-circle"></i> Check this box to mark the job as "Confirmed" and send it directly for admin approval.
+                                            </small>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
 
                     </div>
 
@@ -1873,6 +1954,28 @@
                 }
             });
 
+            // Show/hide confirmation message based on checkbox
+            $(document).on('change', '#confirmOnCreation', function() {
+                if ($(this).is(':checked')) {
+                    // Show info message
+                    if ($('.confirm-info-message').length === 0) {
+                        $(this).closest('.form-check').after(
+                            '<div class="alert alert-info py-2 mt-2 confirm-info-message">' +
+                            '<i class="las la-check-circle"></i> ' +
+                            'This job will be marked as <strong>Confirmed</strong> and sent directly to admin for approval.' +
+                            '</div>'
+                        );
+                    }
+
+                    // Disable status dropdown and reset to pending
+                    $('#jobstatus').val('pending').prop('disabled', true).addClass('bg-light');
+                } else {
+                    $('.confirm-info-message').remove();
+                    // Re-enable status dropdown
+                    $('#jobstatus').prop('disabled', false).removeClass('bg-light');
+                }
+            });
+
             // ----------------------------
             // Edit button => load job data and open modal
             // ----------------------------
@@ -1891,6 +1994,8 @@
                         title.val(job.title || '');
                         description.val(job.description || '');
                         customerinstructions.val(job.customer_instructions || '');
+                        $('#addonPrice').val(job.addon_price || '');
+                        $('#addonPriceComments').val(job.addon_price_comments || '');
 
                         // Branch
                         branchid.val(job.branch_id);
@@ -1908,8 +2013,7 @@
 
                         // Dates/times
                         if (job.scheduled_date) {
-                            scheduleddate.val((job.scheduled_date + '').split(' ')[0].split(
-                                'T')[0]);
+                            scheduleddate.val((job.scheduled_date + '').split(' ')[0].split('T')[0]);
                         } else {
                             scheduleddate.val('');
                         }
@@ -1920,23 +2024,39 @@
                             scheduledtime.val('');
                         }
 
+                        //  Clear previous messages
+                        $('.confirm-info-message').remove();
+
+                        // Hide status dropdown and confirm checkbox if approved or completed
+                        if (job.status === 'approved' || job.status === 'completed' || job.status === 'confirmed') {
+                            $('#statusDropdownRow').hide();
+                            $('#confirmCheckboxRow').hide();
+                            console.log('Status controls hidden - Job is ' + job.status);
+                        } else {
+                            // Show and set status dropdown
+                            $('#statusDropdownRow').show();
+                            if ($('#jobstatus').length) {
+                                $('#jobstatus').val(job.status).prop('disabled', false).removeClass('bg-light');
+                            }
+
+                            // Show and reset confirm checkbox
+                            $('#confirmCheckboxRow').show();
+                            $('#confirmOnCreation').prop('checked', false);
+                            console.log('Status controls shown - Job is ' + job.status);
+                        }
+
                         // ---- Services (FIXED: quantities mapping) ----
-                        const serviceType =
-                        job.service_type ?? job.servicetype ?? '';
-
-                        const serviceIds =
-                        job.service_ids ?? job.serviceids ?? [];
-
-                        const serviceQty =
-                        job.service_quantities ?? job.servicequantities ?? {}; // <-- IMPORTANT
+                        const serviceType = job.service_type ?? job.servicetype ?? '';
+                        const serviceIds = job.service_ids ?? job.serviceids ?? [];
+                        const serviceQty = job.service_quantities ?? job.servicequantities ?? {};
 
                         servicetype.val(serviceType);
                         currentJobServiceIds = serviceIds;
 
-                        // Make sure qty keys are numeric-consistent (often they arrive as strings)
+                        // Make sure qty keys are numeric-consistent
                         const normalizedQty = {};
                         Object.keys(serviceQty || {}).forEach(k => {
-                        normalizedQty[parseInt(k, 10)] = parseInt(serviceQty[k], 10) || 1;
+                            normalizedQty[parseInt(k, 10)] = parseInt(serviceQty[k], 10) || 1;
                         });
 
                         loadServices(serviceType, currentJobServiceIds, normalizedQty);
@@ -1973,6 +2093,16 @@
                 const formData = new FormData(this);
                 formData.append('_method', 'PUT');
 
+                // ✅ NEW: Remove status if dropdown is disabled OR hidden
+                if ($('#jobstatus').prop('disabled') || !$('#statusDropdownRow').is(':visible')) {
+                    formData.delete('status');
+                }
+
+                // ✅ NEW: Remove confirm checkbox if hidden
+                if (!$('#confirmCheckboxRow').is(':visible')) {
+                    formData.delete('confirm_on_creation');
+                }
+
                 $('.error-text').text('');
 
                 $.ajax({
@@ -1982,7 +2112,7 @@
                     processData: false,
                     contentType: false,
                     success: function(response) {
-                    jobModal.modal('hide');
+                        jobModal.modal('hide');
 
                         Swal.fire({
                             icon: 'success',
@@ -1998,8 +2128,7 @@
                         if (xhr.status === 422) {
                             const errors = xhr.responseJSON.errors || {};
                             $.each(errors, function(key, value) {
-                                $(`.${key.replaceAll('_','') }error`).text(value[0]);
-                                // Fallback: if your spans are named differently, keep the next line too:
+                                $(`.${key.replaceAll('_','')}error`).text(value[0]);
                                 $(`.${key}error`).text(value[0]);
                             });
                         } else {

@@ -5,18 +5,19 @@
 @section('extra-css')
     <link href="{{ asset('assets/libs/simple-datatables/style.css') }}" rel="stylesheet" type="text/css" />
     <style>
+        /* Status Badge Colors */
         .badge-pending {
             background-color: #ffc107;
             color: #000;
         }
 
         .badge-confirmed {
-            background-color: #8b5cf6;
+            background-color: #8b5cf6; /* Purple for confirmed/awaiting approval */
             color: #fff;
         }
 
-        .badge-assigned {
-            background-color: #17a2b8;
+        .badge-approved {
+            background-color: #28a745; /* Green for approved */
             color: #fff;
         }
 
@@ -26,7 +27,17 @@
         }
 
         .badge-completed {
-            background-color: #28a745;
+            background-color: #198754;
+            color: #fff;
+        }
+
+        .badge-work_on_hold {
+            background-color: #fd7e14; /* Orange */
+            color: #fff;
+        }
+
+        .badge-postponed {
+            background-color: #6f42c1; /* Purple */
             color: #fff;
         }
 
@@ -34,6 +45,7 @@
             background-color: #dc3545;
             color: #fff;
         }
+
 
         /* Prevent horizontal page scroll */
         body {
@@ -85,7 +97,7 @@
         .table-container {
             overflow-x: auto;
             overflow-y: auto;
-            max-height: 600px;
+            /* max-height: 600px; */
             position: relative;
             width: 100%;
         }
@@ -497,7 +509,8 @@
                                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
                                         <option value="confirmed" {{ request('status') == 'confirmed' ? 'selected' : '' }}>Confirmed</option>
                                         <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
-                                        <option value="in_progress" {{ request('status') == 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                                        <option value="work_on_hold" {{ request('status') == 'work_on_hold' ? 'selected' : '' }}>Work on Hold</option>
+                                        <option value="postponed" {{ request('status') == 'postponed' ? 'selected' : '' }}>Postponed</option>
                                         <option value="completed" {{ request('status') == 'completed' ? 'selected' : '' }}>Completed</option>
                                         <option value="cancelled" {{ request('status') == 'cancelled' ? 'selected' : '' }}>Cancelled</option>
                                     </select>
@@ -590,16 +603,21 @@
                                 <span class="badge bg-warning ms-2">{{ $pendingJobs }} Pending Jobs</span>
                             @endif
                         </h4>
-                        <!-- Add Job Button -->
-                        @if (auth()->user()->role === 'super_admin' ||
-                                auth()->user()->role === 'lead_manager' ||
-                                auth()->user()->role === 'telecallers')
-                            <div class="col-auto">
+                        <div class="d-flex gap-2">
+                            <!-- Export Button -->
+                            <a href="#" class="btn btn-success" id="exportJobsBtn">
+                                <i class="las la-file-download me-1"></i> Export CSV
+                            </a>
+
+                            <!-- Add Job Button -->
+                            @if (auth()->user()->role === 'super_admin' ||
+                                    auth()->user()->role === 'lead_manager' ||
+                                    auth()->user()->role === 'telecallers')
                                 <button type="button" class="btn btn-primary" id="addJobBtn">
                                     <i class="las la-plus me-1"></i> Add Work Order
                                 </button>
-                            </div>
-                        @endif
+                            @endif
+                        </div>
                     </div>
                     {{-- VIEW MODE TOGGLE - Updated filters --}}
                     <div class="btn-group w-100" role="group" id="viewModeToggle">
@@ -786,6 +804,20 @@
 
                         <div class="row mb-3">
                             <div class="col-md-6">
+                                <label class="form-label">Add-on Price</label>
+                                <input type="number" step="0.01" min="0" class="form-control" id="addonPrice" name="addon_price" placeholder="0.00">
+                                <span class="error-text addon_priceerror text-danger d-block mt-1"></span>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Add-on Price Comments</label>
+                                <textarea class="form-control" id="addonPriceComments" name="addon_price_comments" rows="2"></textarea>
+                                <span class="error-text addon_price_commentserror text-danger d-block mt-1"></span>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
                                 <label class="form-label">Balance Amount</label>
                                 <input type="text" id="balanceAmount" class="form-control" readonly value="0.00">
                             </div>
@@ -831,9 +863,30 @@
                             </div>
                         </div>
 
-                        {{-- NEW: Confirm on Creation - Only for Telecallers --}}
+                        {{-- Status Selection - Role-based access --}}
+                        @if(auth()->user()->role === 'super_admin' || auth()->user()->role === 'lead_manager' || auth()->user()->role === 'telecallers')
+                            <div class="row mb-3" id="statusDropdownRow">
+                                <div class="col-12">
+                                    <label for="jobstatus" class="form-label">
+                                        <i class="las la-info-circle me-1"></i> Status
+                                    </label>
+                                    <select class="form-select" id="jobstatus" name="status">
+                                        <option value="pending" selected>Pending</option>
+                                        <option value="work_on_hold">Work on Hold</option>
+                                        <option value="postponed">Postponed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                    <small class="text-muted">
+                                        <i class="las la-shield-alt"></i> You can manually set the status of this work order.
+                                    </small>
+                                    <span class="error-text statuserror text-danger d-block mt-1"></span>
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Confirm on Creation - Only for Telecallers --}}
                         @if(auth()->user()->role === 'telecallers')
-                            <div class="row mb-3">
+                            <div class="row mb-3" id="confirmCheckboxRow">
                                 <div class="col-12">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="confirmOnCreation" name="confirm_on_creation" value="1">
@@ -1372,48 +1425,51 @@
                             '</div>'
                         );
                     }
+
+                    // Disable status dropdown and reset to pending
+                    $('#jobstatus').val('pending').prop('disabled', true).addClass('bg-light');
                 } else {
                     $('.confirm-info-message').remove();
+                    // Re-enable status dropdown
+                    $('#jobstatus').prop('disabled', false).removeClass('bg-light');
                 }
             });
 
             // Add Job Button
             $('#addJobBtn').click(function() {
                 $('#jobForm')[0].reset();
-                $('#job_id').val('');
+                $('#jobid').val('');
                 $('#jobModalLabel').text('Add Work Order');
                 $('.error-text').text('');
+
                 // Clear the confirm checkbox
                 $('#confirmOnCreation').prop('checked', false);
                 $('.confirm-info-message').remove();
-                // Only superadmin should clear branch selection
-                @if (auth()->user()->role === 'super_admin')
-                    $('#branchid').val('').trigger('change');
-                @else
-                    // Non-superadmin: keep the hidden branch id set by Blade
-                    // (do nothing)
-                @endif
+
+                // Reset and enable status dropdown
+                $('#jobstatus').val('pending').prop('disabled', false).removeClass('bg-light');
+
+                // Show both rows (for new jobs)
+                $('#statusDropdownRow').show();
+                $('#confirmCheckboxRow').show();
+
+                // Reset amounts
                 $('#amount').val('');
                 $('#amountPaid').val('0');
-                $('#balanceAmount').val('₹0.00');
+                $('#balanceAmount').val('0.00');
+
                 currentJobServiceIds = [];
 
                 let today = new Date().toISOString().split('T')[0];
-                $('#scheduled_date').attr('min', today);
+                $('#scheduleddate').attr('min', today);
 
                 // Reset services container
-                $('#servicesContainer').html(`
-                    <p class="text-muted text-center my-3">
-                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                        Please select a service type first
-                    </p>
-                `);
+                $('#servicesContainer').html('<p class="text-muted text-center my-3"><i class="las la-arrow-up" style="font-size: 2rem;"></i><br>Please select a service type first</p>');
 
                 const branchId = $('#branchid').val();
                 console.log('Add Job - Branch ID:', branchId);
-
                 if (branchId) {
-                    loadCustomersByBranch(branchId); // Load customers for this branch
+                    loadCustomersByBranch(branchId);
                 } else {
                     resetCustomerDropdown();
                 }
@@ -1442,12 +1498,34 @@
                         $('#location').val(job.location || '');
                         $('#amount').val(job.amount || 0);
                         $('#amountPaid').val(job.amount_paid || 0);
+                        $('#addonPrice').val(job.addon_price || '');
+                        $('#addonPriceComments').val(job.addon_price_comments || '');
 
                         // Set branch WITHOUT triggering change
                         $('#branchid').val(job.branch_id);
 
+                        // Clear previous messages
+                        $('.confirm-info-message').remove();
+
+                        // ✅ NEW: Hide status dropdown and confirm checkbox if approved or completed
+                        if (job.status === 'approved' || job.status === 'completed' || job.status === 'confirmed') {
+                            $('#statusDropdownRow').hide();
+                            $('#confirmCheckboxRow').hide();
+                            console.log('Status controls hidden - Job is ' + job.status);
+                        } else {
+                            // Show and set status dropdown
+                            $('#statusDropdownRow').show();
+                            if ($('#jobstatus').length) {
+                                $('#jobstatus').val(job.status).prop('disabled', false).removeClass('bg-light');
+                            }
+
+                            // Show and reset confirm checkbox
+                            $('#confirmCheckboxRow').show();
+                            $('#confirmOnCreation').prop('checked', false);
+                            console.log('Status controls shown - Job is ' + job.status);
+                        }
+
                         // Load customers with preselection
-                        // This will reinitialize Select2 and then set the value
                         loadCustomersByBranch(job.branch_id, job.customer_id);
 
                         // Service type
@@ -1459,7 +1537,6 @@
                                 .service_quantities || {});
                             console.log('Quantities object from API:', job.serviceQuantities,
                                 job.servicequantities, job.service_quantities);
-
                         }
 
                         // Scheduled date
@@ -1505,11 +1582,11 @@
             $('#jobForm').on('submit', function(e) {
                 e.preventDefault();
 
-                let jobId = $('#jobid').val(); // This gets the hidden job_id value
-                let url = jobId ? `jobs/${jobId}` : 'jobs'; // Use proper URL with job ID
+                let jobId = $('#jobid').val();
+                let url = jobId ? `jobs/${jobId}` : 'jobs';
 
-                console.log('Job ID:', jobId); // Debug
-                console.log('Submit URL:', url); // Debug
+                console.log('Job ID:', jobId);
+                console.log('Submit URL:', url);
 
                 // Validate at least one service is selected
                 if ($('.service-checkbox:checked').length === 0) {
@@ -1523,10 +1600,20 @@
 
                 let formData = new FormData(this);
 
+                // Remove status if dropdown is disabled OR hidden
+                if ($('#jobstatus').prop('disabled') || !$('#statusDropdownRow').is(':visible')) {
+                    formData.delete('status');
+                }
+
+                // Remove confirm checkbox if hidden
+                if (!$('#confirmCheckboxRow').is(':visible')) {
+                    formData.delete('confirm_on_creation');
+                }
+
                 // For update, add _method PUT
                 if (jobId) {
                     formData.append('_method', 'PUT');
-                    console.log('Adding PUT method for update'); // Debug
+                    console.log('Adding PUT method for update');
                 }
 
                 // Clear previous errors
@@ -1835,6 +1922,123 @@
                 });
             });
 
+            // Export Button Handler
+            $('#exportJobsBtn').on('click', function(e) {
+                e.preventDefault();
+
+                let totalJobs = parseInt($('#jobCount').text()) || 0;
+                let exportLimit = 10000;
+                let willExport = Math.min(totalJobs, exportLimit);
+
+                // Show warning if exceeding limit
+                if (totalJobs > exportLimit) {
+                    Swal.fire({
+                        title: 'Export Limit Warning',
+                        html: `
+                            <div class="text-start">
+                                <p><strong>Total Jobs:</strong> ${totalJobs}</p>
+                                <p><strong>Export Limit:</strong> ${exportLimit}</p>
+                                <p class="text-warning mb-0">
+                                    <i class="las la-exclamation-triangle"></i>
+                                    Only the first ${exportLimit} jobs will be exported.
+                                </p>
+                                <p class="text-muted mt-2" style="font-size: 13px;">
+                                    Please apply additional filters to reduce the result set.
+                                </p>
+                            </div>
+                        `,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Export Anyway',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#198754',
+                        cancelButtonColor: '#6c757d'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            startExport();
+                        }
+                    });
+                } else {
+                    startExport();
+                }
+
+                function startExport() {
+                    // Show loading
+                    let timerInterval;
+                    Swal.fire({
+                        title: 'Exporting Jobs...',
+                        html: `
+                            <div style="text-align: center;">
+                                <p>Processing <strong>${willExport}</strong> jobs</p>
+                                <div class="progress mt-3" style="height: 25px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                        role="progressbar" style="width: 100%">
+                                        Generating CSV...
+                                    </div>
+                                </div>
+                                <p class="text-muted mt-3" style="font-size: 13px;">
+                                    <i class="las la-clock"></i> <span id="exportTimer">0</span>s
+                                </p>
+                            </div>
+                        `,
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            let seconds = 0;
+                            timerInterval = setInterval(() => {
+                                seconds++;
+                                $('#exportTimer').text(seconds);
+                            }, 1000);
+                        },
+                        willClose: () => {
+                            clearInterval(timerInterval);
+                        }
+                    });
+
+                    // Build params
+                    let params = new URLSearchParams();
+                    let status = $('#statusFilter').val();
+                    let branchId = $('#branchFilter').val();
+                    let serviceId = $('#serviceFilter').val();
+                    let dateFrom = $('#dateFrom').val();
+                    let dateTo = $('#dateTo').val();
+                    let search = $('#searchInput').val();
+
+                    // Add non-empty filters to params
+                    if (status && status !== '') params.append('status', status);
+                    if (branchId && branchId !== '') params.append('branch_id', branchId);
+                    if (serviceId && serviceId !== '') params.append('service_id', serviceId);
+                    if (dateFrom) params.append('date_from', dateFrom);
+                    if (dateTo) params.append('date_to', dateTo);
+                    if (search) params.append('search', search);
+
+                    // Download with iframe
+                    let exportUrl = "{{ route('jobs.export') }}" + '?' + params.toString();
+                    let iframe = document.createElement('iframe');
+                    iframe.style.display = 'none';
+                    iframe.src = exportUrl;
+                    document.body.appendChild(iframe);
+
+                    // Close loader after delay
+                    setTimeout(() => {
+                        clearInterval(timerInterval);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Export Complete!',
+                            html: `<p><strong>${willExport}</strong> jobs exported successfully</p>
+                                <small class="text-muted">Check your Downloads folder</small>`,
+                            timer: 3000,
+                            showConfirmButton: true,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#198754'
+                        });
+
+                        setTimeout(() => {
+                            document.body.removeChild(iframe);
+                        }, 1000);
+                    }, 2000);
+                }
+            });
 
             console.log('✅ Jobs management system initialized');
         });

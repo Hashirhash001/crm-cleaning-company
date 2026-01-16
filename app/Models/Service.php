@@ -11,7 +11,8 @@ class Service extends Model
         'service_type',
         'description',
         'price',
-        'is_active'
+        'is_active',
+        'created_by',
     ];
 
     protected $casts = [
@@ -23,6 +24,11 @@ class Service extends Model
     public function leads()
     {
         return $this->belongsToMany(Lead::class, 'lead_service');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     // Scope for cleaning services

@@ -495,6 +495,7 @@
                                     <option value="phonepe" {{ old('payment_mode') == 'phonepe' ? 'selected' : '' }}>Phonepe</option>
                                     <option value="paytm" {{ old('payment_mode') == 'paytm' ? 'selected' : '' }}>Paytm</option>
                                     <option value="amazonpay" {{ old('payment_mode') == 'amazonpay' ? 'selected' : '' }}>Amazonpay</option>
+                                    <option value="qrcode" {{ old('payment_mode') == 'qrcode' ? 'selected' : '' }}>QR Code</option>
                                     <option value="cash" {{ old('payment_mode', $lead->payment_mode) == 'cash' ? 'selected' : '' }}>Cash</option>
                                     <option value="upi" {{ old('payment_mode', $lead->payment_mode) == 'upi' ? 'selected' : '' }}>UPI</option>
                                     <option value="card" {{ old('payment_mode', $lead->payment_mode) == 'card' ? 'selected' : '' }}>Card</option>

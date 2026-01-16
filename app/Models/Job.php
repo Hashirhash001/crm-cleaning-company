@@ -23,6 +23,8 @@ class Job extends Model
         'description',
         'amount',
         'amount_paid',
+        'addon_price',
+        'addon_price_comments',
         'customer_instructions',
         'status',
         'assigned_at',
@@ -42,6 +44,7 @@ class Job extends Model
         'scheduled_date' => 'date',
         'amount' => 'decimal:2',
         'amount_paid' => 'decimal:2',
+        'addon_price' => 'decimal:2',
         'approved_at' => 'datetime',
     ];
 
@@ -217,8 +220,11 @@ class Job extends Model
 
         switch ($column) {
             case 'code':
-            case 'job_code':
-                return $query->orderBy('job_code', $direction);
+                case 'job_code':
+                    // Sort numerically by extracting the number from JOB0001, JOB0002, etc.
+                    return $query->orderByRaw(
+                        "CAST(SUBSTRING(job_code, 4) AS UNSIGNED) {$direction}"
+                    );
 
             case 'title':
                 return $query->orderBy('title', $direction);

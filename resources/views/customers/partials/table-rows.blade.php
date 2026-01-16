@@ -28,8 +28,13 @@
                 <span class="badge bg-success">Low</span>
             @endif
         </td>
-        <td><span class="badge bg-info">{{ $customer->jobs_count ?? 0 }}</span></td>
+        {{-- <td><span class="badge bg-info">{{ $customer->jobs_count ?? 0 }}</span></td> --}}
         <td><span class="badge bg-success">{{ $customer->completed_jobs_count ?? 0 }}</span></td>
+        <td>
+            <span class="badge bg-primary" style="font-size: 0.9rem;">
+                ₹{{ number_format($customer->total_value ?? 0) }}
+            </span>
+        </td>
         <td class="text-end">
             @if(auth()->user()->role === 'super_admin')
                 <a href="javascript:void(0)" class="editCustomerBtn" data-id="{{ $customer->id }}" title="Edit">

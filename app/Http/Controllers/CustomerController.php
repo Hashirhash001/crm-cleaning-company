@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\CustomerNote;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -21,65 +22,68 @@ class CustomerController extends Controller
     {
         $user = auth()->user();
 
-        // Authorization
         if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
             abort(403, 'Unauthorized');
         }
 
-        $query = Customer::with(['branch', 'lead'])
+        // Select only needed columns
+        $query = Customer::select([
+                'id', 'customer_code', 'name', 'email', 'phone',
+                'address', 'priority', 'branch_id', 'is_active', 'created_at'
+            ])
+            ->with([
+                'branch:id,name',
+                'lead:id,lead_code,customer_id'
+            ])
             ->withCount('jobs')
             ->withCount([
                 'jobs as completed_jobs_count' => function ($q) {
-                    $q->whereIn('status', ['completed', 'confirmed']);
+                    $q->whereIn('status', ['completed', 'approved']);
                 }
-            ]);
+            ])
+            ->withSum([
+                'jobs as total_value' => function ($q) {
+                    $q->whereIn('status', ['completed', 'approved']);
+                }
+            ], 'amount');
 
-
-        // Role-based access control
-        if ($user->role === 'super_admin') {
-            // Super admin sees all customers
-        } elseif (in_array($user->role, ['lead_manager', 'telecallers'])) {
-            // Branch users see only their branch customers
+        // Role-based access
+        if ($user->role !== 'super_admin') {
             $query->where('branch_id', $user->branch_id);
-        } else {
-            abort(403, 'Unauthorized');
         }
 
-        // Filter by priority
+        // Apply filters
         if ($request->filled('priority')) {
             $query->where('priority', $request->priority);
         }
 
-        // Filter by branch
         if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
         }
 
-        // Filter by active status
         if ($request->filled('is_active')) {
             $query->where('is_active', $request->is_active);
         }
 
-        // Search
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%")
-                ->orWhere('customer_code', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('customer_code', 'like', "%{$search}%");
             });
         }
 
+        // Sorting
         $sortColumn = $request->get('sort_column', 'completed-jobs');
         $sortDirection = $request->get('sort_direction', 'desc');
-
         $query->sort($sortColumn, $sortDirection);
 
+        // Paginate
         $customers = $query->paginate(15);
-        $branches = Branch::where('is_active', true)->get();
 
-        // Return JSON for AJAX requests
+        // AJAX response (no stats calculation)
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -93,7 +97,40 @@ class CustomerController extends Controller
             ]);
         }
 
-        return view('customers.index', compact('customers', 'branches'));
+        // Calculate stats ONLY on initial page load with caching
+        $cacheKey = 'customer_stats_' . $user->id . '_' . $user->branch_id;
+        $stats = cache()->remember($cacheKey, 600, function () use ($user) {
+            $statsQuery = Customer::query();
+
+            if ($user->role !== 'super_admin') {
+                $statsQuery->where('branch_id', $user->branch_id);
+            }
+
+            return [
+                'total_revenue' => DB::table('customers')
+                    ->join('jobs', 'customers.id', '=', 'jobs.customer_id')
+                    ->whereIn('jobs.status', ['completed', 'approved'])
+                    ->when($user->role !== 'super_admin', fn($q) =>
+                        $q->where('customers.branch_id', $user->branch_id))
+                    ->sum('jobs.amount'),
+                'total_customers' => $statsQuery->count(),
+                'active_customers' => (clone $statsQuery)->has('jobs')->count()
+            ];
+        });
+
+        $branches = Branch::where('is_active', true)->select('id', 'name')->get();
+
+        $totalRevenue = $stats['total_revenue'];
+        $totalCustomers = $stats['total_customers'];
+        $activeCustomers = $stats['active_customers'];
+
+        return view('customers.index', compact(
+            'customers',
+            'branches',
+            'totalRevenue',
+            'totalCustomers',
+            'activeCustomers'
+        ));
     }
 
     public function create()
@@ -207,7 +244,6 @@ class CustomerController extends Controller
                     'customer_code' => $customer->customer_code,
                     'name' => $customer->name
                 ]));
-
         } catch (\Exception $e) {
             Log::error('Customer creation error: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString()
@@ -303,7 +339,6 @@ class CustomerController extends Controller
                 'success' => true,
                 'message' => 'Customer updated successfully!'
             ]);
-
         } catch (\Exception $e) {
             Log::error('Customer update error: ' . $e->getMessage());
             return response()->json([
@@ -336,7 +371,7 @@ class CustomerController extends Controller
 
             if ($user->role === 'telecallers') {
                 $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
-                          || ($customer->lead && $customer->lead->assigned_to == $user->id);
+                    || ($customer->lead && $customer->lead->assigned_to == $user->id);
 
                 if (!$hasAccess) {
                     return response()->json([
@@ -369,7 +404,6 @@ class CustomerController extends Controller
                 'message' => 'Note added successfully!',
                 'note' => $note->load('createdBy', 'job')
             ]);
-
         } catch (\Exception $e) {
             Log::error('Add note error: ' . $e->getMessage());
             return response()->json([
@@ -408,7 +442,6 @@ class CustomerController extends Controller
                 'success' => true,
                 'message' => 'Customer deleted successfully!'
             ]);
-
         } catch (\Exception $e) {
             Log::error('Customer deletion error: ' . $e->getMessage());
             return response()->json([
@@ -456,7 +489,6 @@ class CustomerController extends Controller
                 'success' => true,
                 'message' => 'Note deleted successfully!'
             ]);
-
         } catch (\Exception $e) {
             Log::error('Delete note error: ' . $e->getMessage());
             return response()->json([
@@ -478,7 +510,7 @@ class CustomerController extends Controller
             // Authorization check for telecallers
             if ($user->role === 'telecallers') {
                 $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
-                          || ($customer->lead && $customer->lead->assigned_to == $user->id);
+                    || ($customer->lead && $customer->lead->assigned_to == $user->id);
 
                 if (!$hasAccess) {
                     return response()->json([
@@ -493,7 +525,7 @@ class CustomerController extends Controller
                 ->with('service:id,name')
                 ->orderBy('created_at', 'desc')
                 ->get(['id', 'job_code', 'title', 'status', 'amount', 'service_id'])
-                ->map(function($job) {
+                ->map(function ($job) {
                     return [
                         'id' => $job->id,
                         'job_code' => $job->job_code,
@@ -506,7 +538,6 @@ class CustomerController extends Controller
                 });
 
             return response()->json($jobs);
-
         } catch (\Exception $e) {
             Log::error('Get customer jobs error: ' . $e->getMessage(), [
                 'customer_id' => $customer->id,
@@ -532,7 +563,7 @@ class CustomerController extends Controller
             // Authorization check for telecallers
             if ($user->role === 'telecallers') {
                 $hasAccess = $customer->jobs()->where('assigned_to', $user->id)->exists()
-                          || ($customer->lead && $customer->lead->assigned_to == $user->id);
+                    || ($customer->lead && $customer->lead->assigned_to == $user->id);
 
                 if (!$hasAccess) {
                     return response()->json([
@@ -550,7 +581,7 @@ class CustomerController extends Controller
                 ])
                 ->orderBy('created_at', 'desc')
                 ->get()
-                ->map(function($note) use ($user) {
+                ->map(function ($note) use ($user) {
                     return [
                         'id' => $note->id,
                         'note' => $note->note,
@@ -577,7 +608,6 @@ class CustomerController extends Controller
                 'notes' => $notes,
                 'total' => $notes->count()
             ]);
-
         } catch (\Exception $e) {
             Log::error('Get customer notes error: ' . $e->getMessage(), [
                 'customer_id' => $customer->id,
@@ -599,9 +629,146 @@ class CustomerController extends Controller
 
         $customers = Customer::where('branch_id', $request->branch_id)
             ->orderBy('name')
-            ->get(['id','name','customer_code','phone']);
+            ->get(['id', 'name', 'customer_code', 'phone']);
 
         return response()->json($customers);
+    }
+
+    public function export(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            // Build query with same filters as index
+            $query = Customer::with(['branch', 'lead'])
+                ->withCount('jobs')
+                ->withCount([
+                    'jobs as completed_jobs_count' => function ($q) {
+                        $q->whereIn('status', ['completed', 'approved']);
+                    }
+                ])
+                ->withSum([
+                    'jobs as total_value' => function ($q) {
+                        $q->whereIn('status', ['completed', 'approved']);
+                    }
+                ], 'amount');
+
+            // ROLE-BASED ACCESS CONTROL
+            if ($user->role === 'super_admin') {
+                // Super admin sees all customers
+            } elseif (in_array($user->role, ['lead_manager', 'telecallers'])) {
+                // Branch users see only their branch customers
+                $query->where('branch_id', $user->branch_id);
+            } else {
+                abort(403, 'Unauthorized');
+            }
+
+            // APPLY FILTERS (same as index method)
+            if ($request->filled('priority')) {
+                $query->where('priority', $request->priority);
+            }
+
+            if ($request->filled('branch_id')) {
+                $query->where('branch_id', $request->branch_id);
+            }
+
+            if ($request->filled('is_active')) {
+                $query->where('is_active', $request->is_active);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('customer_code', 'like', "%{$search}%");
+                });
+            }
+
+            // Check total count
+            $totalCount = $query->count();
+            $exportLimit = 10000;
+
+            Log::info('Customer export started', [
+                'user_id' => $user->id,
+                'filters' => $request->all(),
+                'total_customers' => $totalCount,
+                'exported_customers' => min($totalCount, $exportLimit)
+            ]);
+
+            if ($totalCount > $exportLimit) {
+                session()->flash('warning', "Only the first {$exportLimit} customers will be exported. Total: {$totalCount}.");
+            }
+
+            // Generate filename
+            $fileName = 'customers_export_' . now()->format('Y-m-d_His') . '.csv';
+
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0'
+            ];
+
+            $callback = function() use ($query, $exportLimit) {
+                $file = fopen('php://output', 'w');
+
+                // Add UTF-8 BOM for Excel
+                fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                // CSV Headers
+                fputcsv($file, [
+                    'Customer Code',
+                    'Name',
+                    'Email',
+                    'Phone',
+                    'Address',
+                    'Priority',
+                    'Branch',
+                    'Total Jobs',
+                    'Completed Jobs',
+                    'Total Revenue',
+                    'Status',
+                    'Lead Code',
+                    'Created At',
+                    'Notes'
+                ]);
+
+                // Data rows with limit
+                $query->limit($exportLimit)->chunk(1000, function($customers) use ($file) {
+                    foreach ($customers as $customer) {
+                        fputcsv($file, [
+                            $customer->customer_code,
+                            $customer->name,
+                            $customer->email ?? '',
+                            $customer->phone,
+                            $customer->address ?? '',
+                            ucfirst($customer->priority),
+                            optional($customer->branch)->name ?? '',
+                            $customer->jobs_count ?? 0,
+                            $customer->completed_jobs_count ?? 0,
+                            $customer->total_value ? number_format($customer->total_value, 2) : '0.00',
+                            $customer->is_active ? 'Active' : 'Inactive',
+                            optional($customer->lead)->lead_code ?? '',
+                            $customer->created_at->format('Y-m-d H:i:s'),
+                            $customer->notes ?? ''
+                        ]);
+                    }
+                });
+
+                fclose($file);
+            };
+
+            return response()->streamDownload($callback, $fileName, $headers);
+
+        } catch (\Exception $e) {
+            \Log::error('Customer export error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withError('Error exporting customers: ' . $e->getMessage());
+        }
     }
 
 }
