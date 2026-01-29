@@ -382,21 +382,6 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="service_type" class="form-label required-field">Type of Service</label>
-                                <select class="form-select @error('service_type') is-invalid @enderror"
-                                        id="service_type"
-                                        name="service_type"
-                                        required>
-                                    <option value="">Select Service Type</option>
-                                    <option value="cleaning" {{ old('service_type', $lead->service_type) == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
-                                    <option value="pest_control" {{ old('service_type', $lead->service_type) == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
-                                    <option value="other" {{ old('service_type') == 'other' ? 'selected' : '' }}>Other</option>
-                                </select>
-                                @error('service_type')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
 
                             <div class="col-md-6">
                                 <label for="lead_source_id" class="form-label required-field">Source of the Lead</label>
@@ -415,18 +400,53 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
+                            <div class="col-md-6">
+                                <label for="service_type" class="form-label">Type of Service</label>
+                                <select class="form-select @error('service_type') is-invalid @enderror"
+                                        id="service_type"
+                                        name="service_type">
+                                    <option value="">Select Service Type</option>
+                                    <option value="cleaning" {{ old('service_type', $lead->service_type) == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
+                                    <option value="pest_control" {{ old('service_type', $lead->service_type) == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
+                                    <option value="other" {{ old('service_type') == 'other' ? 'selected' : '' }}>Other</option>
+                                </select>
+                                @error('service_type')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-12">
-                                <label class="form-label required-field">Select Services (Multiple Selection Allowed)</label>
+                                <label class="form-label">Select Services (Multiple Selection from Any Type)</label>
+
+                                <!-- Search Box for Services -->
+                                <div class="mb-2">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">
+                                            <i class="las la-search"></i>
+                                        </span>
+                                        <input type="text"
+                                            class="form-control"
+                                            id="serviceSearchInput"
+                                            placeholder="Search services by name...">
+                                        <button class="btn btn-outline-secondary" type="button" id="clearServiceSearch">
+                                            <i class="las la-times"></i> Clear
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div class="service-select-box @error('service_ids') is-invalid @enderror" id="servicesContainer">
                                     <p class="text-muted text-center my-5">
                                         <i class="las la-spinner la-spin" style="font-size: 2rem;"></i><br>
                                         Loading services...
                                     </p>
                                 </div>
-                                <small class="text-muted">Check services and quantity for each</small>
+                                <small class="text-muted">
+                                    <i class="las la-info-circle"></i>
+                                    You can select services from different types. Use the "Service Type" filter or search box above.
+                                </small>
                                 @error('service_ids')
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
@@ -690,9 +710,30 @@ $(document).ready(function() {
     });
 
     const allTelecallers = @json($telecallers);
+    const allServices = @json($services);
     const currentAssignedTo = {{ $lead->assigned_to ?? 'null' }};
     const leadServiceIds = @json($lead->services->pluck('id'));
     const leadServiceQuantities = @json($lead->services->mapWithKeys(function($s) { return [$s->id => $s->pivot->quantity]; }));
+
+    let currentFilterType = null;
+    let currentSearchTerm = '';
+
+    // ============ PERSISTENT STATE FOR SELECTED SERVICES ============
+    let selectedServices = {}; // { serviceId: { name: 'Service Name', quantity: 1, type: 'cleaning' } }
+
+    // Initialize selected services from existing lead data
+    leadServiceIds.forEach(function(serviceId) {
+        let service = allServices.find(s => s.id == serviceId);
+        if (service) {
+            selectedServices[serviceId] = {
+                name: service.name,
+                quantity: leadServiceQuantities[serviceId] || 1,
+                type: service.service_type
+            };
+        }
+    });
+
+    console.log('Initial selected services:', selectedServices);
 
     // ============ SQFT Custom Field Toggle ============
     $('#sqft').on('change', function() {
@@ -704,35 +745,48 @@ $(document).ready(function() {
         }
     });
 
-    // Calculate balance amount
+    // ============ Calculate balance amount ============
     function calculateBalance() {
         let totalAmount = parseFloat($('#amount').val()) || 0;
         let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
         let balance = totalAmount - advancePaid;
 
-        $('#balanceamount').text(balance.toFixed(2));
+        // Try different possible IDs for balance display
+        let balanceElement = $('#balance_amount').length ? $('#balance_amount') :
+                            $('#balanceamount').length ? $('#balanceamount') :
+                            $('.balance-amount');
+
+        if (balanceElement.length) {
+            balanceElement.text('₹ ' + balance.toFixed(2));
+        }
 
         if (advancePaid > totalAmount && totalAmount > 0) {
             $('#advance_paid_amount').addClass('is-invalid');
-            $('#balanceamount').removeClass('text-success').addClass('text-danger');
+            if (balanceElement.length) {
+                balanceElement.removeClass('text-success').addClass('text-danger');
+            }
 
             if (!$('#advanceerror').length) {
                 $('#advance_paid_amount').after('<div id="advanceerror" class="invalid-feedback d-block">Advance paid cannot be greater than total service cost</div>');
             }
         } else {
             $('#advance_paid_amount').removeClass('is-invalid');
-            $('#balanceamount').removeClass('text-danger').addClass('text-success');
+            if (balanceElement.length) {
+                balanceElement.removeClass('text-danger').addClass('text-success');
+            }
             $('#advanceerror').remove();
         }
     }
 
-    $('#amount, #advance_paid_amount').on('input', calculateBalance);
+    // Bind to amount fields
+    $('#amount, #advance_paid_amount').on('input change keyup', function() {
+        calculateBalance();
+    });
 
     // Branch change handler
     $('#branch_id').on('change', function() {
         let selectedBranchId = $(this).val();
         let assignedToSelect = $('#assigned_to');
-        let currentValue = assignedToSelect.val();
 
         assignedToSelect.find('option:not(:first)').remove();
 
@@ -742,99 +796,373 @@ $(document).ready(function() {
             });
 
             filteredTelecallers.forEach(function(telecaller) {
-                let isSelected = (telecaller.id == currentAssignedTo);
+                let isSelected = telecaller.id == currentAssignedTo;
                 assignedToSelect.append(`<option value="${telecaller.id}" ${isSelected ? 'selected' : ''}>${telecaller.name}</option>`);
             });
 
             if (filteredTelecallers.length === 0) {
-                assignedToSelect.append(`<option value="" disabled>No telecallers in this branch</option>`);
+                assignedToSelect.append('<option value="" disabled>No telecallers in this branch</option>');
             }
         }
     });
 
-    // ============ UPDATED: Load services with quantities ============
-    function loadServices(serviceType) {
+    // ============ Save only VISIBLE selections ============
+    function saveCurrentSelections() {
+        console.log('Saving selections... Current DOM checkboxes:', $('.service-checkbox').length);
+
+        // Only update services that are currently visible in DOM
+        let visibleServiceIds = [];
+
+        $('.service-checkbox').each(function() {
+            let serviceId = $(this).data('service-id');
+            visibleServiceIds.push(serviceId);
+
+            let isChecked = $(this).is(':checked');
+
+            if (isChecked) {
+                let quantity = parseInt($(`#quantity_${serviceId}`).val()) || 1;
+                let serviceName = $(this).data('service-name');
+                let serviceType = $(this).data('service-type');
+
+                selectedServices[serviceId] = {
+                    name: serviceName,
+                    quantity: quantity,
+                    type: serviceType
+                };
+
+                console.log('Saved service:', serviceId, selectedServices[serviceId]);
+            } else {
+                // Only remove if this service is visible AND unchecked
+                if (selectedServices.hasOwnProperty(serviceId)) {
+                    delete selectedServices[serviceId];
+                    console.log('Removed service (unchecked):', serviceId);
+                }
+            }
+        });
+
+        console.log('Visible service IDs:', visibleServiceIds);
+        console.log('Total selected services:', Object.keys(selectedServices).length, selectedServices);
+    }
+
+    // ============ FIXED: Inject all selected services as hidden inputs ============
+    function injectSelectedServicesIntoForm() {
+        // Remove any previously injected hidden inputs
+        $('#UpdateLeadForm').find('.injected-service-input').remove();
+
+        // IMPORTANT: Disable all visible service checkboxes so they don't get submitted
+        $('.service-checkbox').prop('disabled', true);
+        $('.service-quantity-input').prop('disabled', true);
+
+        console.log('Injecting selected services into form:', selectedServices);
+
+        // Inject hidden inputs for all selected services
+        Object.entries(selectedServices).forEach(([serviceId, data]) => {
+            // Add service ID checkbox (checked)
+            $('#UpdateLeadForm').append(`
+                <input type="checkbox"
+                    name="service_ids[]"
+                    value="${serviceId}"
+                    checked
+                    class="injected-service-input"
+                    style="display:none;">
+            `);
+
+            // Add quantity input
+            $('#UpdateLeadForm').append(`
+                <input type="number"
+                    name="service_quantities[${serviceId}]"
+                    value="${data.quantity}"
+                    class="injected-service-input"
+                    style="display:none;">
+            `);
+
+            console.log(`Injected service ${serviceId}: ${data.name} (qty: ${data.quantity})`);
+        });
+
+        console.log('Total injected inputs:', $('#UpdateLeadForm').find('.injected-service-input').length);
+    }
+
+    // ============ Load services with persistent selection ============
+    function loadAllServices(filterByType = null, searchTerm = '') {
+        console.log('Loading services... Filter:', filterByType, 'Search:', searchTerm);
+        console.log('Current selections before load:', selectedServices);
+
         let container = $('#servicesContainer');
 
-        if (!serviceType) {
-            container.html('<p class="text-muted text-center my-5"><i class="las la-arrow-up" style="font-size: 2rem;"></i><br> Please select a service type first</p>');
+        // Apply type filter
+        let servicesToShow = filterByType
+            ? allServices.filter(s => s.service_type === filterByType)
+            : allServices;
+
+        // Apply search filter
+        if (searchTerm) {
+            searchTerm = searchTerm.toLowerCase();
+            servicesToShow = servicesToShow.filter(s =>
+                s.name.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (servicesToShow.length === 0) {
+            let message = searchTerm
+                ? `No services found matching "<strong>${searchTerm}</strong>"`
+                : 'No services available';
+
+            container.html(`
+                <p class="text-muted text-center my-5">
+                    <i class="las la-search" style="font-size: 2rem;"></i><br>
+                    ${message}
+                </p>
+            `);
+
+            updateSelectedServicesDisplay();
             return;
         }
 
-        container.html('<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>');
+        // Group services by type
+        let grouped = {};
+        servicesToShow.forEach(function(service) {
+            let type = service.service_type || 'other';
+            if (!grouped[type]) {
+                grouped[type] = [];
+            }
+            grouped[type].push(service);
+        });
 
-        $.ajax({
-            url: "{{ route('leads.servicesByType') }}",
-            type: 'GET',
-            data: { service_type: serviceType },
-            success: function(services) {
-                if (services.length === 0) {
-                    container.html('<p class="text-muted text-center my-3">No services available for this type</p>');
-                    return;
+        let html = '';
+
+        // Display grouped services with headers
+        Object.keys(grouped).sort().forEach(function(type) {
+            let typeName = type === 'cleaning' ? 'Cleaning Services' :
+                          type === 'pest_control' ? 'Pest Control Services' :
+                          'Other Services';
+
+            let typeColor = type === 'cleaning' ? '#3b82f6' :
+                           type === 'pest_control' ? '#10b981' :
+                           '#6b7280';
+
+            html += `
+                <div style="margin-top: ${html ? '15px' : '0'}; padding: 8px 10px; background: ${typeColor}15; border-left: 3px solid ${typeColor}; border-radius: 4px;">
+                    <strong style="color: ${typeColor}; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${typeName} <span style="font-size: 0.8rem; font-weight: 400;">(${grouped[type].length})</span>
+                    </strong>
+                </div>
+            `;
+
+            // Add services for this type
+            grouped[type].forEach(function(service) {
+                // Check persistent state for selection
+                let isChecked = selectedServices.hasOwnProperty(service.id);
+                let quantity = isChecked ? selectedServices[service.id].quantity : 1;
+
+                console.log(`Service ${service.id} (${service.name}): checked=${isChecked}, qty=${quantity}`);
+
+                html += `
+                    <div class="service-checkbox-item">
+                        <div class="service-checkbox-wrapper">
+                            <input type="checkbox"
+                                   name="service_ids[]"
+                                   value="${service.id}"
+                                   id="service_${service.id}"
+                                   class="service-checkbox"
+                                   data-service-id="${service.id}"
+                                   data-service-name="${service.name}"
+                                   data-service-type="${service.service_type}"
+                                   ${isChecked ? 'checked' : ''}>
+                            <label for="service_${service.id}">${service.name}</label>
+                        </div>
+                        <div class="service-quantity-wrapper">
+                            <span class="quantity-label">Qty:</span>
+                            <input type="number"
+                                   name="service_quantities[${service.id}]"
+                                   id="quantity_${service.id}"
+                                   class="service-quantity-input"
+                                   min="1"
+                                   value="${quantity}"
+                                   ${!isChecked ? 'disabled' : ''}>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+
+        // Show search result count if searching
+        if (searchTerm) {
+            let totalCount = servicesToShow.length;
+            let prependHtml = `
+                <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.85rem;">
+                    <i class="las la-info-circle"></i>
+                    Found <strong>${totalCount}</strong> service${totalCount !== 1 ? 's' : ''} matching "<strong>${searchTerm}</strong>"
+                </div>
+            `;
+            html = prependHtml + html;
+        }
+
+        container.html(html);
+
+        console.log('DOM rendered. Checkboxes found:', $('.service-checkbox').length);
+        console.log('Checked checkboxes:', $('.service-checkbox:checked').length);
+
+        updateSelectedServicesDisplay();
+        bindServiceEvents();
+    }
+
+    // ============ BIND EVENT HANDLERS TO SERVICE CHECKBOXES ============
+    function bindServiceEvents() {
+        $('.service-checkbox').off('change').on('change', function() {
+            let serviceId = $(this).data('service-id');
+            let serviceName = $(this).data('service-name');
+            let serviceType = $(this).data('service-type');
+            let quantityInput = $(`#quantity_${serviceId}`);
+
+            if ($(this).is(':checked')) {
+                quantityInput.prop('disabled', false);
+                if (!quantityInput.val() || quantityInput.val() < 1) {
+                    quantityInput.val(1);
                 }
 
-                let html = '';
-                services.forEach(function(service) {
-                    let isChecked = leadServiceIds.includes(service.id);
-                    let quantity = leadServiceQuantities[service.id] || 1;
+                selectedServices[serviceId] = {
+                    name: serviceName,
+                    quantity: parseInt(quantityInput.val()),
+                    type: serviceType
+                };
 
-                    html += `
-                        <div class="service-checkbox-item">
-                            <div class="service-checkbox-wrapper">
-                                <input type="checkbox"
-                                       name="service_ids[]"
-                                       value="${service.id}"
-                                       id="service_${service.id}"
-                                       class="service-checkbox"
-                                       data-service-id="${service.id}"
-                                       ${isChecked ? 'checked' : ''}>
-                                <label for="service_${service.id}">${service.name}</label>
-                            </div>
-                            <div class="service-quantity-wrapper">
-                                <span class="quantity-label">Qty:</span>
-                                <input type="number"
-                                       name="service_quantities[${service.id}]"
-                                       id="quantity_${service.id}"
-                                       class="service-quantity-input"
-                                       min="1"
-                                       value="${quantity}"
-                                       ${isChecked ? '' : 'disabled'}>
-                            </div>
-                        </div>
-                    `;
-                });
+                console.log('Checkbox checked - added to selection:', serviceId, selectedServices[serviceId]);
+            } else {
+                quantityInput.prop('disabled', true);
+                delete selectedServices[serviceId];
+                console.log('Checkbox unchecked - removed from selection:', serviceId);
+            }
 
-                container.html(html);
+            updateSelectedServicesDisplay();
+        });
 
-                // Enable/disable quantity input based on checkbox
-                $('.service-checkbox').on('change', function() {
-                    let serviceId = $(this).data('service-id');
-                    let quantityInput = $(`#quantity_${serviceId}`);
-
-                    if ($(this).is(':checked')) {
-                        quantityInput.prop('disabled', false);
-                        if (!quantityInput.val() || quantityInput.val() < 1) {
-                            quantityInput.val(1);
-                        }
-                    } else {
-                        quantityInput.prop('disabled', true);
-                    }
-                });
-            },
-            error: function() {
-                container.html('<p class="text-danger text-center my-3">Error loading services. Please try again.</p>');
+        $('.service-quantity-input').off('change').on('change', function() {
+            let serviceId = $(this).attr('id').replace('quantity_', '');
+            if (selectedServices.hasOwnProperty(serviceId)) {
+                selectedServices[serviceId].quantity = parseInt($(this).val()) || 1;
+                console.log('Quantity updated:', serviceId, selectedServices[serviceId].quantity);
+                updateSelectedServicesDisplay();
             }
         });
     }
 
+    // ============ DISPLAY SELECTED SERVICES WITH NAMES ============
+    function updateSelectedServicesDisplay() {
+        let selectedCount = Object.keys(selectedServices).length;
+        let $existingBadge = $('#selectedServicesBadge');
+
+        console.log('Updating display. Selected count:', selectedCount);
+
+        if (selectedCount > 0) {
+            let byType = {
+                cleaning: [],
+                pest_control: [],
+                other: []
+            };
+
+            Object.entries(selectedServices).forEach(([id, data]) => {
+                let type = data.type || 'other';
+                byType[type].push(`${data.name} (x${data.quantity})`);
+            });
+
+            let servicesList = [];
+            if (byType.cleaning.length > 0) {
+                servicesList.push('<span style="color: #3b82f6;">🧹 ' + byType.cleaning.join(', ') + '</span>');
+            }
+            if (byType.pest_control.length > 0) {
+                servicesList.push('<span style="color: #10b981;">🐛 ' + byType.pest_control.join(', ') + '</span>');
+            }
+            if (byType.other.length > 0) {
+                servicesList.push('<span style="color: #6b7280;">📦 ' + byType.other.join(', ') + '</span>');
+            }
+
+            let displayList = servicesList.join(' | ');
+
+            let badgeHtml = `
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <i class="las la-check-circle"></i>
+                        <strong>${selectedCount}</strong> service${selectedCount !== 1 ? 's' : ''} selected
+                        <br>
+                        <small style="font-size: 0.75rem;">${displayList}</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="clearAllSelections">
+                        <i class="las la-times"></i> Clear All
+                    </button>
+                </div>
+            `;
+
+            if ($existingBadge.length === 0) {
+                $('#servicesContainer').before(`
+                    <div id="selectedServicesBadge" class="alert alert-success py-2 px-3 mb-2" style="font-size: 0.85rem;">
+                        ${badgeHtml}
+                    </div>
+                `);
+            } else {
+                $existingBadge.html(badgeHtml);
+            }
+
+            $('#clearAllSelections').off('click').on('click', function() {
+                if (confirm('Are you sure you want to clear all selected services?')) {
+                    selectedServices = {};
+                    console.log('All selections cleared');
+                    loadAllServices(currentFilterType, currentSearchTerm);
+                }
+            });
+        } else {
+            $existingBadge.remove();
+        }
+    }
+
+    // ============ Service Type Filter ============
     $('#service_type').on('change', function() {
-        loadServices($(this).val());
+        currentFilterType = $(this).val();
+        console.log('Filter changed to:', currentFilterType);
+        saveCurrentSelections();
+        loadAllServices(currentFilterType, currentSearchTerm);
     });
+
+    // ============ Service Search Handler ============
+    $('#serviceSearchInput').on('input', function() {
+        currentSearchTerm = $(this).val().trim();
+        console.log('Search changed to:', currentSearchTerm);
+        saveCurrentSelections();
+        loadAllServices(currentFilterType, currentSearchTerm);
+    });
+
+    $('#clearServiceSearch').on('click', function() {
+        $('#serviceSearchInput').val('');
+        currentSearchTerm = '';
+        saveCurrentSelections();
+        loadAllServices(currentFilterType, currentSearchTerm);
+        $('#serviceSearchInput').focus();
+    });
+
+    $('#serviceSearchInput').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            currentSearchTerm = $(this).val().trim();
+            saveCurrentSelections();
+            loadAllServices(currentFilterType, currentSearchTerm);
+        }
+    });
+
+    // Load all services on page load
+    loadAllServices();
+
+    // Calculate balance after page loads
+    setTimeout(function() {
+        calculateBalance();
+        console.log('Initial balance calculated');
+    }, 100);
 
     // Form validation
     function validateForm() {
         let isValid = true;
         let errors = [];
+
+        $('.is-invalid').removeClass('is-invalid');
+        $('.invalid-feedback').remove();
 
         if (!$('#name').val().trim()) {
             errors.push('Client name is required');
@@ -848,28 +1176,9 @@ $(document).ready(function() {
             isValid = false;
         }
 
-        if (!$('#service_type').val()) {
-            errors.push('Service type is required');
-            $('#service_type').addClass('is-invalid');
-            isValid = false;
-        }
-
         if (!$('#lead_source_id').val()) {
             errors.push('Lead source is required');
             $('#lead_source_id').addClass('is-invalid');
-            isValid = false;
-        }
-
-        if ($('.service-checkbox:checked').length === 0) {
-            errors.push('Please select at least one service');
-            $('#servicesContainer').addClass('is-invalid');
-            isValid = false;
-        }
-
-        // Validate SQFT custom field
-        if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
-            errors.push('Please enter custom SQFT value');
-            $('#sqft_custom').addClass('is-invalid');
             isValid = false;
         }
 
@@ -879,7 +1188,13 @@ $(document).ready(function() {
             isValid = false;
         }
 
-        @if(auth()->user()->role === 'superadmin')
+        if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
+            errors.push('Please enter custom SQFT value');
+            $('#sqft_custom').addClass('is-invalid');
+            isValid = false;
+        }
+
+        @if(auth()->user()->role === 'super_admin')
         if (!$('#branch_id').val()) {
             errors.push('Branch is required');
             $('#branch_id').addClass('is-invalid');
@@ -900,33 +1215,59 @@ $(document).ready(function() {
             Swal.fire({
                 icon: 'error',
                 title: 'Validation Error',
-                html: '<ul class="text-start">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>'
+                html: `<ul class="text-start">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`
             });
         }
 
         return isValid;
     }
 
-    // Clear validation errors on input
     $('input, select, textarea').on('input change', function() {
         $(this).removeClass('is-invalid');
     });
 
-    // Form submission - AJAX to stay on page
+    // ============ UPDATED: Form submission with proper cleanup ============
     $('#UpdateLeadForm').on('submit', function(e) {
-        e.preventDefault(); // Always prevent default
+        e.preventDefault();
 
-        // Validate
+        // Save current visible selections
+        saveCurrentSelections();
+
+        // Inject ALL selected services and disable visible ones
+        injectSelectedServicesIntoForm();
+
+        console.log('Form submitting with selections:', selectedServices);
+
         if (!validateForm()) {
+            // Re-enable checkboxes if validation fails
+            $('.service-checkbox').prop('disabled', false);
+            $('.service-checkbox:checked').each(function() {
+                let serviceId = $(this).data('service-id');
+                $(`#quantity_${serviceId}`).prop('disabled', false);
+            });
             return false;
         }
 
-        // Show loading
         let submitBtn = $(this).find('button[type="submit"]');
         let originalBtnHtml = submitBtn.html();
         submitBtn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Updating...');
 
         let formData = new FormData(this);
+
+        // Log what's being sent
+        console.log('FormData contents:');
+        let serviceIdsCount = 0;
+        let serviceQuantitiesCount = 0;
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'service_ids[]') {
+                serviceIdsCount++;
+                console.log(`service_ids[]: ${pair[1]}`);
+            } else if (pair[0].startsWith('service_quantities[')) {
+                serviceQuantitiesCount++;
+                console.log(`${pair[0]}: ${pair[1]}`);
+            }
+        }
+        console.log(`Total service_ids: ${serviceIdsCount}, Total quantities: ${serviceQuantitiesCount}`);
 
         $.ajax({
             url: $(this).attr('action'),
@@ -937,8 +1278,17 @@ $(document).ready(function() {
             success: function(response) {
                 submitBtn.prop('disabled', false).html(originalBtnHtml);
 
+                // Re-enable checkboxes
+                $('.service-checkbox').prop('disabled', false);
+                $('.service-checkbox:checked').each(function() {
+                    let serviceId = $(this).data('service-id');
+                    $(`#quantity_${serviceId}`).prop('disabled', false);
+                });
+
+                // Remove injected inputs
+                $('.injected-service-input').remove();
+
                 if (response.success) {
-                    // Build success message
                     let successHtml = `
                         <div class="alert alert-success alert-dismissible fade show" role="alert">
                             <h5 class="alert-heading">
@@ -951,15 +1301,12 @@ $(document).ready(function() {
                         </div>
                     `;
 
-                    // Show success message at top of form
                     $('#UpdateLeadForm').prepend(successHtml);
 
-                    // Scroll to success message
                     $('html, body').animate({
                         scrollTop: $('.alert-success').offset().top - 100
                     }, 500);
 
-                    // Show SweetAlert
                     Swal.fire({
                         icon: 'success',
                         title: 'Success!',
@@ -977,21 +1324,32 @@ $(document).ready(function() {
                     }).then((result) => {
                         if (result.dismiss === Swal.DismissReason.cancel) {
                             window.location.href = "{{ route('leads.index') }}";
+                        } else {
+                            // Optionally reload the page to show updated data
+                            location.reload();
                         }
                     });
 
-                    // Remove any previous alerts
                     $('.alert-danger').remove();
                 }
             },
             error: function(xhr) {
                 submitBtn.prop('disabled', false).html(originalBtnHtml);
 
+                // Re-enable checkboxes
+                $('.service-checkbox').prop('disabled', false);
+                $('.service-checkbox:checked').each(function() {
+                    let serviceId = $(this).data('service-id');
+                    $(`#quantity_${serviceId}`).prop('disabled', false);
+                });
+
+                // Remove injected inputs
+                $('.injected-service-input').remove();
+
                 let errors = [];
                 let errorHtml = '';
 
                 if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                    // Validation errors
                     errorHtml = `
                         <div class="alert alert-danger alert-dismissible fade show" role="alert" id="errorAlert">
                             <h5 class="alert-heading">
@@ -1009,7 +1367,6 @@ $(document).ready(function() {
                             errorHtml += `<li>${error}</li>`;
                         });
 
-                        // Show inline errors
                         let input = $(`[name="${field}"], [name="${field}[]"]`).first();
                         if (input.length) {
                             input.addClass('is-invalid');
@@ -1029,11 +1386,9 @@ $(document).ready(function() {
                         </div>
                     `;
 
-                    // Show error at top of form
                     $('.alert-success, .alert-danger').remove();
                     $('#UpdateLeadForm').prepend(errorHtml);
 
-                    // Scroll to error
                     $('html, body').animate({
                         scrollTop: $('#errorAlert').offset().top - 100
                     }, 500);
@@ -1053,11 +1408,8 @@ $(document).ready(function() {
                     $('html, body').animate({
                         scrollTop: $('.alert-danger').offset().top - 100
                     }, 500);
-                } else {
-                    errorHtml = '<p class="mb-0">An error occurred. Please try again.</p>';
                 }
 
-                // Also show SweetAlert for errors
                 if (errors.length > 0) {
                     Swal.fire({
                         icon: 'error',
@@ -1070,25 +1422,19 @@ $(document).ready(function() {
         });
     });
 
-    // Auto-scroll to error alert on page load
     @if($errors->any())
-        $(window).on('load', function() {
-            $('html, body').animate({
-                scrollTop: $('#errorAlert').offset().top - 100
-            }, 500);
-        });
+    $(window).on('load', function() {
+        $('html, body').animate({
+            scrollTop: $('#errorAlert').offset().top - 100
+        }, 500);
+    });
     @endif
 
-    // Load services on page load
-    @if($lead->service_type)
-        loadServices('{{ $lead->service_type }}');
-    @endif
-
-    // Trigger branch change if super admin
-    @if(auth()->user()->role === 'superadmin')
-        $('#branch_id').trigger('change');
+    @if(auth()->user()->role === 'super_admin')
+    $('#branch_id').trigger('change');
     @endif
 });
 </script>
+
 @endsection
 

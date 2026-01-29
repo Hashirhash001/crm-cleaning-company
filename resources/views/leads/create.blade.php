@@ -381,20 +381,6 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label for="service_type" class="form-label required-field">Type of Service</label>
-                                <select class="form-select @error('service_type') is-invalid @enderror"
-                                        id="service_type"
-                                        name="service_type">
-                                    <option value="">Select Service Type</option>
-                                    <option value="cleaning" {{ old('service_type') == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
-                                    <option value="pest_control" {{ old('service_type') == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
-                                    <option value="other" {{ old('service_type') == 'other' ? 'selected' : '' }}>Other</option>
-                                </select>
-                                @error('service_type')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
 
                             <div class="col-md-6">
                                 <label for="lead_source_id" class="form-label required-field">Source of the Lead</label>
@@ -418,18 +404,53 @@
                                     <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
+
+                            <div class="col-md-6">
+                                <label for="service_type" class="form-label required-field">Type of Service</label>
+                                <select class="form-select @error('service_type') is-invalid @enderror"
+                                        id="service_type"
+                                        name="service_type">
+                                    <option value="">All Services</option>
+                                    <option value="cleaning" {{ old('service_type') == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
+                                    <option value="pest_control" {{ old('service_type') == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
+                                    <option value="other" {{ old('service_type') == 'other' ? 'selected' : '' }}>Other</option>
+                                </select>
+                                @error('service_type')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
                         </div>
 
                         <div class="row mb-3">
                             <div class="col-12">
-                                <label class="form-label required-field">Select Services (Multiple Selection Allowed)</label>
+                                <label class="form-label">Select Services (Multiple Selection from Any Type)</label>
+
+                                <!-- Search Box for Services -->
+                                <div class="mb-2">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">
+                                            <i class="las la-search"></i>
+                                        </span>
+                                        <input type="text"
+                                            class="form-control"
+                                            id="serviceSearchInput"
+                                            placeholder="Search services by name...">
+                                        <button class="btn btn-outline-secondary" type="button" id="clearServiceSearch">
+                                            <i class="las la-times"></i> Clear
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <div class="service-select-box @error('service_ids') is-invalid @enderror" id="servicesContainer">
                                     <p class="text-muted text-center my-5">
-                                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                                        Please select a service type first
+                                        <i class="las la-spinner la-spin" style="font-size: 2rem;"></i><br>
+                                        Loading services...
                                     </p>
                                 </div>
-                                <small class="text-muted">Check services and specify quantity for each</small>
+                                <small class="text-muted">
+                                    <i class="las la-info-circle"></i>
+                                    You can select services from different types. Use the "Service Type" filter or search box above.
+                                </small>
                                 @error('service_ids')
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
@@ -642,727 +663,938 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <script>
-    $(document).ready(function() {
-        // CSRF Token Setup
-        $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            }
-        });
+$(document).ready(function() {
+    // CSRF Token Setup
+    $.ajaxSetup({
+        headers: {
+            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+        }
+    });
 
-        // Initialize Select2 on district dropdown
-        $('#district').select2({
-            theme: 'bootstrap-5',
-            placeholder: 'Search and select district',
-            allowClear: true,
-            width: '100%'
-        });
+    // Initialize Select2
+    $('#district').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Search and select district',
+        allowClear: true,
+        width: '100%'
+    });
 
-        const allTelecallers = @json($telecallers);
+    const allTelecallers = @json($telecallers);
+    const allServices = @json($services);
+    let currentFilterType = null;
+    let currentSearchTerm = '';
 
-        // ============ NEW: SQFT Custom Field Toggle ============
-        $('#sqft').on('change', function() {
-            let sqftValue = $(this).val();
-            if (sqftValue === 'custom') {
-                $('#sqft_custom').show().focus();
-            } else {
-                $('#sqft_custom').hide().val('');
-            }
-        });
+    // ============ PERSISTENT STATE FOR SELECTED SERVICES ============
+    let selectedServices = {}; // { serviceId: { name: 'Service Name', quantity: 1, type: 'cleaning' } }
 
-        // Trigger on page load if custom is selected
-        @if(old('sqft') === 'custom')
-            $('#sqft_custom').show();
-        @endif
+    // ============ SQFT Custom Field Toggle ============
+    $('#sqft').on('change', function() {
+        let sqftValue = $(this).val();
+        if (sqftValue === 'custom') {
+            $('#sqft_custom').show().focus();
+        } else {
+            $('#sqft_custom').hide();
+        }
+    });
 
-        // Calculate balance amount
-        function calculateBalance() {
-            let totalAmount = parseFloat($('#amount').val()) || 0;
-            let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
-            let balance = totalAmount - advancePaid;
+    // ============ Calculate balance amount ============
+    function calculateBalance() {
+        let totalAmount = parseFloat($('#amount').val()) || 0;
+        let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
+        let balance = totalAmount - advancePaid;
 
-            // Update display
-            $('#balanceamount').text(balance.toFixed(2));
+        // Try different possible IDs for balance display
+        let balanceElement = $('#balanceamount').length ? $('#balanceamount') :
+                            $('#balance_amount').length ? $('#balance_amount') :
+                            $('.balance-amount');
 
-            // Add validation styling
-            if (advancePaid > totalAmount && totalAmount > 0) {
-                $('#advance_paid_amount').addClass('is-invalid');
-                $('#balanceamount').removeClass('text-success').addClass('text-danger');
-
-                // Show error message
-                if (!$('#advanceerror').length) {
-                    $('#advance_paid_amount').after('<div id="advanceerror" class="invalid-feedback d-block">Advance paid cannot be greater than total service cost</div>');
-                }
-            } else {
-                $('#advance_paid_amount').removeClass('is-invalid');
-                $('#balanceamount').removeClass('text-danger').addClass('text-success');
-                $('#advanceerror').remove();
-            }
+        if (balanceElement.length) {
+            balanceElement.text(balance.toFixed(2));
         }
 
-        $('#amount, #advance_paid_amount').on('input', calculateBalance);
+        if (advancePaid > totalAmount && totalAmount > 0) {
+            $('#advance_paid_amount').addClass('is-invalid');
+            if (balanceElement.length) {
+                balanceElement.removeClass('text-success').addClass('text-danger');
+            }
 
-        // Branch change handler - filter telecallers
-        $('#branch_id').on('change', function() {
-            let selectedBranchId = $(this).val();
-            let assignedToSelect = $('#assigned_to');
+            if (!$('#advanceerror').length) {
+                $('#advance_paid_amount').after('<div id="advanceerror" class="invalid-feedback d-block">Advance paid cannot be greater than total service cost</div>');
+            }
+        } else {
+            $('#advance_paid_amount').removeClass('is-invalid');
+            if (balanceElement.length) {
+                balanceElement.removeClass('text-danger').addClass('text-success');
+            }
+            $('#advanceerror').remove();
+        }
+    }
 
-            assignedToSelect.find('option:not(:first)').remove();
+    // Bind to amount fields
+    $('#amount, #advance_paid_amount').on('input change keyup', function() {
+        calculateBalance();
+    });
 
-            if (selectedBranchId) {
-                let filteredTelecallers = allTelecallers.filter(function(telecaller) {
-                    return telecaller.branch_id == selectedBranchId;
-                });
+    // Branch change handler
+    $('#branch_id').on('change', function() {
+        let selectedBranchId = $(this).val();
+        let assignedToSelect = $('#assigned_to');
 
-                filteredTelecallers.forEach(function(telecaller) {
-                    assignedToSelect.append(`<option value="${telecaller.id}">${telecaller.name}</option>`);
-                });
+        assignedToSelect.find('option:not(:first)').remove();
 
-                if (filteredTelecallers.length === 0) {
-                    assignedToSelect.append(`<option value="" disabled>No telecallers in this branch</option>`);
+        if (selectedBranchId) {
+            let filteredTelecallers = allTelecallers.filter(function(telecaller) {
+                return telecaller.branch_id == selectedBranchId;
+            });
+
+            filteredTelecallers.forEach(function(telecaller) {
+                assignedToSelect.append(`<option value="${telecaller.id}">${telecaller.name}</option>`);
+            });
+
+            if (filteredTelecallers.length === 0) {
+                assignedToSelect.append('<option value="" disabled>No telecallers in this branch</option>');
+            }
+        }
+    });
+
+    // ============ Save only VISIBLE selections ============
+    function saveCurrentSelections() {
+        console.log('Saving selections... Current DOM checkboxes:', $('.service-checkbox').length);
+
+        // Only update services that are currently visible in DOM
+        let visibleServiceIds = [];
+
+        $('.service-checkbox').each(function() {
+            let serviceId = $(this).data('service-id');
+            visibleServiceIds.push(serviceId);
+
+            let isChecked = $(this).is(':checked');
+
+            if (isChecked) {
+                let quantity = parseInt($(`#quantity_${serviceId}`).val()) || 1;
+                let serviceName = $(this).data('service-name');
+                let serviceType = $(this).data('service-type');
+
+                selectedServices[serviceId] = {
+                    name: serviceName,
+                    quantity: quantity,
+                    type: serviceType
+                };
+
+                console.log('Saved service:', serviceId, selectedServices[serviceId]);
+            } else {
+                // Only remove if this service is visible AND unchecked
+                if (selectedServices.hasOwnProperty(serviceId)) {
+                    delete selectedServices[serviceId];
+                    console.log('Removed service (unchecked):', serviceId);
                 }
             }
         });
 
-        $('#service_type').on('change', function() {
-            let serviceType = $(this).val();
-            let container = $('#servicesContainer');
+        console.log('Visible service IDs:', visibleServiceIds);
+        console.log('Total selected services:', Object.keys(selectedServices).length, selectedServices);
+    }
 
-            if (!serviceType) {
-                container.html('<p class="text-muted text-center my-5"><i class="las la-arrow-up" style="font-size: 2rem;"></i><br> Please select a service type first</p>');
-                return;
+    // ============ NEW: Inject all selected services as hidden inputs ============
+    function injectSelectedServicesIntoForm() {
+        // Remove any previously injected hidden inputs
+        $('#createLeadForm').find('.injected-service-input').remove();
+
+        console.log('Injecting selected services into form:', selectedServices);
+
+        // Inject hidden inputs for all selected services
+        Object.entries(selectedServices).forEach(([serviceId, data]) => {
+            // Add service ID checkbox (checked)
+            $('#createLeadForm').append(`
+                <input type="checkbox"
+                       name="service_ids[]"
+                       value="${serviceId}"
+                       checked
+                       class="injected-service-input"
+                       style="display:none;">
+            `);
+
+            // Add quantity input
+            $('#createLeadForm').append(`
+                <input type="number"
+                       name="service_quantities[${serviceId}]"
+                       value="${data.quantity}"
+                       class="injected-service-input"
+                       style="display:none;">
+            `);
+
+            console.log(`Injected service ${serviceId}: ${data.name} (qty: ${data.quantity})`);
+        });
+
+        console.log('Total injected inputs:', $('#createLeadForm').find('.injected-service-input').length);
+    }
+
+    // ============ Load services with persistent selection ============
+    function loadAllServices(filterByType = null, searchTerm = '') {
+        console.log('Loading services... Filter:', filterByType, 'Search:', searchTerm);
+        console.log('Current selections before load:', selectedServices);
+
+        let container = $('#servicesContainer');
+
+        // Apply type filter
+        let servicesToShow = filterByType
+            ? allServices.filter(s => s.service_type === filterByType)
+            : allServices;
+
+        // Apply search filter
+        if (searchTerm) {
+            searchTerm = searchTerm.toLowerCase();
+            servicesToShow = servicesToShow.filter(s =>
+                s.name.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (servicesToShow.length === 0) {
+            let message = searchTerm
+                ? `No services found matching "<strong>${searchTerm}</strong>"`
+                : 'No services available';
+
+            container.html(`
+                <p class="text-muted text-center my-5">
+                    <i class="las la-search" style="font-size: 2rem;"></i><br>
+                    ${message}
+                </p>
+            `);
+
+            // Show selected services display even when no search results
+            updateSelectedServicesDisplay();
+            return;
+        }
+
+        // Group services by type
+        let grouped = {};
+        servicesToShow.forEach(function(service) {
+            let type = service.service_type || 'other';
+            if (!grouped[type]) {
+                grouped[type] = [];
             }
+            grouped[type].push(service);
+        });
 
-            container.html('<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>');
+        let html = '';
 
-            $.ajax({
-                url: "{{ route('leads.servicesByType') }}",
-                type: 'GET',
-                data: { service_type: serviceType },
-                success: function(services) {
-                    if (services.length === 0) {
-                        container.html('<p class="text-muted text-center my-3">No services available for this type</p>');
-                        return;
-                    }
+        // Display grouped services with headers
+        Object.keys(grouped).sort().forEach(function(type) {
+            let typeName = type === 'cleaning' ? 'Cleaning Services' :
+                          type === 'pest_control' ? 'Pest Control Services' :
+                          'Other Services';
 
-                    let html = '';
-                    services.forEach(function(service) {
-                        html += `
-                            <div class="service-checkbox-item">
-                                <div class="service-checkbox-wrapper">
-                                    <input type="checkbox"
-                                        name="service_ids[]"
-                                        value="${service.id}"
-                                        id="service_${service.id}"
-                                        class="service-checkbox"
-                                        data-service-id="${service.id}">
-                                    <label for="service_${service.id}">${service.name}</label>
-                                </div>
-                                <div class="service-quantity-wrapper">
-                                    <span class="quantity-label">Qty:</span>
-                                    <input type="number"
-                                        name="service_quantities[${service.id}]"
-                                        id="quantity_${service.id}"
-                                        class="service-quantity-input"
-                                        min="1"
-                                        value="1"
-                                        disabled>
-                                </div>
-                            </div>
-                        `;
-                    });
+            let typeColor = type === 'cleaning' ? '#3b82f6' :
+                           type === 'pest_control' ? '#10b981' :
+                           '#6b7280';
 
-                    container.html(html);
+            html += `
+                <div style="margin-top: ${html ? '15px' : '0'}; padding: 8px 10px; background: ${typeColor}15; border-left: 3px solid ${typeColor}; border-radius: 4px;">
+                    <strong style="color: ${typeColor}; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ${typeName} <span style="font-size: 0.8rem; font-weight: 400;">(${grouped[type].length})</span>
+                    </strong>
+                </div>
+            `;
 
-                    // Enable/disable quantity input based on checkbox
-                    $('.service-checkbox').on('change', function() {
-                        let serviceId = $(this).data('service-id');
-                        let quantityInput = $(`#quantity_${serviceId}`);
+            // Add services for this type
+            grouped[type].forEach(function(service) {
+                // Check persistent state for selection
+                let isChecked = selectedServices.hasOwnProperty(service.id);
+                let quantity = isChecked ? selectedServices[service.id].quantity : 1;
 
-                        if ($(this).is(':checked')) {
-                            quantityInput.prop('disabled', false);
-                            if (!quantityInput.val() || quantityInput.val() < 1) {
-                                quantityInput.val(1);
-                            }
-                        } else {
-                            quantityInput.prop('disabled', true).val(1);
-                        }
-                    });
+                console.log(`Service ${service.id} (${service.name}): checked=${isChecked}, qty=${quantity}`);
 
-                    // Restore old values if any
-                    @if(old('service_ids'))
-                        let oldServiceIds = @json(old('service_ids'));
-                        let oldQuantities = @json(old('service_quantities', []));
-
-                        oldServiceIds.forEach(function(id) {
-                            let checkbox = $(`#service_${id}`);
-                            checkbox.prop('checked', true);
-
-                            let quantityInput = $(`#quantity_${id}`);
-                            quantityInput.prop('disabled', false);
-
-                            if (oldQuantities[id]) {
-                                quantityInput.val(oldQuantities[id]);
-                            }
-                        });
-                    @endif
-                },
-                error: function() {
-                    container.html('<p class="text-danger text-center my-3">Error loading services. Please try again.</p>');
-                }
+                html += `
+                    <div class="service-checkbox-item">
+                        <div class="service-checkbox-wrapper">
+                            <input type="checkbox"
+                                   name="service_ids[]"
+                                   value="${service.id}"
+                                   id="service_${service.id}"
+                                   class="service-checkbox"
+                                   data-service-id="${service.id}"
+                                   data-service-name="${service.name}"
+                                   data-service-type="${service.service_type}"
+                                   ${isChecked ? 'checked' : ''}>
+                            <label for="service_${service.id}">${service.name}</label>
+                        </div>
+                        <div class="service-quantity-wrapper">
+                            <span class="quantity-label">Qty:</span>
+                            <input type="number"
+                                   name="service_quantities[${service.id}]"
+                                   id="quantity_${service.id}"
+                                   class="service-quantity-input"
+                                   min="1"
+                                   value="${quantity}"
+                                   ${!isChecked ? 'disabled' : ''}>
+                        </div>
+                    </div>
+                `;
             });
         });
 
-        // Trigger service type change if old value exists
-        @if(old('service_type'))
-            $('#service_type').trigger('change');
+        // Show search result count if searching
+        if (searchTerm) {
+            let totalCount = servicesToShow.length;
+            let prependHtml = `
+                <div class="alert alert-info py-2 px-3 mb-2" style="font-size: 0.85rem;">
+                    <i class="las la-info-circle"></i>
+                    Found <strong>${totalCount}</strong> service${totalCount !== 1 ? 's' : ''} matching "<strong>${searchTerm}</strong>"
+                </div>
+            `;
+            html = prependHtml + html;
+        }
+
+        container.html(html);
+
+        console.log('DOM rendered. Checkboxes found:', $('.service-checkbox').length);
+        console.log('Checked checkboxes:', $('.service-checkbox:checked').length);
+
+        // Update selected services display
+        updateSelectedServicesDisplay();
+
+        // Re-bind event handlers after rendering
+        bindServiceEvents();
+    }
+
+    // ============ BIND EVENT HANDLERS TO SERVICE CHECKBOXES ============
+    function bindServiceEvents() {
+        // Enable/disable quantity input based on checkbox
+        $('.service-checkbox').off('change').on('change', function() {
+            let serviceId = $(this).data('service-id');
+            let serviceName = $(this).data('service-name');
+            let serviceType = $(this).data('service-type');
+            let quantityInput = $(`#quantity_${serviceId}`);
+
+            if ($(this).is(':checked')) {
+                quantityInput.prop('disabled', false);
+                if (!quantityInput.val() || quantityInput.val() < 1) {
+                    quantityInput.val(1);
+                }
+
+                // Add to persistent state
+                selectedServices[serviceId] = {
+                    name: serviceName,
+                    quantity: parseInt(quantityInput.val()),
+                    type: serviceType
+                };
+
+                console.log('Checkbox checked - added to selection:', serviceId, selectedServices[serviceId]);
+            } else {
+                quantityInput.prop('disabled', true);
+                // Remove from persistent state
+                delete selectedServices[serviceId];
+                console.log('Checkbox unchecked - removed from selection:', serviceId);
+            }
+
+            updateSelectedServicesDisplay();
+        });
+
+        // Update quantity in persistent state when changed
+        $('.service-quantity-input').off('change').on('change', function() {
+            let serviceId = $(this).attr('id').replace('quantity_', '');
+            if (selectedServices.hasOwnProperty(serviceId)) {
+                selectedServices[serviceId].quantity = parseInt($(this).val()) || 1;
+                console.log('Quantity updated:', serviceId, selectedServices[serviceId].quantity);
+                updateSelectedServicesDisplay();
+            }
+        });
+    }
+
+    // ============ DISPLAY SELECTED SERVICES WITH NAMES ============
+    function updateSelectedServicesDisplay() {
+        let selectedCount = Object.keys(selectedServices).length;
+        let $existingBadge = $('#selectedServicesBadge');
+
+        console.log('Updating display. Selected count:', selectedCount);
+
+        if (selectedCount > 0) {
+            // Build list of selected service names grouped by type
+            let byType = {
+                cleaning: [],
+                pest_control: [],
+                other: []
+            };
+
+            Object.entries(selectedServices).forEach(([id, data]) => {
+                let type = data.type || 'other';
+                byType[type].push(`${data.name} (x${data.quantity})`);
+            });
+
+            let servicesList = [];
+            if (byType.cleaning.length > 0) {
+                servicesList.push('<span style="color: #3b82f6;">🧹 ' + byType.cleaning.join(', ') + '</span>');
+            }
+            if (byType.pest_control.length > 0) {
+                servicesList.push('<span style="color: #10b981;">🐛 ' + byType.pest_control.join(', ') + '</span>');
+            }
+            if (byType.other.length > 0) {
+                servicesList.push('<span style="color: #6b7280;">📦 ' + byType.other.join(', ') + '</span>');
+            }
+
+            let displayList = servicesList.join(' | ');
+
+            let badgeHtml = `
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <i class="las la-check-circle"></i>
+                        <strong>${selectedCount}</strong> service${selectedCount !== 1 ? 's' : ''} selected
+                        <br>
+                        <small style="font-size: 0.75rem;">${displayList}</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="clearAllSelections">
+                        <i class="las la-times"></i> Clear All
+                    </button>
+                </div>
+            `;
+
+            if ($existingBadge.length === 0) {
+                $('#servicesContainer').before(`
+                    <div id="selectedServicesBadge" class="alert alert-success py-2 px-3 mb-2" style="font-size: 0.85rem;">
+                        ${badgeHtml}
+                    </div>
+                `);
+            } else {
+                $existingBadge.html(badgeHtml);
+            }
+
+            // Bind clear all button
+            $('#clearAllSelections').off('click').on('click', function() {
+                if (confirm('Are you sure you want to clear all selected services?')) {
+                    selectedServices = {};
+                    console.log('All selections cleared');
+                    loadAllServices(currentFilterType, currentSearchTerm);
+                }
+            });
+        } else {
+            $existingBadge.remove();
+        }
+    }
+
+    // ============ Service Type Filter ============
+    $('#service_type').on('change', function() {
+        currentFilterType = $(this).val();
+        console.log('Filter changed to:', currentFilterType);
+        // Save current visible selections before filtering
+        saveCurrentSelections();
+        loadAllServices(currentFilterType, currentSearchTerm);
+    });
+
+    // ============ Service Search Handler ============
+    $('#serviceSearchInput').on('input', function() {
+        currentSearchTerm = $(this).val().trim();
+        console.log('Search changed to:', currentSearchTerm);
+        // Save current visible selections before searching
+        saveCurrentSelections();
+        loadAllServices(currentFilterType, currentSearchTerm);
+    });
+
+    // Clear search button
+    $('#clearServiceSearch').on('click', function() {
+        $('#serviceSearchInput').val('');
+        currentSearchTerm = '';
+        saveCurrentSelections();
+        loadAllServices(currentFilterType, currentSearchTerm);
+        $('#serviceSearchInput').focus();
+    });
+
+    // Enter key to search
+    $('#serviceSearchInput').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            currentSearchTerm = $(this).val().trim();
+            saveCurrentSelections();
+            loadAllServices(currentFilterType, currentSearchTerm);
+        }
+    });
+
+    // Load all services on page load
+    loadAllServices();
+
+    // Calculate balance after page loads
+    setTimeout(function() {
+        calculateBalance();
+        console.log('Initial balance calculated');
+    }, 100);
+
+    // Form validation
+    function validateForm() {
+        let isValid = true;
+        let errors = [];
+
+        $('.is-invalid').removeClass('is-invalid');
+        $('.invalid-feedback').remove();
+
+        if (!$('#name').val().trim()) {
+            errors.push('Client name is required');
+            $('#name').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#phone').val().trim()) {
+            errors.push('Phone number is required');
+            $('#phone').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#lead_source_id').val()) {
+            errors.push('Lead source is required');
+            $('#lead_source_id').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if (!$('#status').val()) {
+            errors.push('Lead status is required');
+            $('#status').addClass('is-invalid');
+            isValid = false;
+        }
+
+        if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
+            errors.push('Please enter custom SQFT value');
+            $('#sqft_custom').addClass('is-invalid');
+            isValid = false;
+        }
+
+        @if(auth()->user()->role === 'super_admin')
+        if (!$('#branch_id').val()) {
+            errors.push('Branch is required');
+            $('#branch_id').addClass('is-invalid');
+            isValid = false;
+        }
         @endif
 
-        // Form validation helper function
-        function validateForm() {
-            let isValid = true;
-            let errors = [];
+        let totalAmount = parseFloat($('#amount').val()) || 0;
+        let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
 
-            // Clear previous validation errors
-            $('.is-invalid').removeClass('is-invalid');
-            $('.invalid-feedback').remove();
+        if (advancePaid > totalAmount && totalAmount > 0) {
+            errors.push('Advance paid cannot exceed total service cost');
+            $('#advance_paid_amount').addClass('is-invalid');
+            isValid = false;
+        }
 
-            // Required fields
-            if (!$('#name').val().trim()) {
-                errors.push('Client name is required');
-                $('#name').addClass('is-invalid');
-                isValid = false;
+        if (!isValid) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                html: `<ul class="text-start">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`
+            });
+        }
+
+        return isValid;
+    }
+
+    $('input, select, textarea').on('input change', function() {
+        $(this).removeClass('is-invalid');
+    });
+
+    // ============ CREATE & CONFIRM BUTTON (Telecaller) ============
+    $('#createAndConfirmBtn').on('click', function(e) {
+        e.preventDefault();
+
+        // Save current visible selections
+        saveCurrentSelections();
+
+        // Inject ALL selected services
+        injectSelectedServicesIntoForm();
+
+        console.log('Create & Confirm clicked with selections:', selectedServices);
+
+        if (!validateForm()) {
+            // Remove injected inputs on validation failure
+            $('.injected-service-input').remove();
+            return false;
+        }
+
+        let btn = $(this);
+        let originalHtml = btn.html();
+        btn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Creating & Confirming...');
+
+        // Disable other buttons
+        $('#createLeadForm button[type="submit"], #createAndConvertBtn').prop('disabled', true);
+
+        // Get form data - this will include injected hidden inputs
+        let formData = new FormData($('#createLeadForm')[0]);
+
+        // Force status to 'confirmed'
+        formData.set('status', 'confirmed');
+
+        // Log what's being sent
+        console.log('FormData contents:');
+        let serviceIdsCount = 0;
+        let serviceQuantitiesCount = 0;
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'service_ids[]') {
+                serviceIdsCount++;
+                console.log(`service_ids[]: ${pair[1]}`);
+            } else if (pair[0].startsWith('service_quantities[')) {
+                serviceQuantitiesCount++;
+                console.log(`${pair[0]}: ${pair[1]}`);
             }
+        }
+        console.log(`Total service_ids: ${serviceIdsCount}, Total quantities: ${serviceQuantitiesCount}`);
 
-            if (!$('#phone').val().trim()) {
-                errors.push('Phone number is required');
-                $('#phone').addClass('is-invalid');
-                isValid = false;
-            }
+        $.ajax({
+            url: "{{ route('leads.store') }}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                btn.prop('disabled', false).html(originalHtml);
+                $('#createLeadForm button').prop('disabled', false);
 
-            // if (!$('#service_type').val()) {
-            //     errors.push('Service type is required');
-            //     $('#service_type').addClass('is-invalid');
-            //     isValid = false;
-            // }
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Lead Created & Confirmed!',
+                        html: `
+                            <div class="text-start">
+                                <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.lead_code}</span></p>
+                                <p class="mb-0">${response.message}</p>
+                                <p class="text-success mt-2"><i class="las la-check-circle"></i> Status: <strong>Confirmed</strong></p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Go to Leads',
+                        confirmButtonColor: '#10b981',
+                        showCancelButton: true,
+                        cancelButtonText: 'Create Another',
+                        cancelButtonColor: '#3b82f6'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "{{ route('leads.index') }}";
+                        } else if (result.dismiss === Swal.DismissReason.cancel) {
+                            window.location.href = "{{ route('leads.create') }}";
+                        }
+                    });
+                }
+            },
+            error: function(xhr) {
+                btn.prop('disabled', false).html(originalHtml);
+                $('#createLeadForm button').prop('disabled', false);
+                $('.injected-service-input').remove();
 
-            if (!$('#lead_source_id').val()) {
-                errors.push('Lead source is required');
-                $('#lead_source_id').addClass('is-invalid');
-                isValid = false;
-            }
+                let errors = [];
+                let message = 'Failed to create lead';
 
-            // // Check if at least one service is selected
-            // if ($('.service-checkbox:checked').length === 0) {
-            //     errors.push('Please select at least one service');
-            //     $('#servicesContainer').addClass('is-invalid');
-            //     isValid = false;
-            // }
-
-            // // Validate SQFT custom field
-            // if ($('#sqft').val() === 'custom' && !$('#sqft_custom').val().trim()) {
-            //     errors.push('Please enter custom SQFT value');
-            //     $('#sqft_custom').addClass('is-invalid');
-            //     isValid = false;
-            // }
-
-            if (!$('#status').val()) {
-                errors.push('Lead status is required');
-                $('#status').addClass('is-invalid');
-                isValid = false;
-            }
-
-            @if(auth()->user()->role === 'superadmin')
-            if (!$('#branch_id').val()) {
-                errors.push('Branch is required');
-                $('#branch_id').addClass('is-invalid');
-                isValid = false;
-            }
-            @endif
-
-            // Validate advance amount
-            let totalAmount = parseFloat($('#amount').val()) || 0;
-            let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
-
-            if (advancePaid > totalAmount && totalAmount !== 0) {
-                errors.push('Advance paid cannot exceed total service cost');
-                $('#advance_paid_amount').addClass('is-invalid');
-                isValid = false;
-            }
-
-            if (!isValid) {
-                // Show error summary
-                let errorHtml = '<ul class="text-start mb-0">';
-                errors.forEach(e => errorHtml += `<li>${e}</li>`);
-                errorHtml += '</ul>';
+                if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                    Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
+                        errors = errors.concat(errorArray);
+                    });
+                    message = '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+                } else if (xhr.responseJSON?.message) {
+                    message = xhr.responseJSON.message;
+                }
 
                 Swal.fire({
                     icon: 'error',
-                    title: 'Validation Error',
-                    html: errorHtml,
+                    title: 'Error',
+                    html: message,
                     confirmButtonColor: '#ef4444'
                 });
-
-                // Scroll to first error
-                $('html, body').animate({
-                    scrollTop: $('.is-invalid:first').offset().top - 100
-                }, 500);
             }
+        });
+    });
 
-            return isValid;
+    // ============ CREATE & CONVERT BUTTON (Admin/Lead Manager) ============
+    $('#createAndConvertBtn').on('click', function(e) {
+        e.preventDefault();
+
+        // Save current visible selections
+        saveCurrentSelections();
+
+        // Inject ALL selected services
+        injectSelectedServicesIntoForm();
+
+        console.log('Create & Convert clicked with selections:', selectedServices);
+
+        if (!validateForm()) {
+            $('.injected-service-input').remove();
+            return false;
         }
 
-        // Clear validation errors on input
-        $('input, select, textarea').on('input change', function() {
-            $(this).removeClass('is-invalid');
-            $(this).siblings('.invalid-feedback').remove();
-        });
+        let btn = $(this);
+        let originalHtml = btn.html();
+        btn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Creating & Converting...');
 
-        // Regular form submission - Create Lead button
-        $('#createLeadForm').on('submit', function(e) {
-            e.preventDefault(); // Prevent default submission
+        // Disable other buttons
+        $('#createLeadForm button[type="submit"], #createAndConfirmBtn').prop('disabled', true);
 
-            // Validate
-            if (!validateForm()) {
-                return false;
+        // Get form data - this will include injected hidden inputs
+        let formData = new FormData($('#createLeadForm')[0]);
+
+        // Log what's being sent
+        console.log('FormData contents:');
+        let serviceIdsCount = 0;
+        let serviceQuantitiesCount = 0;
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'service_ids[]') {
+                serviceIdsCount++;
+                console.log(`service_ids[]: ${pair[1]}`);
+            } else if (pair[0].startsWith('service_quantities[')) {
+                serviceQuantitiesCount++;
+                console.log(`${pair[0]}: ${pair[1]}`);
             }
+        }
+        console.log(`Total service_ids: ${serviceIdsCount}, Total quantities: ${serviceQuantitiesCount}`);
 
-            // Show loading
-            let submitBtn = $('#submitBtn');
-            submitBtn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Creating...');
+        $.ajax({
+            url: "{{ route('leads.store') }}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (!response.success || !response.lead_id) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Lead created but failed to get lead ID'
+                    });
+                    btn.prop('disabled', false).html(originalHtml);
+                    $('#createLeadForm button').prop('disabled', false);
+                    return;
+                }
 
-            let formData = new FormData(this);
+                let leadId = response.lead_id;
 
-            $.ajax({
-                url: "{{ route('leads.store') }}",
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(response) {
-                    if (response.success) {
+                // Now approve/convert the lead
+                $.ajax({
+                    url: `/leads/${leadId}/approve`,
+                    type: 'POST',
+                    data: {
+                        _token: $('meta[name="csrf-token"]').attr('content'),
+                        approval_notes: 'Auto-converted during lead creation'
+                    },
+                    success: function(approveResponse) {
                         Swal.fire({
                             icon: 'success',
                             title: 'Success!',
-                            text: response.message || 'Lead created successfully!',
-                            confirmButtonColor: '#10b981'
+                            html: `
+                                <div class="text-start">
+                                    <p class="mb-3">Lead created and converted successfully!</p>
+                                    <div class="alert alert-success mb-3">
+                                        <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.lead_code}</span></p>
+                                        <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-success">${approveResponse.customercode}</span></p>
+                                        <p class="mb-0"><strong>Amount:</strong> <span class="text-success fw-bold">${approveResponse.amount}</span></p>
+                                    </div>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <a href="/leads/${leadId}" class="btn btn-primary btn-sm flex-fill">
+                                            <i class="las la-file-alt me-1"></i> View Lead
+                                        </a>
+                                        <a href="/customers/${approveResponse.customer_id}" class="btn btn-success btn-sm flex-fill">
+                                            <i class="las la-user me-1"></i> View Customer
+                                        </a>
+                                    </div>
+                                </div>
+                            `,
+                            confirmButtonText: 'Go to Leads',
+                            confirmButtonColor: '#10b981',
+                            showCancelButton: true,
+                            cancelButtonText: 'Create Another Lead',
+                            width: '600px'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = "{{ route('leads.index') }}";
+                            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                window.location.href = "{{ route('leads.create') }}";
+                            }
+                        });
+                    },
+                    error: function(xhr) {
+                        let message = xhr.responseJSON?.message || 'Failed to convert to customer';
+                        let budgetInfo = xhr.responseJSON?.budgetinfo || null;
+
+                        let html = `<p class="mb-3">${message}</p>`;
+
+                        if (budgetInfo) {
+                            html += `
+                                <div class="alert alert-danger text-start mb-0">
+                                    <p class="mb-1"><strong>Daily Limit:</strong> ${budgetInfo.dailylimit}</p>
+                                    <p class="mb-1"><strong>Used Today:</strong> ${budgetInfo.todaytotal}</p>
+                                    <p class="mb-1"><strong>Remaining:</strong> ${budgetInfo.remaining}</p>
+                                    <p class="mb-0 text-danger"><strong>Excess:</strong> ${budgetInfo.excess}</p>
+                                </div>
+                            `;
+                        }
+
+                        html += `
+                            <div class="mt-3">
+                                <p class="text-muted mb-0">The lead was created successfully but couldn't be converted to a customer. You can convert it manually from the leads page.</p>
+                            </div>
+                        `;
+
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Lead Created but Conversion Failed',
+                            html: html,
+                            confirmButtonText: 'Go to Leads',
+                            confirmButtonColor: '#3b82f6',
+                            width: '550px'
                         }).then(() => {
                             window.location.href = "{{ route('leads.index') }}";
                         });
                     }
-                },
-                error: function(xhr) {
-                    submitBtn.prop('disabled', false).html('<i class="las la-save me-1"></i> Create Lead');
-
-                    let errors = [];
-                    let errorHtml = '';
-
-                    if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                        // Validation errors
-                        errorHtml = '<div class="text-start"><ul class="mb-0">';
-
-                        Object.keys(xhr.responseJSON.errors).forEach(function(field) {
-                            let errorMessages = xhr.responseJSON.errors[field];
-
-                            errorMessages.forEach(function(error) {
-                                errors.push(error);
-                                errorHtml += `<li>${error}</li>`;
-                            });
-
-                            // Show inline errors
-                            let input = $(`[name="${field}"], [name="${field}[]"]`).first();
-                            if (input.length) {
-                                input.addClass('is-invalid');
-
-                                // Remove existing error message
-                                input.siblings('.invalid-feedback').remove();
-
-                                // Add new error message
-                                if (input.parent().hasClass('service-select-box')) {
-                                    input.parent().after(`<div class="invalid-feedback d-block">${errorMessages[0]}</div>`);
-                                } else {
-                                    input.after(`<div class="invalid-feedback d-block">${errorMessages[0]}</div>`);
-                                }
-                            }
-                        });
-
-                        errorHtml += '</ul></div>';
-                    } else if (xhr.responseJSON?.message) {
-                        errorHtml = `<p class="mb-0">${xhr.responseJSON.message}</p>`;
-                    } else {
-                        errorHtml = '<p class="mb-0">An error occurred. Please try again.</p>';
-                    }
-
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error Creating Lead',
-                        html: errorHtml,
-                        confirmButtonColor: '#ef4444',
-                        width: '600px'
-                    });
-
-                    // Scroll to first error
-                    if (errors.length > 0) {
-                        $('html, body').animate({
-                            scrollTop: $('.is-invalid:first').offset().top - 100
-                        }, 500);
-                    }
-                }
-            });
-        });
-
-        // ============================================
-        // CREATE & CONFIRM BUTTON (TELECALLERS ONLY)
-        // ============================================
-        $('#createAndConfirmBtn').on('click', function() {
-            // Validate form first
-            if (!validateForm()) {
-                return;
-            }
-
-            // Check if amount is set
-            let amount = parseFloat($('#amount').val());
-            if (!amount || amount <= 0) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Amount Required',
-                    text: 'Please enter the total service cost before confirming the lead.',
-                    confirmButtonColor: '#f59e0b'
                 });
-                $('#amount').focus().addClass('is-invalid');
-                return;
-            }
+            },
+            error: function(xhr) {
+                btn.prop('disabled', false).html(originalHtml);
+                $('#createLeadForm button').prop('disabled', false);
+                $('.injected-service-input').remove();
 
-            // Confirm action
-            Swal.fire({
-                title: 'Create Lead with Confirmed Status?',
-                html: `
-                    <div class="text-start">
-                        <p class="mb-3">This will create the lead with <strong class="text-success">Confirmed</strong> status.</p>
-                        <div class="alert alert-info mb-3">
-                            <p class="mb-2"><strong>Lead Details:</strong></p>
-                            <p class="mb-1"><i class="las la-user me-1"></i> ${$('#name').val()}</p>
-                            <p class="mb-1"><i class="las la-phone me-1"></i> ${$('#phone').val()}</p>
-                            <p class="mb-0"><i class="las la-rupee-sign me-1"></i> Amount: <strong>₹${amount.toFixed(2)}</strong></p>
-                        </div>
-                        <div class="alert alert-success mb-0">
-                            <i class="las la-info-circle me-1"></i>
-                            The lead will be ready for admin approval to convert to Work Order.
-                        </div>
-                    </div>
-                `,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: '<i class="las la-check me-2"></i>Yes, Create as Confirmed',
-                confirmButtonColor: '#10b981',
-                cancelButtonText: 'Cancel',
-                width: '550px'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Show loading
-                    Swal.fire({
-                        title: 'Creating Confirmed Lead...',
-                        html: 'Please wait while we create the lead',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        showConfirmButton: false,
-                        willOpen: () => {
-                            Swal.showLoading();
-                        }
+                let message = 'Failed to create lead';
+                let errors = [];
+
+                if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                    Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
+                        errors = errors.concat(errorArray);
                     });
-
-                    // Create FormData and set status to 'confirmed'
-                    let formData = new FormData($('#createLeadForm')[0]);
-                    formData.set('status', 'confirmed'); // Override status to confirmed
-
-                    $.ajax({
-                        url: '{{ route("leads.store") }}',
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(response) {
-                            if (response.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Lead Created & Confirmed!',
-                                    html: `
-                                        <div class="text-start">
-                                            <p class="mb-3">Lead created successfully with <strong class="text-success">Confirmed</strong> status!</p>
-                                            <div class="alert alert-success mb-3">
-                                                <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.leadcode}</span></p>
-                                                <p class="mb-2"><strong>Name:</strong> ${response.name}</p>
-                                                <p class="mb-0"><strong>Amount:</strong> ₹${amount.toFixed(2)}</p>
-                                            </div>
-                                            <div class="alert alert-info mb-0">
-                                                <i class="las la-check-circle me-1"></i>
-                                                This lead is now ready for admin approval.
-                                            </div>
-                                        </div>
-                                    `,
-                                    confirmButtonText: 'View Lead',
-                                    confirmButtonColor: '#10b981',
-                                    showCancelButton: true,
-                                    cancelButtonText: 'Create Another Lead',
-                                    width: '550px'
-                                }).then((result) => {
-                                    if (result.isConfirmed) {
-                                        window.location.href = '{{ route("leads.show", ":id") }}'.replace(':id', response.lead_id);
-                                    } else if (result.dismiss === Swal.DismissReason.cancel) {
-                                        window.location.reload();
-                                    }
-                                });
-                            }
-                        },
-                        error: function(xhr) {
-                            let message = 'Failed to create confirmed lead';
-                            let errors = [];
-
-                            if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                                Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
-                                    errors = errors.concat(errorArray);
-                                });
-                                message = `<ul class="text-start mb-0">${errors.map(e => `<li>${e}</li>`).join('')}</ul>`;
-                            } else if (xhr.responseJSON?.message) {
-                                message = xhr.responseJSON.message;
-                            }
-
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error Creating Lead',
-                                html: message,
-                                confirmButtonColor: '#ef4444',
-                                confirmButtonText: 'OK'
-                            });
-
-                            // Show inline validation errors
-                            if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                                Object.keys(xhr.responseJSON.errors).forEach(function(field) {
-                                    let input = $(`[name="${field}"], [name="${field}[]"]`).first();
-                                    if (input.length) {
-                                        input.addClass('is-invalid');
-                                        input.after(`<div class="invalid-feedback d-block">${xhr.responseJSON.errors[field][0]}</div>`);
-                                    }
-                                });
-
-                                // Scroll to first error
-                                $('html, body').animate({
-                                    scrollTop: $('.is-invalid').first().offset().top - 100
-                                }, 500);
-                            }
-                        }
-                    });
+                    message = '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+                } else if (xhr.responseJSON?.message) {
+                    message = xhr.responseJSON.message;
                 }
-            });
-        });
 
-        // Create & Convert to Job button
-        $('#createAndConvertBtn').on('click', function() {
-            // Validate form first
-            if (!validateForm()) {
-                return;
-            }
-
-            // Check if amount is set
-            let amount = parseFloat($('#amount').val());
-            let advancePaid = parseFloat($('#advance_paid_amount').val()) || 0;
-
-            if (!amount || amount <= 0) {
                 Swal.fire({
                     icon: 'error',
-                    title: 'Amount Required',
-                    text: 'Please enter the total service cost before converting to Work Order.',
-                    confirmButtonColor: '#ef4444'
+                    title: 'Error Creating Lead',
+                    html: message,
+                    confirmButtonColor: '#ef4444',
+                    confirmButtonText: 'OK'
                 });
-                $('#amount').focus().addClass('is-invalid');
-                return;
-            }
 
-            // Confirm conversion
-            Swal.fire({
-                title: 'Create Lead & Convert to Work Order?',
-                html: `
-                    <div class="text-start">
-                        <p class="mb-3">This will:</p>
-                        <ul class="mb-0">
-                            <li>Create the lead</li>
-                            <li>Create a customer record</li>
-                            <li>Create a job/work order</li>
-                        </ul>
-                        <div class="alert alert-info mt-3 mb-0">
-                            <strong>Amount:</strong> ₹${amount.toFixed(2)}
-                        </div>
-                    </div>
-                `,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: '<i class="las la-check me-2"></i>Yes, Create & Convert',
-                confirmButtonColor: '#10b981',
-                cancelButtonText: 'Cancel',
-                width: '550px'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Show loading
-                    Swal.fire({
-                        title: 'Processing...',
-                        html: 'Creating lead and converting to work order',
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        showConfirmButton: false,
-                        willOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-
-                    // Submit form via AJAX
-                    let formData = new FormData($('#createLeadForm')[0]);
-
-                    $.ajax({
-                        url: "{{ route('leads.store') }}",
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        success: function(response) {
-                            // Lead created successfully, now convert to job
-                            let leadId = response.lead_id || response.id;
-
-                            if (!leadId) {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error',
-                                    text: 'Lead created but failed to get lead ID'
-                                });
-                                return;
-                            }
-
-                            // Call approve endpoint to convert to job
-                            $.ajax({
-                                url: `/leads/${leadId}/approve`,
-                                type: 'POST',
-                                data: {
-                                    _token: $('meta[name="csrf-token"]').attr('content'),
-                                    approval_notes: 'Auto-converted during lead creation'
-                                },
-                                success: function(approveResponse) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Success!',
-                                        html: `
-                                            <div class="text-start">
-                                                <p class="mb-3">Lead created and converted successfully!</p>
-                                                <div class="alert alert-success mb-3">
-                                                    <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.lead_code}</span></p>
-                                                    <p class="mb-2"><strong>Customer Code:</strong> <span class="badge bg-success">${approveResponse.customer_code}</span></p>
-                                                    <p class="mb-0"><strong>Amount:</strong> <span class="text-success fw-bold">₹${approveResponse.amount}</span></p>
-                                                </div>
-                                                <div class="d-flex gap-2 mt-3">
-                                                    <a href="/leads/${leadId}" class="btn btn-primary btn-sm flex-fill">
-                                                        <i class="las la-file-alt me-1"></i> View Lead
-                                                    </a>
-                                                    <a href="/customers/${approveResponse.customer_id}" class="btn btn-success btn-sm flex-fill">
-                                                        <i class="las la-user me-1"></i> View Customer
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        `,
-                                        confirmButtonText: 'Go to Leads',
-                                        confirmButtonColor: '#10b981',
-                                        showCancelButton: true,
-                                        cancelButtonText: 'Create Another Lead',
-                                        width: '600px'
-                                    }).then((result) => {
-                                        if (result.isConfirmed) {
-                                            window.location.href = "{{ route('leads.index') }}";
-                                        } else if (result.dismiss === Swal.DismissReason.cancel) {
-                                            window.location.href = "{{ route('leads.create') }}";
-                                        }
-                                    });
-                                },
-                                error: function(xhr) {
-                                    let message = xhr.responseJSON?.message || 'Failed to convert to work order';
-                                    let budgetInfo = xhr.responseJSON?.budgetinfo || null;
-                                    let html = `<p class="mb-3">${message}</p>`;
-
-                                    if (budgetInfo) {
-                                        html += `
-                                            <div class="alert alert-danger text-start mb-0">
-                                                <p class="mb-1"><strong>Daily Limit:</strong> ₹${budgetInfo.dailylimit}</p>
-                                                <p class="mb-1"><strong>Used Today:</strong> ₹${budgetInfo.todaytotal}</p>
-                                                <p class="mb-1"><strong>Remaining:</strong> ₹${budgetInfo.remaining}</p>
-                                                <p class="mb-0 text-danger"><strong>Excess:</strong> ₹${budgetInfo.excess}</p>
-                                            </div>
-                                        `;
-                                    }
-
-                                    html += `
-                                        <div class="mt-3">
-                                            <p class="text-muted mb-0">The lead was created successfully but couldn't be converted to a work order. You can convert it manually from the leads page.</p>
-                                        </div>
-                                    `;
-
-                                    Swal.fire({
-                                        icon: 'warning',
-                                        title: 'Lead Created but Conversion Failed',
-                                        html: html,
-                                        confirmButtonText: 'Go to Leads',
-                                        confirmButtonColor: '#3b82f6',
-                                        width: '550px'
-                                    }).then(() => {
-                                        window.location.href = "{{ route('leads.index') }}";
-                                    });
-                                }
-                            });
-                        },
-                        error: function(xhr) {
-                            let message = 'Failed to create lead';
-                            let errors = [];
-
-                            if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                                Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
-                                    errors = errors.concat(errorArray);
-                                });
-                                message = '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
-                            } else if (xhr.responseJSON?.message) {
-                                message = xhr.responseJSON.message;
-                            }
-
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error Creating Lead',
-                                html: message,
-                                confirmButtonColor: '#ef4444',
-                                confirmButtonText: 'OK'
-                            });
-
-                            // Show inline validation errors
-                            if (xhr.status === 422 && xhr.responseJSON?.errors) {
-                                Object.keys(xhr.responseJSON.errors).forEach(function(field) {
-                                    let input = $(`[name="${field}"], [name="${field}[]"]`).first();
-                                    if (input.length) {
-                                        input.addClass('is-invalid');
-                                        input.after(`<div class="invalid-feedback d-block">${xhr.responseJSON.errors[field][0]}</div>`);
-                                    }
-                                });
-
-                                // Scroll to first error
-                                $('html, body').animate({
-                                    scrollTop: $('.is-invalid:first').offset().top - 100
-                                }, 500);
-                            }
+                if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                    Object.keys(xhr.responseJSON.errors).forEach(function(field) {
+                        let input = $(`[name="${field}"], [name="${field}[]"]`).first();
+                        if (input.length) {
+                            input.addClass('is-invalid');
+                            input.after(`<div class="invalid-feedback d-block">${xhr.responseJSON.errors[field][0]}</div>`);
                         }
                     });
                 }
-            });
+            }
         });
-
-        // Auto-scroll to error alert on page load
-        @if($errors->any())
-            $('html, body').animate({
-                scrollTop: $('#errorAlert').offset().top - 100
-            }, 500);
-        @endif
     });
+
+    // ============ REGULAR FORM SUBMISSION ============
+    $('#createLeadForm').on('submit', function(e) {
+        e.preventDefault();
+
+        // Save current visible selections
+        saveCurrentSelections();
+
+        // Inject ALL selected services
+        injectSelectedServicesIntoForm();
+
+        console.log('Form submitting with selections:', selectedServices);
+
+        if (!validateForm()) {
+            $('.injected-service-input').remove();
+            return false;
+        }
+
+        let submitBtn = $(this).find('button[type="submit"]:not(#createAndConvertBtn):not(#createAndConfirmBtn)');
+        let originalBtnHtml = submitBtn.html();
+        submitBtn.prop('disabled', true).html('<i class="las la-spinner la-spin me-1"></i> Creating...');
+
+        // Disable special buttons too
+        $('#createAndConvertBtn, #createAndConfirmBtn').prop('disabled', true);
+
+        let formData = new FormData(this);
+
+        // Log what's being sent
+        console.log('FormData contents:');
+        let serviceIdsCount = 0;
+        let serviceQuantitiesCount = 0;
+        for (let pair of formData.entries()) {
+            if (pair[0] === 'service_ids[]') {
+                serviceIdsCount++;
+                console.log(`service_ids[]: ${pair[1]}`);
+            } else if (pair[0].startsWith('service_quantities[')) {
+                serviceQuantitiesCount++;
+                console.log(`${pair[0]}: ${pair[1]}`);
+            }
+        }
+        console.log(`Total service_ids: ${serviceIdsCount}, Total quantities: ${serviceQuantitiesCount}`);
+
+        $.ajax({
+            url: $(this).attr('action'),
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                submitBtn.prop('disabled', false).html(originalBtnHtml);
+                $('#createAndConvertBtn, #createAndConfirmBtn').prop('disabled', false);
+
+                if (response.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        html: `
+                            <div class="text-start">
+                                <p class="mb-2"><strong>Lead Code:</strong> <span class="badge bg-primary">${response.lead_code}</span></p>
+                                <p class="mb-0">${response.message}</p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Go to Leads',
+                        confirmButtonColor: '#10b981',
+                        showCancelButton: true,
+                        cancelButtonText: 'Create Another',
+                        cancelButtonColor: '#3b82f6'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "{{ route('leads.index') }}";
+                        } else if (result.dismiss === Swal.DismissReason.cancel) {
+                            window.location.href = "{{ route('leads.create') }}";
+                        }
+                    });
+                }
+            },
+            error: function(xhr) {
+                submitBtn.prop('disabled', false).html(originalBtnHtml);
+                $('#createAndConvertBtn, #createAndConfirmBtn').prop('disabled', false);
+                $('.injected-service-input').remove();
+
+                let errors = [];
+                let message = 'Failed to create lead';
+
+                if (xhr.status === 422 && xhr.responseJSON?.errors) {
+                    Object.values(xhr.responseJSON.errors).forEach(function(errorArray) {
+                        errors = errors.concat(errorArray);
+                    });
+                    message = '<ul class="text-start mb-0">' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+
+                    // Show field errors
+                    Object.keys(xhr.responseJSON.errors).forEach(function(field) {
+                        let input = $(`[name="${field}"], [name="${field}[]"]`).first();
+                        if (input.length) {
+                            input.addClass('is-invalid');
+                            input.after(`<div class="invalid-feedback d-block">${xhr.responseJSON.errors[field][0]}</div>`);
+                        }
+                    });
+                } else if (xhr.responseJSON?.message) {
+                    message = xhr.responseJSON.message;
+                }
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    html: message,
+                    confirmButtonColor: '#ef4444'
+                });
+            }
+        });
+    });
+
+    @if($errors->any())
+    window.onload = function() {
+        $('html, body').animate({ scrollTop: $('#errorAlert').offset().top - 100 }, 500);
+    };
+    @endif
+
+    @if(auth()->user()->role === 'super_admin')
+    $('#branch_id').trigger('change');
+    @endif
+});
 </script>
 
 @endsection

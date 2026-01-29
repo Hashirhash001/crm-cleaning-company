@@ -22,12 +22,20 @@
             @endif
         </td>
         <td class="text-end">
-            <a href="javascript:void(0)" class="editBtn" data-id="{{ $user->id }}" title="Edit">
-                <i class="las la-pen text-secondary fs-18"></i>
-            </a>
-            <a href="javascript:void(0)" class="deleteBtn" data-id="{{ $user->id }}" title="Delete">
-                <i class="las la-trash-alt text-danger fs-18 ms-2"></i>
-            </a>
+            {{-- Only super admins can edit/delete users --}}
+            @if(auth()->user()->role === 'super_admin')
+                <a href="javascript:void(0)" class="editBtn" data-id="{{ $user->id }}" title="Edit">
+                    <i class="las la-pen text-secondary fs-18"></i>
+                </a>
+                <a href="javascript:void(0)" class="deleteBtn" data-id="{{ $user->id }}" title="Delete">
+                    <i class="las la-trash-alt text-danger fs-18 ms-2"></i>
+                </a>
+            @else
+                {{-- Lead managers can only view --}}
+                <a href="{{ route('users.show', $user->id) }}" title="View Details">
+                    <i class="las la-eye text-info fs-18"></i>
+                </a>
+            @endif
         </td>
     </tr>
 @empty

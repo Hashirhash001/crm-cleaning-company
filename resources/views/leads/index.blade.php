@@ -1614,6 +1614,14 @@
                 width: '100%'
             });
 
+            @if(auth()->user()->role === 'telecallers')
+                // Check if no filter is already set (fresh page load)
+                if (!$('#telecallerAssignedFilter').val() || $('#telecallerAssignedFilter').val() === '') {
+                    $('#telecallerAssignedFilter').val('me'); // Set to "My Assigned Leads"
+                    console.log('✅ Default filter set to: My Assigned Leads');
+                }
+            @endif
+
             // Data from server
             const allTelecallers = @json(
                 $telecallers->map(function ($t) {
@@ -2674,6 +2682,58 @@
                     }
                 });
             });
+
+            // Confirm Lead (Telecallers)
+            $(document).on('click', '.confirmLeadBtn', function() {
+                let leadId = $(this).data('id');
+                let leadName = $(this).data('name');
+                let leadCode = $(this).data('code');
+
+                Swal.fire({
+                    title: 'Confirm Lead?',
+                    html: `<p>Are you sure you want to confirm this lead?</p>
+                        <p><strong>Lead Code:</strong> <span class="badge bg-primary">${leadCode}</span></p>
+                        <p><strong>Name:</strong> ${leadName}</p>
+                        <p class="text-muted small mt-3">
+                            <i class="las la-info-circle"></i>
+                            This will mark the lead as "Confirmed" and send it for admin approval.
+                        </p>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Confirm',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#0dcaf0',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/leads/${leadId}/confirm`,
+                            type: 'POST',
+                            success: function(response) {
+                                if (response.success) {
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Confirmed!',
+                                        text: response.message || 'Lead has been confirmed successfully!',
+                                        timer: 2000,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        loadLeads(); // Reload the table
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: xhr.responseJSON?.message || 'Could not confirm lead.'
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
 
             function sortLeadsTable(column, direction) {
                 let rows = $('#leadsTableBody tr').get();

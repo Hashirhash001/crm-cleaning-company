@@ -47,16 +47,25 @@
         <div class="card">
             <div class="card-body" style=" padding: 1.5rem; border-radius: 0.4rem;">
                 <div class="row align-items-end">
+                    {{-- Role Filter - Only show if not lead_manager --}}
+                    @if(auth()->user()->role !== 'lead_manager')
                     <div class="col-md-3">
-                        <label class="form-label fw-semibold">Filter by Role</label>
-                        <select class="form-select" id="roleFilter">
+                        <label class="form-label fw-semibold mb-2">Role</label>
+                        <select class="form-select" name="role" id="roleFilter">
                             <option value="">All Roles</option>
-                            <option value="super_admin">Super Admin</option>
-                            <option value="lead_manager">Lead Manager</option>
-                            <option value="telecallers">Telecaller</option>
-                            <option value="field_staff">Field Staff</option>
+                            <option value="super_admin" {{ request('role') == 'super_admin' ? 'selected' : '' }}>Super Admin</option>
+                            <option value="lead_manager" {{ request('role') == 'lead_manager' ? 'selected' : '' }}>Lead Manager</option>
+                            <option value="telecallers" {{ request('role') == 'telecallers' ? 'selected' : '' }}>Telecaller</option>
                         </select>
                     </div>
+                    @else
+                        {{-- For lead managers, show a disabled field indicating they can only see telecallers --}}
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold mb-2">Role</label>
+                            <input type="text" class="form-control" value="Telecallers Only" disabled>
+                            <small class="text-muted">You can only manage telecallers in your branch</small>
+                        </div>
+                    @endif
 
                     <div class="col-md-3">
                         <label class="form-label fw-semibold">Filter by Status</label>
@@ -77,9 +86,12 @@
                             <button type="button" class="btn btn-secondary flex-grow-1" id="resetFilters">
                                 <i class="fas fa-redo me-2"></i> Reset
                             </button>
-                            <button type="button" class="btn btn-primary flex-grow-1" id="addUserBtn">
-                                <i class="fas fa-plus me-2"></i> Add User
-                            </button>
+                            {{-- ✅ Only super admins can add users --}}
+                            @if(auth()->user()->role === 'super_admin')
+                                <button type="button" class="btn btn-primary flex-grow-1" id="addUserBtn">
+                                    <i class="fas fa-plus me-2"></i> Add User
+                                </button>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -125,6 +137,8 @@
     </div>
 </div>
 
+{{-- ✅ Only show modal for super admins --}}
+@if(auth()->user()->role === 'super_admin')
 <!-- User Modal -->
 <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -212,6 +226,7 @@
         </div>
     </div>
 </div>
+@endif
 @endsection
 
 @section('extra-scripts')
@@ -278,6 +293,7 @@
                 window.location.href = '{{ route("users.index") }}';
             });
 
+            @if(auth()->user()->role === 'super_admin')
             // Add User Button Click
             $('#addUserBtn').click(function() {
                 $('#userForm')[0].reset();
@@ -353,7 +369,7 @@
                             timer: 2000,
                             showConfirmButton: false
                         }).then(() => {
-                            loadUsers(); // Use AJAX reload instead of location.reload()
+                            loadUsers();
                         });
                     },
                     error: function(xhr) {
@@ -400,7 +416,7 @@
                                     timer: 2000,
                                     showConfirmButton: false
                                 }).then(() => {
-                                    loadUsers(); // Use AJAX reload instead of location.reload()
+                                    loadUsers();
                                 });
                             },
                             error: function() {
@@ -415,6 +431,7 @@
                     }
                 });
             });
+            @endif
         });
     </script>
 

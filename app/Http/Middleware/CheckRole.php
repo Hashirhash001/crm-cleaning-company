@@ -12,12 +12,18 @@ class CheckRole
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
-     * @param  string  $role
+     * @param  string  ...$roles  (accepts multiple roles)
      * @return mixed
      */
-    public function handle(Request $request, Closure $next, $role)
+    public function handle(Request $request, Closure $next, ...$roles)
     {
-        if (!auth()->check() || auth()->user()->role !== $role) {
+        // Check if user is authenticated
+        if (!auth()->check()) {
+            abort(403, 'Unauthorized access');
+        }
+
+        // Check if user's role matches any of the allowed roles
+        if (!in_array(auth()->user()->role, $roles)) {
             abort(403, 'Unauthorized access');
         }
 

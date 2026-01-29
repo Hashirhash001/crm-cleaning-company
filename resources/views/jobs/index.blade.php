@@ -707,7 +707,7 @@
 
                 <form id="jobForm">
                     @csrf
-                    <input type="hidden" id="jobid" name="jobid">
+                    <input type="hidden" id="job_id" name="jobid">
 
                     <div class="modal-body">
 
@@ -756,31 +756,52 @@
                             </div>
 
                             <div class="col-md-6">
-                                <label for="servicetype" class="form-label required-field">Service Type</label>
-                                <select class="form-select" id="servicetype" name="service_type" required>
-                                    <option value="">Select Service Type</option>
+                                <label for="servicetype" class="form-label">Service Type (Filter)</label>
+                                <select class="form-select" id="servicetype" name="servicetype">
+                                    <option value="">All Services</option>
                                     <option value="cleaning">Cleaning</option>
                                     <option value="pest_control">Pest Control</option>
                                     <option value="other">Other</option>
                                 </select>
-                                <span class="error-text servicetypeerror text-danger d-block mt-1"></span>
+                                <small class="text-muted">Filter services by type or view all services</small>
                             </div>
+
                         </div>
 
                         {{-- Services with Quantity --}}
                         <div class="row mb-3">
                             <div class="col-12">
-                                <label class="form-label required-field">Select Services (with quantity)</label>
+                                <label class="form-label required-field">Select Services <span class="badge bg-info">Multiple Selection from Any Type</span></label>
 
-                                <div class="service-select-box" id="servicesContainer">
-                                    <p class="text-muted text-center my-3">
-                                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                                        Please select a service type first
-                                    </p>
+                                <!-- Search Box for Services -->
+                                <div class="mb-2">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">
+                                            <i class="las la-search"></i>
+                                        </span>
+                                        <input type="text"
+                                            class="form-control"
+                                            id="serviceSearchInput"
+                                            placeholder="Search services by name...">
+                                        <button class="btn btn-outline-secondary" type="button" id="clearServiceSearch">
+                                            <i class="las la-times"></i> Clear
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <small class="text-muted">Check services and specify quantity for each</small>
-                                <span class="error-text serviceidserror text-danger d-block mt-1"></span>
+                                <div class="service-select-box @error('service_ids') is-invalid @enderror" id="servicesContainer">
+                                    <p class="text-muted text-center my-5">
+                                        <i class="las la-spinner la-spin" style="font-size: 2rem;"></i><br>
+                                        Loading services...
+                                    </p>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="las la-info-circle"></i>
+                                    You can select services from different types. Use the "Service Type" filter or search box above.
+                                </small>
+                                @error('service_ids')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
 
@@ -1031,6 +1052,8 @@
                 }
             });
 
+            let selectedServices = {};
+
             // Initialize Select2 on service filter
             $('#serviceFilter').select2({
                 theme: 'bootstrap-5',
@@ -1201,97 +1224,375 @@
             let today = new Date().toISOString().split('T')[0];
             $('#scheduled_date').attr('min', today);
 
-            // Load services when service type is selected
-            function loadServices(serviceType, preselectedIds = [], preselectedQty = {}) {
+            // Save only VISIBLE selections
+            function saveCurrentSelections() {
+                console.log('Saving selections... Current DOM checkboxes:', $('.service-checkbox').length);
+
+                // Only update services that are currently visible in DOM
+                let visibleServiceIds = [];
+                $('.service-checkbox').each(function() {
+                    let serviceId = $(this).data('service-id');
+                    visibleServiceIds.push(serviceId);
+                    let isChecked = $(this).is(':checked');
+
+                    if (isChecked) {
+                        let quantity = parseInt($(`#quantity${serviceId}`).val()) || 1;
+                        let serviceName = $(this).data('service-name');
+                        let serviceType = $(this).data('service-type');
+
+                        selectedServices[serviceId] = {
+                            name: serviceName,
+                            quantity: quantity,
+                            type: serviceType
+                        };
+                        console.log('Saved service:', serviceId, selectedServices[serviceId]);
+                    } else {
+                        // Only remove if this service is visible AND unchecked
+                        if (selectedServices.hasOwnProperty(serviceId)) {
+                            delete selectedServices[serviceId];
+                            console.log('Removed service (unchecked):', serviceId);
+                        }
+                    }
+                });
+
+                console.log('Visible service IDs:', visibleServiceIds);
+                console.log('Total selected services:', Object.keys(selectedServices).length, selectedServices);
+            }
+
+            // NEW: Inject all selected services as hidden inputs
+            function injectSelectedServicesIntoForm() {
+                // Remove any previously injected hidden inputs
+                $('#jobForm').find('.injected-service-input').remove();
+
+                console.log('Injecting selected services into form:', selectedServices);
+
+                // Inject hidden inputs for all selected services
+                Object.entries(selectedServices).forEach(([serviceId, data]) => {
+                    // Add service ID (checkbox checked)
+                    $('#jobForm').append(`<input type="checkbox" name="service_ids[]" value="${serviceId}" checked class="injected-service-input" style="display:none">`);
+
+                    // Add quantity input
+                    $('#jobForm').append(`<input type="number" name="service_quantities[${serviceId}]" value="${data.quantity}" class="injected-service-input" style="display:none">`);
+
+                    console.log(`Injected service ${serviceId} (${data.name}) qty: ${data.quantity}`);
+                });
+
+                console.log('Total injected inputs:', $('#jobForm').find('.injected-service-input').length);
+            }
+
+            // ✅ Load all services from controller (NO AJAX)
+            const allServices = @json($services);
+            console.log('All services loaded:', allServices.length);
+
+            // ✅ NEW: Client-side filtering (like Leads page)
+            function loadServices(serviceType = '', preselectedIds = [], preselectedQty = {}) {
+                console.log('Loading services... Type:', serviceType || 'ALL');
+                console.log('Preselected IDs:', preselectedIds);
+                console.log('Preselected quantities:', preselectedQty);
+                console.log('Current selections before load:', selectedServices);
+
                 const container = $('#servicesContainer');
 
-                if (!serviceType) {
-                    container.html(`
-                    <p class="text-muted text-center my-3">
-                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                        Please select a service type first
-                    </p>
-                    `);
+                // ✅ Filter services client-side
+                let servicesToShow = serviceType
+                    ? allServices.filter(s => s.service_type === serviceType)
+                    : allServices;
+
+                console.log('Services to show:', servicesToShow.length);
+
+                if (servicesToShow.length === 0) {
+                    container.html('<p class="text-muted text-center my-3">No services available</p>');
                     return;
                 }
 
-                container.html(
-                    '<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>'
-                );
+                // Group services by type
+                let grouped = {};
+                servicesToShow.forEach(service => {
+                    let type = service.service_type || 'other';
+                    if (!grouped[type]) {
+                        grouped[type] = [];
+                    }
+                    grouped[type].push(service);
+                });
 
-                $.ajax({
-                    url: "{{ route('leads.servicesByType') }}",
-                    type: "GET",
-                    data: {
-                        service_type: serviceType
-                    },
-                    success: function(services) {
-                        if (!services.length) {
-                            container.html(
-                                '<p class="text-muted text-center my-3">No services available for this type</p>'
-                            );
-                            return;
-                        }
+                let html = '';
 
-                        let html = '';
-                        services.forEach(service => {
-                            const isChecked = preselectedIds.includes(service.id);
-                            const qtyValue = preselectedQty[service.id] ? preselectedQty[service
-                                .id] : 1;
+                // Display grouped services with headers
+                Object.keys(grouped).sort().forEach(type => {
+                    let typeName = type === 'cleaning' ? '🧹 Cleaning Services' :
+                                type === 'pest_control' ? '🐛 Pest Control Services' :
+                                type === 'pestcontrol' ? '🐛 Pest Control Services' :
+                                '🔧 Other Services';
+                    let typeColor = type === 'cleaning' ? '#3b82f6' :
+                                    (type === 'pest_control' || type === 'pestcontrol') ? '#10b981' :
+                                    '#6b7280';
 
-                            html += `
-                        <div class="service-checkbox-item">
-                            <div class="service-checkbox-wrapper">
-                            <input type="checkbox"
-                                    name="service_ids[]"
-                                    value="${service.id}"
-                                    id="service_${service.id}"
-                                    class="service-checkbox"
-                                    data-service-id="${service.id}"
-                                    ${isChecked ? 'checked' : ''}>
-                            <label for="service_${service.id}">${service.name}</label>
-                            </div>
-
-                            <div class="service-quantity-wrapper">
-                            <span class="quantity-label">Qty</span>
-                            <input type="number"
-                                    name="service_quantities[${service.id}]"
-                                    id="quantity_${service.id}"
-                                    class="service-quantity-input"
-                                    min="1"
-                                    value="${qtyValue}"
-                                    ${isChecked ? '' : 'disabled'}>
-                            </div>
+                    html += `
+                        <div style="margin-top: ${html ? '15px' : '0'}; padding: 8px 10px; background: ${typeColor}15; border-left: 3px solid ${typeColor}; border-radius: 4px;">
+                            <strong style="color: ${typeColor}; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                ${typeName}
+                                <span style="font-size: 0.8rem; font-weight: 400;">(${grouped[type].length})</span>
+                            </strong>
                         </div>
+                    `;
+
+                    // Add services for this type
+                    grouped[type].forEach(service => {
+                        // ✅ Check if this service should be pre-selected
+                        const isChecked = selectedServices.hasOwnProperty(service.id) ||
+                                        preselectedIds.includes(service.id);
+
+                        const qtyValue = isChecked
+                            ? (selectedServices[service.id]?.quantity || preselectedQty[service.id] || 1)
+                            : 1;
+
+                        console.log(`Service ${service.id} (${service.name}) - checked:${isChecked}, qty:${qtyValue}`);
+
+                        html += `
+                            <div class="service-checkbox-item">
+                                <div class="service-checkbox-wrapper">
+                                    <input type="checkbox"
+                                        name="service_ids[]"
+                                        value="${service.id}"
+                                        id="service${service.id}"
+                                        class="service-checkbox"
+                                        data-service-id="${service.id}"
+                                        data-service-name="${service.name}"
+                                        data-service-type="${service.service_type}"
+                                        ${isChecked ? 'checked' : ''}>
+                                    <label for="service${service.id}">${service.name}</label>
+                                </div>
+                                <div class="service-quantity-wrapper">
+                                    <span class="quantity-label">Qty:</span>
+                                    <input type="number"
+                                        name="service_quantities[${service.id}]"
+                                        id="quantity${service.id}"
+                                        class="service-quantity-input"
+                                        min="1"
+                                        value="${qtyValue}"
+                                        ${!isChecked ? 'disabled' : ''}>
+                                </div>
+                            </div>
                         `;
-                        });
+                    });
+                });
 
-                        container.html(html);
+                container.html(html);
 
-                        // Enable/disable qty when checkbox changes
-                        container.find('.service-checkbox').on('change', function() {
-                            const serviceId = $(this).data('service-id');
-                            const qtyInput = $('#quantity_' + serviceId);
+                console.log('DOM rendered. Checkboxes found:', $('.service-checkbox').length);
+                console.log('Checked checkboxes:', $('.service-checkbox:checked').length);
 
-                            if (this.checked) {
-                                qtyInput.prop('disabled', false);
-                                if (!qtyInput.val()) qtyInput.val(1);
-                            } else {
-                                qtyInput.prop('disabled', true).val(1);
-                            }
-                        });
-                    },
-                    error: function() {
-                        container.html(
-                            '<p class="text-danger text-center my-3">Error loading services. Please try again.</p>'
-                        );
+                // Re-bind event handlers
+                bindServiceEvents();
+
+                // Update display
+                updateSelectedServicesDisplay();
+
+                // Apply search filter if active
+                if (currentSearchTerm) {
+                    filterServicesInDOM(currentSearchTerm);
+                }
+            }
+
+            // BIND EVENT HANDLERS TO SERVICE CHECKBOXES
+            function bindServiceEvents() {
+                // Enable/disable quantity input based on checkbox
+                $('.service-checkbox').off('change').on('change', function() {
+                    let serviceId = $(this).data('service-id');
+                    let serviceName = $(this).data('service-name');
+                    let serviceType = $(this).data('service-type');
+                    let quantityInput = $(`#quantity${serviceId}`);
+
+                    if ($(this).is(':checked')) {
+                        quantityInput.prop('disabled', false);
+                        if (!quantityInput.val()) {
+                            quantityInput.val(1);
+                        }
+                        // Add to persistent state
+                        selectedServices[serviceId] = {
+                            name: serviceName,
+                            quantity: parseInt(quantityInput.val()),
+                            type: serviceType
+                        };
+                        console.log('Checkbox checked - added to selection:', serviceId, selectedServices[serviceId]);
+                    } else {
+                        quantityInput.prop('disabled', true);
+                        // Remove from persistent state
+                        delete selectedServices[serviceId];
+                        console.log('Checkbox unchecked - removed from selection:', serviceId);
+                    }
+
+                    updateSelectedServicesDisplay(); // ✅ ADD THIS LINE
+                });
+
+                // Update quantity in persistent state when changed
+                $('.service-quantity-input').off('change').on('change', function() {
+                    let serviceId = $(this).attr('id').replace('quantity', '');
+                    if (selectedServices.hasOwnProperty(serviceId)) {
+                        selectedServices[serviceId].quantity = parseInt($(this).val()) || 1;
+                        console.log('Quantity updated:', serviceId, selectedServices[serviceId].quantity);
+                        updateSelectedServicesDisplay(); // ✅ ADD THIS LINE
                     }
                 });
             }
 
+            // DISPLAY SELECTED SERVICES WITH NAMES
+            function updateSelectedServicesDisplay() {
+                let selectedCount = Object.keys(selectedServices).length;
+                let existingBadge = $('#selectedServicesBadge');
+
+                console.log('Updating display. Selected count:', selectedCount);
+
+                if (selectedCount > 0) {
+                    // Build list of selected service names grouped by type
+                    // ✅ FIXED: Handle both 'pest_control' and 'pestcontrol'
+                    let byType = { cleaning: [], pest_control: [], pestcontrol: [], other: [] };
+
+                    Object.entries(selectedServices).forEach(([id, data]) => {
+                        let type = data.type || 'other';
+
+                        // ✅ FIXED: Initialize array if key doesn't exist
+                        if (!byType[type]) {
+                            byType[type] = [];
+                        }
+
+                        byType[type].push(`${data.name} x${data.quantity}`);
+                    });
+
+                    let servicesList = [];
+
+                    // Cleaning services
+                    if (byType.cleaning && byType.cleaning.length > 0) {
+                        servicesList.push(`<span style="color: #3b82f6">${byType.cleaning.join(', ')}</span>`);
+                    }
+
+                    // Pest Control services - handle both formats
+                    let pestControlServices = [
+                        ...(byType.pest_control || []),
+                        ...(byType.pestcontrol || [])
+                    ];
+                    if (pestControlServices.length > 0) {
+                        servicesList.push(`<span style="color: #10b981">${pestControlServices.join(', ')}</span>`);
+                    }
+
+                    // Other services
+                    if (byType.other && byType.other.length > 0) {
+                        servicesList.push(`<span style="color: #6b7280">${byType.other.join(', ')}</span>`);
+                    }
+
+                    let displayList = servicesList.join(' | ');
+
+                    let badgeHtml = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <i class="las la-check-circle"></i> <strong>${selectedCount}</strong> service${selectedCount != 1 ? 's' : ''} selected
+                                <br><small style="font-size: 0.75rem">${displayList}</small>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="clearAllSelections" style="min-width: 100px;">
+                                <i class="las la-times"></i> Clear All
+                            </button>
+                        </div>
+                    `;
+
+                    if (existingBadge.length === 0) {
+                        $('#servicesContainer').before(`<div id="selectedServicesBadge" class="alert alert-success py-2 px-3 mb-2" style="font-size: 0.85rem">${badgeHtml}</div>`);
+                    } else {
+                        existingBadge.html(badgeHtml);
+                    }
+
+                    // Bind clear all button
+                    $('#clearAllSelections').off('click').on('click', function() {
+                        if (confirm('Are you sure you want to clear all selected services?')) {
+                            selectedServices = {};
+                            console.log('All selections cleared');
+                            loadServices($('#servicetype').val());
+                        }
+                    });
+                } else {
+                    existingBadge.remove();
+                }
+            }
+
+            // Service Search Handler
+            let currentSearchTerm = '';
+
+            $('#serviceSearchInput').on('input', function() {
+                currentSearchTerm = $(this).val().trim();
+                console.log('Search changed to:', currentSearchTerm);
+
+                // Save current visible selections before searching
+                saveCurrentSelections();
+
+                // Filter visible services
+                filterServicesInDOM(currentSearchTerm);
+            });
+
+            // Filter services in DOM without reloading
+            function filterServicesInDOM(searchTerm) {
+                if (!searchTerm) {
+                    $('.service-checkbox-item').show();
+                    updateSelectedServicesDisplay();
+                    return;
+                }
+
+                const search = searchTerm.toLowerCase();
+                let visibleCount = 0;
+
+                $('.service-checkbox-item').each(function() {
+                    const serviceName = $(this).find('.service-checkbox').data('service-name').toLowerCase();
+                    if (serviceName.includes(search)) {
+                        $(this).show();
+                        visibleCount++;
+                    } else {
+                        $(this).hide();
+                    }
+                });
+
+                // Show message if no results
+                if (visibleCount === 0) {
+                    if ($('#noSearchResults').length === 0) {
+                        $('#servicesContainer').append(`
+                            <p id="noSearchResults" class="text-muted text-center my-3">
+                                No services found matching "<strong>${searchTerm}</strong>"
+                            </p>
+                        `);
+                    }
+                } else {
+                    $('#noSearchResults').remove();
+                }
+
+                updateSelectedServicesDisplay();
+            }
+
+            // Clear search button
+            $('#clearServiceSearch').on('click', function() {
+                $('#serviceSearchInput').val('');
+                currentSearchTerm = '';
+                saveCurrentSelections();
+                filterServicesInDOM('');
+                $('#serviceSearchInput').focus();
+            });
+
+            // Enter key to search
+            $('#serviceSearchInput').on('keypress', function(e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    currentSearchTerm = $(this).val().trim();
+                    saveCurrentSelections();
+                    filterServicesInDOM(currentSearchTerm);
+                }
+            });
+
             // On service type change (create flow)
             $('#servicetype').on('change', function() {
-                loadServices($(this).val(), []);
+                // Save current selections before switching
+                saveCurrentSelections();
+
+                // Clear search
+                $('#serviceSearchInput').val('');
+                currentSearchTerm = '';
+
+                loadServices($(this).val());
             });
 
             // ============================================
@@ -1438,7 +1739,7 @@
             // Add Job Button
             $('#addJobBtn').click(function() {
                 $('#jobForm')[0].reset();
-                $('#jobid').val('');
+                $('#job_id').val('');
                 $('#jobModalLabel').text('Add Work Order');
                 $('.error-text').text('');
 
@@ -1449,30 +1750,37 @@
                 // Reset and enable status dropdown
                 $('#jobstatus').val('pending').prop('disabled', false).removeClass('bg-light');
 
-                // Show both rows (for new jobs)
+                // Show both rows for new jobs
                 $('#statusDropdownRow').show();
                 $('#confirmCheckboxRow').show();
 
                 // Reset amounts
                 $('#amount').val('');
-                $('#amountPaid').val('0');
+                $('#amountPaid').val(0);
                 $('#balanceAmount').val('0.00');
 
-                currentJobServiceIds = [];
+                // Clear selected services
+                selectedServices = {};
 
                 let today = new Date().toISOString().split('T')[0];
                 $('#scheduleddate').attr('min', today);
 
                 // Reset services container
-                $('#servicesContainer').html('<p class="text-muted text-center my-3"><i class="las la-arrow-up" style="font-size: 2rem;"></i><br>Please select a service type first</p>');
+                $('#servicesContainer').html('<p class="text-muted text-center my-3"><i class="las la-arrow-up" style="font-size: 2rem"></i><br>Please select a service type first</p>');
 
+                // ✅ FIX: Get branch ID properly
                 const branchId = $('#branchid').val();
                 console.log('Add Job - Branch ID:', branchId);
+
                 if (branchId) {
                     loadCustomersByBranch(branchId);
                 } else {
+                    // For super admin, check if there's a default branch or show all
                     resetCustomerDropdown();
                 }
+
+                $('#servicetype').val('');
+                loadServices('');
 
                 $('#jobModal').modal('show');
             });
@@ -1482,24 +1790,24 @@
                 let jobId = $(this).data('id');
 
                 $.ajax({
-                    url: `jobs/${jobId}/edit`,
+                    url: `/jobs/${jobId}/edit`,
                     type: 'GET',
                     success: function(response) {
                         const job = response.job;
 
                         // Hidden ID
-                        $('#jobid').val(job.id);
+                        $('#job_id').val(job.id);
                         $('#jobModalLabel').text('Edit Job');
 
                         // Basic fields
-                        $('#title').val(job.title || '');
-                        $('#description').val(job.description || '');
-                        $('#customerinstructions').val(job.customer_instructions || '');
-                        $('#location').val(job.location || '');
+                        $('#title').val(job.title);
+                        $('#description').val(job.description);
+                        $('#customerinstructions').val(job.customer_instructions);
+                        $('#location').val(job.location);
                         $('#amount').val(job.amount || 0);
                         $('#amountPaid').val(job.amount_paid || 0);
-                        $('#addonPrice').val(job.addon_price || '');
-                        $('#addonPriceComments').val(job.addon_price_comments || '');
+                        $('#addonPrice').val(job.addon_price || 0);
+                        $('#addonPriceComments').val(job.addon_price_comments);
 
                         // Set branch WITHOUT triggering change
                         $('#branchid').val(job.branch_id);
@@ -1507,7 +1815,7 @@
                         // Clear previous messages
                         $('.confirm-info-message').remove();
 
-                        // ✅ NEW: Hide status dropdown and confirm checkbox if approved or completed
+                        // Hide status dropdown and confirm checkbox if approved/completed/confirmed
                         if (job.status === 'approved' || job.status === 'completed' || job.status === 'confirmed') {
                             $('#statusDropdownRow').hide();
                             $('#confirmCheckboxRow').hide();
@@ -1522,28 +1830,72 @@
                             // Show and reset confirm checkbox
                             $('#confirmCheckboxRow').show();
                             $('#confirmOnCreation').prop('checked', false);
+
                             console.log('Status controls shown - Job is ' + job.status);
                         }
 
                         // Load customers with preselection
                         loadCustomersByBranch(job.branch_id, job.customer_id);
 
-                        // Service type
+                        // ✅ FIXED: Clear previous selections completely
+                        selectedServices = {};
+
+                        // ✅ FIXED: Handle missing service_quantities gracefully
+                        const serviceQuantities = job.service_quantities || {};
+
+                        console.log('Job has services:', job.service_ids);
+                        console.log('Service quantities:', serviceQuantities);
+
+                        // ✅ FIXED: Pre-populate selectedServices from job data
+                        if (job.service_ids && job.service_ids.length > 0) {
+                            job.service_ids.forEach(serviceId => {
+                                // Find the service in allServices to get its details
+                                let serviceData = allServices.find(s => s.id == serviceId);
+
+                                if (serviceData) {
+                                    selectedServices[serviceId] = {
+                                        name: serviceData.name,
+                                        quantity: serviceQuantities[serviceId] || 1,  // ✅ Use with fallback
+                                        type: serviceData.service_type
+                                    };
+                                    console.log(`Pre-populated service ${serviceId}:`, selectedServices[serviceId]);
+                                } else {
+                                    // Fallback if service not found in allServices
+                                    selectedServices[serviceId] = {
+                                        name: 'Unknown Service',
+                                        quantity: serviceQuantities[serviceId] || 1,
+                                        type: job.service_type || 'other'
+                                    };
+                                    console.warn(`Service ${serviceId} not found in allServices`);
+                                }
+                            });
+                        }
+
+                        console.log('Final selectedServices:', selectedServices);
+
+                        // ✅ Set service type filter (or empty for "All Services")
                         if (job.service_type) {
                             $('#servicetype').val(job.service_type);
-                            currentJobServiceIds = job.service_ids || [];
-                            loadServices(job.service_type, currentJobServiceIds, job
-                                .serviceQuantities || job.servicequantities || job
-                                .service_quantities || {});
-                            console.log('Quantities object from API:', job.serviceQuantities,
-                                job.servicequantities, job.service_quantities);
+                        } else {
+                            $('#servicetype').val(''); // All Services
                         }
+
+                        // ✅ Load services with pre-selected state
+                        loadServices(
+                            job.service_type || '',      // Service type filter (empty = all)
+                            job.service_ids || [],       // Pre-selected IDs
+                            serviceQuantities            // ✅ Use the safe variable
+                        );
 
                         // Scheduled date
                         if (job.scheduled_date) {
                             let dateValue = job.scheduled_date;
-                            if (dateValue.includes(' ')) dateValue = dateValue.split(' ')[0];
-                            if (dateValue.includes('T')) dateValue = dateValue.split('T')[0];
+                            if (dateValue.includes(' ')) {
+                                dateValue = dateValue.split(' ')[0];
+                            }
+                            if (dateValue.includes('T')) {
+                                dateValue = dateValue.split('T')[0];
+                            }
                             $('#scheduleddate').val(dateValue);
                         } else {
                             $('#scheduleddate').val('');
@@ -1555,9 +1907,10 @@
                             if (timeStr && timeStr.includes(':')) {
                                 let timeParts = timeStr.split(':');
                                 if (timeParts.length >= 2) {
-                                    let formattedTime =
-                                        `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
+                                    let formattedTime = `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
                                     $('#scheduledtime').val(formattedTime);
+                                } else {
+                                    $('#scheduledtime').val('');
                                 }
                             } else {
                                 $('#scheduledtime').val('');
@@ -1568,7 +1921,6 @@
 
                         calculateBalance();
                         $('.error-text').text('');
-
                         $('#jobModal').modal('show');
                     },
                     error: function(xhr) {
@@ -1582,19 +1934,28 @@
             $('#jobForm').on('submit', function(e) {
                 e.preventDefault();
 
-                let jobId = $('#jobid').val();
-                let url = jobId ? `jobs/${jobId}` : 'jobs';
+                // Save current visible selections
+                saveCurrentSelections();
+
+                // Inject ALL selected services
+                injectSelectedServicesIntoForm();
+
+                console.log('Form submitting with selections:', selectedServices);
+
+                let jobId = $('#job_id').val();
+                let url = jobId ? `/jobs/${jobId}` : '{{ route("jobs.store") }}';
 
                 console.log('Job ID:', jobId);
                 console.log('Submit URL:', url);
 
-                // Validate at least one service is selected
-                if ($('.service-checkbox:checked').length === 0) {
+                // Validate: at least one service is selected
+                if (Object.keys(selectedServices).length === 0) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Validation Error',
                         text: 'Please select at least one service'
                     });
+                    $('.injected-service-input').remove();
                     return;
                 }
 
@@ -1610,11 +1971,26 @@
                     formData.delete('confirm_on_creation');
                 }
 
-                // For update, add _method PUT
+                // For update, add _method=PUT
                 if (jobId) {
                     formData.append('_method', 'PUT');
                     console.log('Adding PUT method for update');
                 }
+
+                // Log what's being sent
+                console.log('FormData contents:');
+                let serviceIdsCount = 0;
+                let serviceQuantitiesCount = 0;
+                for (let pair of formData.entries()) {
+                    if (pair[0] === 'service_ids[]') {
+                        serviceIdsCount++;
+                        console.log(`service_ids[]: ${pair[1]}`);
+                    } else if (pair[0].startsWith('service_quantities[')) {
+                        serviceQuantitiesCount++;
+                        console.log(`${pair[0]}: ${pair[1]}`);
+                    }
+                }
+                console.log(`Total service_ids: ${serviceIdsCount}, Total quantities: ${serviceQuantitiesCount}`);
 
                 // Clear previous errors
                 $('.error-text').text('');
@@ -1638,14 +2014,15 @@
                         });
                     },
                     error: function(xhr) {
+                        $('.injected-service-input').remove();
+
                         if (xhr.status === 422) {
                             let errors = xhr.responseJSON.errors;
                             $.each(errors, function(key, value) {
                                 $(`#${key}error`).text(value[0]);
                             });
                         } else {
-                            Swal.fire('Error!', xhr.responseJSON?.message ||
-                                'Something went wrong', 'error');
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Something went wrong', 'error');
                         }
                     }
                 });

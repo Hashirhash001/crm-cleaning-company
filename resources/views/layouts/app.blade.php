@@ -301,7 +301,12 @@
                             </li>
 
                         @elseif(auth()->user()->role === 'lead_manager')
-
+                            <li class="nav-item">
+                                <a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" href="{{ route('users.index') }}">
+                                    <i class="iconoir-group menu-icon"></i>
+                                    <span>Users</span>
+                                </a>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('services.*') ? 'active' : '' }}" href="{{ route('services.index') }}">
                                     <i class="iconoir-list menu-icon"></i>
@@ -335,7 +340,7 @@
                             <li class="nav-item">
                                 <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}" href="{{ route('jobs.index') }}">
                                     <i class="iconoir-task-list menu-icon"></i>
-                                    <span>Jobs</span>
+                                    <span>Work Orders</span>
                                 </a>
                             </li>
 

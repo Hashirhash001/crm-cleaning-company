@@ -104,7 +104,7 @@ class JobController extends Controller
         $sortDirection = $request->get('sortdirection', 'desc');
 
         // Log the sorting for debugging
-        \Log::info('Applying sort', [
+        Log::info('Applying sort', [
             'column' => $sortColumn,
             'direction' => $sortDirection,
             'user' => $user->id
@@ -200,8 +200,8 @@ class JobController extends Controller
             }
 
             // Generate unique job code
-            $jobCount = Job::count();
-            $jobCode = 'JOB' . str_pad($jobCount + 1, 4, '0', STR_PAD_LEFT);
+            // $jobCount = Job::count();
+            // $jobCode = Job::generateJobCode();
 
             // Determine initial status
             // If telecaller checked "confirm_on_creation", set status to "confirmed"
@@ -250,7 +250,6 @@ class JobController extends Controller
 
             Log::info('Job created', [
                 'job_id' => $job->id,
-                'job_code' => $jobCode,
                 'services' => $serviceData
             ]);
 
@@ -298,6 +297,8 @@ class JobController extends Controller
 
         $branches = Branch::all();
 
+        $services = Service::orderBy('name')->get(['id', 'name', 'service_type']);
+
         // Fetch telecallers and field staff separately for assignment
         $telecallers = User::where('role', 'telecallers')
             ->where('is_active', true)
@@ -309,7 +310,7 @@ class JobController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'branch_id']);
 
-        return view('jobs.show', compact('job', 'telecallers', 'field_staff', 'branches'));
+        return view('jobs.show', compact('job', 'telecallers', 'field_staff', 'branches', 'services'));
     }
 
     public function edit(Job $job)
@@ -352,7 +353,7 @@ class JobController extends Controller
             // Get service IDs
             $jobData['service_ids'] = $job->services->pluck('id')->toArray();
 
-            $jobData['servicequantities'] = $services->pluck('pivot.quantity', 'id')->toArray();
+            $jobData['service_quantities'] = $services->pluck('pivot.quantity', 'id')->toArray();
 
             return response()->json([
                 'success' => true,
@@ -806,6 +807,16 @@ class JobController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Job must be approved before it can be marked as complete'
+                ], 400);
+            }
+
+            // Check if there's any due amount
+            $amountDue = ($job->amount ?? 0) - ($job->amount_paid ?? 0);
+
+            if ($amountDue > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot complete job. Outstanding amount due: ₹' . number_format($amountDue, 2)
                 ], 400);
             }
 

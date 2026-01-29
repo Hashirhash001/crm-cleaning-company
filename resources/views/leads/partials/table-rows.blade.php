@@ -131,6 +131,7 @@
                     $canDelete = false;
                     $canApprove = false;
                     $canAssign = false;
+                    $canConfirm = false;
 
                     // Super admin: can always edit/assign; approve only if not yet approved
                     if ($user->role === 'super_admin') {
@@ -149,6 +150,7 @@
                     // Telecaller: can edit own assigned leads (EVEN APPROVED)
                     elseif ($user->role === 'telecallers' && $lead->assigned_to === $user->id) {
                         $canEdit = true; // NOW INCLUDES APPROVED LEADS
+                        $canConfirm = !in_array($lead->status, ['confirmed', 'approved']);
                     }
 
                     // Rejected: delete allowed for super admin
@@ -173,6 +175,17 @@
                 @if($canEdit)
                     <a href="{{ route('leads.edit', $lead->id) }}" class="editLeadBtn" data-id="{{ $lead->id }}" title="Edit Lead">
                         <i class="las la-pen text-secondary fs-18"></i>
+                    </a>
+                @endif
+
+                @if($canConfirm)
+                    <a href="javascript:void(0)"
+                       class="confirmLeadBtn"
+                       data-id="{{ $lead->id }}"
+                       data-name="{{ $lead->name }}"
+                       data-code="{{ $lead->lead_code }}"
+                       title="Confirm Lead">
+                        <i class="las la-check-circle text-success fs-18"></i>
                     </a>
                 @endif
 

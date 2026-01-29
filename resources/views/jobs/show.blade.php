@@ -491,6 +491,91 @@
         word-break: break-word;
         }
 
+        /* Services Badges */
+        .services-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .service-badge {
+            background: var(--primary-blue);
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .service-checkbox-item {
+            padding: 8px 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .service-checkbox-wrapper {
+            display: flex;
+            align-items: center;
+        }
+
+        .service-checkbox-item:hover {
+            background: #f8f9fa;
+        }
+
+        .service-checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .service-checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .service-select-box {
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            background: #fff;
+            min-height: 150px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .service-quantity-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .service-quantity-input {
+            width: 80px;
+            padding: 4px 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+
+        .service-quantity-input:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+
+        .quantity-label {
+            font-size: 0.75rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
     </style>
 @endsection
 
@@ -543,7 +628,7 @@
                         @endif
 
                         @if ($user->role === 'super_admin')
-                            <button type="button" class="btn btn-danger action-button" onclick="deleteJob()">
+                            <button type="button" class="btn btn-danger action-button" onclick="deleteJob({{ $job->id }})" data-id="{{ $job->id }}">
                                 <i class="las la-trash-alt me-2"></i>Delete
                             </button>
                         @endif
@@ -1215,8 +1300,8 @@
 
                             <div class="col-md-6">
                                 <label for="servicetype" class="form-label required-field">Service Type</label>
-                                <select class="form-select" id="servicetype" name="service_type" required>
-                                    <option value="">Select Service Type</option>
+                                <select class="form-select" id="servicetype" name="service_type">
+                                    <option value="">All Services</option>
                                     <option value="cleaning">Cleaning</option>
                                     <option value="pest_control">Pest Control</option>
                                     <option value="other">Other</option>
@@ -1228,17 +1313,37 @@
                         {{-- Services with Quantity --}}
                         <div class="row mb-3">
                             <div class="col-12">
-                                <label class="form-label required-field">Select Services (with quantity)</label>
+                                <label class="form-label required-field">Select Services <span class="badge bg-info">Multiple Selection from Any Type</span></label>
 
-                                <div class="service-select-box" id="servicesContainer">
-                                    <p class="text-muted text-center my-3">
-                                        <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                                        Please select a service type first
-                                    </p>
+                                <!-- Search Box for Services -->
+                                <div class="mb-2">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light">
+                                            <i class="las la-search"></i>
+                                        </span>
+                                        <input type="text"
+                                            class="form-control"
+                                            id="serviceSearchInput"
+                                            placeholder="Search services by name...">
+                                        <button class="btn btn-outline-secondary" type="button" id="clearServiceSearch">
+                                            <i class="las la-times"></i> Clear
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <small class="text-muted">Check services and specify quantity for each</small>
-                                <span class="error-text serviceidserror text-danger d-block mt-1"></span>
+                                <div class="service-select-box @error('service_ids') is-invalid @enderror" id="servicesContainer">
+                                    <p class="text-muted text-center my-5">
+                                        <i class="las la-spinner la-spin" style="font-size: 2rem;"></i><br>
+                                        Loading services...
+                                    </p>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="las la-info-circle"></i>
+                                    You can select services from different types. Use the "Service Type" filter or search box above.
+                                </small>
+                                @error('service_ids')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
 
@@ -1478,10 +1583,20 @@
                 }
             });
 
-            let currentJobServiceIds = [];
+            // ✅ Load all services from controller (NO AJAX)
+            const jobModal = $('#jobModal');
+            const allServices = @json($services);
+            console.log('All services loaded:', allServices.length);
+
+            let selectedServices = {};
+            let currentSearchTerm = '';
+
+            // ===========================
+            // SELECT2 INITIALIZATION
+            // ===========================
 
             // Initialize Select2 on assign dropdown
-            $('#assigned_to').select2({
+            $('#assignedto').select2({
                 theme: 'bootstrap-5',
                 placeholder: 'Search and select staff member',
                 allowClear: true,
@@ -1489,21 +1604,697 @@
                 width: '100%'
             });
 
+            // INITIALIZE SELECT2 FOR CUSTOMER DROPDOWN
+            function initializeCustomerSelect2() {
+                if ($('.select2-customer').data('select2')) {
+                    $('.select2-customer').select2('destroy');
+                }
+
+                $('.select2-customer').select2({
+                    theme: 'bootstrap-5',
+                    placeholder: 'Search by name, code, or phone',
+                    allowClear: true,
+                    dropdownParent: jobModal,
+                    width: '100%'
+                });
+            }
+
+            function resetCustomerDropdown() {
+                $('#customerId').html('<option value="">Select Customer</option>').val('').trigger('change');
+            }
+
+            function loadCustomersByBranch(branchId, preselectCustomerId = null) {
+                resetCustomerDropdown();
+                if (!branchId) return;
+
+                $('#customerId').html('<option value="">Loading customers...</option>');
+
+                $.ajax({
+                    url: "{{ route('customers.byBranch') }}",
+                    type: "GET",
+                    data: {
+                        branch_id: branchId
+                    },
+                    success: function(customers) {
+                        let html = '<option value="">Select Customer</option>';
+
+                        customers.forEach(c => {
+                            const code = c.customer_code ?? '';
+                            const phone = c.phone ?? '';
+                            const text = (code ? (code + ' - ') : '') + c.name + (phone ? (
+                                ' - ' + phone) : '');
+                            html += `<option value="${c.id}">${text}</option>`;
+                        });
+
+                        $('#customerId').html(html);
+                        initializeCustomerSelect2();
+
+                        if (preselectCustomerId) {
+                            $('#customerId').val(preselectCustomerId).trigger('change');
+                        }
+                    },
+                    error: function() {
+                        resetCustomerDropdown();
+                    }
+                });
+            }
+
+            // Ensure select2 is ready when modal opens
+            jobModal.on('shown.bs.modal', function() {
+                if (!$('.select2-customer').data('select2')) {
+                    initializeCustomerSelect2();
+                }
+            });
+
+            // Branch change => reload customers
+            $(document).on('change', '#branchid', function() {
+                const branchId = $(this).val();
+                if (branchId) loadCustomersByBranch(branchId);
+                else resetCustomerDropdown();
+            });
+
+            // Initialize customer select2 when modal is shown
+            $('#jobModal').on('shown.bs.modal', function() {
+                const modalTitle = $('#jobModalLabel').text();
+                if (modalTitle === 'Add Work Order') {
+                    // ADDING NEW JOB
+                    const branchId = $('#branchid').val();
+                    console.log('Add Job Modal - Branch ID:', branchId);
+
+                    if (branchId) {
+                        loadCustomersByBranch(branchId);
+                    } else {
+                        initializeCustomerSelect2();
+                    }
+                } else {
+                    // EDITING EXISTING JOB
+                    // Customer loading is handled in the edit AJAX success callback
+                    // Just ensure Select2 is initialized
+                    if (!$('.select2-customer').data('select2')) {
+                        initializeCustomerSelect2();
+                    }
+                }
+            });
+
+            // ===========================
+            // BALANCE CALCULATION
+            // ===========================
+            function calculateBalance() {
+                const totalAmount = parseFloat($('#amount').val()) || 0;
+                const amountPaid = parseFloat($('#amountPaid').val()) || 0;
+                const balance = totalAmount - amountPaid;
+
+                $('#balanceAmount').val(balance.toFixed(2));
+
+                // Change color based on payment status
+                if (balance === 0) {
+                    $('#balanceAmount').removeClass('text-danger text-warning').addClass('text-success');
+                } else if (amountPaid > 0) {
+                    $('#balanceAmount').removeClass('text-danger text-success').addClass('text-warning');
+                } else {
+                    $('#balanceAmount').removeClass('text-warning text-success').addClass('text-danger');
+                }
+            }
+
+            // Calculate balance on amount change
+            $(document).on('input', '#amount, #amountPaid', function() {
+                calculateBalance();
+            });
+
+            // ===========================
+            // SERVICE LOADING & SELECTION
+            // ===========================
+
+            // INJECT ALL SELECTED SERVICES AS HIDDEN INPUTS
+            function injectSelectedServicesIntoForm() {
+                // Remove any previously injected hidden inputs
+                $('#jobForm').find('.injected-service-input').remove();
+
+                console.log('Injecting selected services into form:', selectedServices);
+
+                // Inject hidden inputs for all selected services
+                Object.entries(selectedServices).forEach(([serviceId, data]) => {
+                    // Add service ID (checkbox checked)
+                    $('#jobForm').append(`<input type="checkbox" name="service_ids[]" value="${serviceId}" checked class="injected-service-input" style="display:none">`);
+
+                    // Add quantity input
+                    $('#jobForm').append(`<input type="number" name="service_quantities[${serviceId}]" value="${data.quantity}" class="injected-service-input" style="display:none">`);
+
+                    console.log(`Injected service ${serviceId}: ${data.name} qty ${data.quantity}`);
+                });
+
+                console.log('Total injected inputs:', $('#jobForm').find('.injected-service-input').length);
+            }
+
+            // SAVE ONLY VISIBLE SELECTIONS
+            function saveCurrentSelections() {
+                console.log('Saving selections... Current DOM checkboxes:', $('.service-checkbox').length);
+
+                // Only update services that are currently visible in DOM
+                let visibleServiceIds = [];
+
+                $('.service-checkbox').each(function() {
+                    let serviceId = $(this).data('service-id');
+                    visibleServiceIds.push(serviceId);
+                    let isChecked = $(this).is(':checked');
+
+                    if (isChecked) {
+                        let quantity = parseInt($(`#quantity${serviceId}`).val()) || 1;
+                        let serviceName = $(this).data('service-name');
+                        let serviceType = $(this).data('service-type');
+
+                        selectedServices[serviceId] = {
+                            name: serviceName,
+                            quantity: quantity,
+                            type: serviceType
+                        };
+                        console.log('Saved service:', serviceId, selectedServices[serviceId]);
+                    } else {
+                        // Only remove if this service is visible AND unchecked
+                        if (selectedServices.hasOwnProperty(serviceId)) {
+                            delete selectedServices[serviceId];
+                            console.log('Removed service (unchecked):', serviceId);
+                        }
+                    }
+                });
+
+                console.log('Visible service IDs:', visibleServiceIds);
+                console.log('Total selected services:', Object.keys(selectedServices).length, selectedServices);
+            }
+
+            function loadServices(serviceType = '', preselectedIds = [], preselectedQty = {}) {
+                console.log('Loading services... Type:', serviceType || 'ALL');
+                console.log('Preselected IDs:', preselectedIds);
+                console.log('Preselected quantities:', preselectedQty);
+                console.log('Current selections before load:', selectedServices);
+
+                const container = $('#servicesContainer');
+
+                // ✅ Filter services client-side (NO AJAX)
+                let servicesToShow = serviceType
+                    ? allServices.filter(s => s.service_type === serviceType)
+                    : allServices;
+
+                console.log('Services to show:', servicesToShow.length);
+
+                if (servicesToShow.length === 0) {
+                    container.html('<p class="text-muted text-center my-3">No services available</p>');
+                    return;
+                }
+
+                // ✅ PRE-POPULATE selectedServices BEFORE rendering DOM
+                preselectedIds.forEach(serviceId => {
+                    // Find the service in allServices to get its details
+                    let serviceData = allServices.find(s => s.id == serviceId);
+
+                    if (serviceData) {
+                        selectedServices[serviceId] = {
+                            name: serviceData.name,
+                            quantity: preselectedQty[serviceId] || 1,
+                            type: serviceData.service_type
+                        };
+                        console.log(`Pre-populated service ${serviceId}:`, selectedServices[serviceId]);
+                    }
+                });
+
+                console.log('selectedServices after pre-population:', selectedServices);
+
+                // Group services by type
+                let grouped = {};
+                servicesToShow.forEach(service => {
+                    let type = service.service_type || 'other';
+                    if (!grouped[type]) {
+                        grouped[type] = [];
+                    }
+                    grouped[type].push(service);
+                });
+
+                let html = '';
+
+                // Display grouped services with headers
+                Object.keys(grouped).sort().forEach(type => {
+                    let typeName = type === 'cleaning' ? '🧹 Cleaning Services' :
+                                type === 'pest_control' ? '🐛 Pest Control Services' :
+                                type === 'pestcontrol' ? '🐛 Pest Control Services' :
+                                '🔧 Other Services';
+                    let typeColor = type === 'cleaning' ? '#3b82f6' :
+                                    (type === 'pest_control' || type === 'pestcontrol') ? '#10b981' :
+                                    '#6b7280';
+
+                    html += `
+                        <div style="margin-top: ${html ? '15px' : '0'}; padding: 8px 10px; background: ${typeColor}15; border-left: 3px solid ${typeColor}; border-radius: 4px;">
+                            <strong style="color: ${typeColor}; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                ${typeName}
+                                <span style="font-size: 0.8rem; font-weight: 400;">(${grouped[type].length})</span>
+                            </strong>
+                        </div>
+                    `;
+
+                    // Add services for this type
+                    grouped[type].forEach(service => {
+                        // ✅ Check if this service should be pre-selected
+                        const isChecked = selectedServices.hasOwnProperty(service.id);
+
+                        const qtyValue = isChecked
+                            ? selectedServices[service.id].quantity
+                            : 1;
+
+                        console.log(`Service ${service.id} (${service.name}) - checked:${isChecked}, qty:${qtyValue}`);
+
+                        html += `
+                            <div class="service-checkbox-item">
+                                <div class="service-checkbox-wrapper">
+                                    <input type="checkbox"
+                                        name="service_ids[]"
+                                        value="${service.id}"
+                                        id="service${service.id}"
+                                        class="service-checkbox"
+                                        data-service-id="${service.id}"
+                                        data-service-name="${service.name}"
+                                        data-service-type="${service.service_type}"
+                                        ${isChecked ? 'checked' : ''}>
+                                    <label for="service${service.id}">${service.name}</label>
+                                </div>
+                                <div class="service-quantity-wrapper">
+                                    <span class="quantity-label">Qty:</span>
+                                    <input type="number"
+                                        name="service_quantities[${service.id}]"
+                                        id="quantity${service.id}"
+                                        class="service-quantity-input"
+                                        min="1"
+                                        value="${qtyValue}"
+                                        ${!isChecked ? 'disabled' : ''}>
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+
+                container.html(html);
+
+                console.log('DOM rendered. Checkboxes found:', $('.service-checkbox').length);
+                console.log('Checked checkboxes:', $('.service-checkbox:checked').length);
+
+                // ✅ Re-bind event handlers AFTER rendering (without triggering them)
+                bindServiceEvents();
+
+                updateSelectedServicesDisplay();
+            }
+
+            function bindServiceEvents() {
+                // ✅ COMPLETELY UNBIND FIRST
+                $('.service-checkbox').off('change');
+                $('.service-quantity-input').off('change');
+
+                // ✅ Small delay to prevent auto-triggering
+                setTimeout(function() {
+                    // Enable/disable quantity input based on checkbox
+                    $('.service-checkbox').on('change', function() {
+                        let serviceId = $(this).data('service-id');
+                        let serviceName = $(this).data('service-name');
+                        let serviceType = $(this).data('service-type');
+                        let quantityInput = $(`#quantity${serviceId}`);
+
+                        if ($(this).is(':checked')) {
+                            quantityInput.prop('disabled', false);
+                            if (!quantityInput.val()) {
+                                quantityInput.val(1);
+                            }
+
+                            selectedServices[serviceId] = {
+                                name: serviceName,
+                                quantity: parseInt(quantityInput.val()),
+                                type: serviceType
+                            };
+                            console.log('Checkbox checked - added to selection:', serviceId, selectedServices[serviceId]);
+                        } else {
+                            quantityInput.prop('disabled', true);
+                            delete selectedServices[serviceId];
+                            console.log('Checkbox unchecked - removed from selection:', serviceId);
+                        }
+
+                        updateSelectedServicesDisplay();
+                    });
+
+                    // Update quantity in persistent state when changed
+                    $('.service-quantity-input').on('change', function() {
+                        let serviceId = $(this).attr('id').replace('quantity', '');
+                        if (selectedServices.hasOwnProperty(serviceId)) {
+                            selectedServices[serviceId].quantity = parseInt($(this).val()) || 1;
+                            console.log('Quantity updated:', serviceId, selectedServices[serviceId].quantity);
+                            updateSelectedServicesDisplay();
+                        }
+                    });
+                }, 100); // 100ms delay to prevent auto-trigger
+            }
+
+            // DISPLAY SELECTED SERVICES WITH NAMES (Same as Index Page)
+            function updateSelectedServicesDisplay() {
+                let selectedCount = Object.keys(selectedServices).length;
+                let existingBadge = $('#selectedServicesBadge');
+
+                console.log('Updating display. Selected count:', selectedCount);
+
+                if (selectedCount > 0) {
+                    // Build list of selected service names grouped by type
+                    let byType = {
+                        cleaning: [],
+                        pest_control: [],
+                        pestcontrol: [],  // Handle both formats
+                        other: []
+                    };
+
+                    Object.entries(selectedServices).forEach(([id, data]) => {
+                        let type = data.type || 'other';
+                        // FIXED: Initialize array if key doesn't exist
+                        if (!byType[type]) {
+                            byType[type] = [];
+                        }
+                        byType[type].push(`${data.name} x${data.quantity}`);
+                    });
+
+                    let servicesList = [];
+
+                    // Cleaning services
+                    if (byType.cleaning && byType.cleaning.length > 0) {
+                        servicesList.push(`<span style="color: #3b82f6">${byType.cleaning.join(', ')}</span>`);
+                    }
+
+                    // Pest Control services - handle both formats
+                    let pestControlServices = [...(byType.pest_control || []), ...(byType.pestcontrol || [])];
+                    if (pestControlServices.length > 0) {
+                        servicesList.push(`<span style="color: #10b981">${pestControlServices.join(', ')}</span>`);
+                    }
+
+                    // Other services
+                    if (byType.other && byType.other.length > 0) {
+                        servicesList.push(`<span style="color: #6b7280">${byType.other.join(', ')}</span>`);
+                    }
+
+                    let displayList = servicesList.join(' | ');
+
+                    let badgeHtml = `
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <i class="las la-check-circle"></i> <strong>${selectedCount}</strong> service${selectedCount !== 1 ? 's' : ''} selected
+                                <br><small style="font-size: 0.75rem">${displayList}</small>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" id="clearAllSelections" style="min-width: 100px;">
+                                <i class="las la-times"></i> Clear All
+                            </button>
+                        </div>
+                    `;
+
+                    if (existingBadge.length === 0) {
+                        $('#servicesContainer').before(`<div id="selectedServicesBadge" class="alert alert-success py-2 px-3 mb-2" style="font-size: 0.85rem">${badgeHtml}</div>`);
+                    } else {
+                        existingBadge.html(badgeHtml);
+                    }
+
+                    // Bind clear all button
+                    $('#clearAllSelections').off('click').on('click', function() {
+                        if (confirm('Are you sure you want to clear all selected services?')) {
+                            selectedServices = {};
+                            console.log('All selections cleared');
+                            loadServices($('#servicetype').val());
+                        }
+                    });
+                } else {
+                    existingBadge.remove();
+                }
+            }
+
+            // On service type change (create flow)
+            $('#servicetype').on('change', function() {
+                // Save current selections before switching
+                saveCurrentSelections();
+
+                $('#serviceSearchInput').val('');
+                loadServices($(this).val());
+            });
+
+            // ✅ FIXED: Edit button - load job data and open modal
+            $(document).on('click', '.editJobBtn', function() {
+                const id = $(this).data('id');
+
+                console.log('Edit button clicked, job ID:', id);
+
+                $.ajax({
+                    url: `/jobs/${id}/edit`,
+                    type: 'GET',
+                    success: function(response) {
+                        if (!response.success) {
+                            Swal.fire('Error!', 'Failed to load job data', 'error');
+                            return;
+                        }
+
+                        const job = response.job;
+
+                        console.log('Job data loaded:', job);
+                        console.log('Setting job ID to:', job.id);
+
+                        // ✅ CRITICAL: Set the job ID FIRST before anything else
+                        $('#jobid').val(job.id);
+
+                        // Verify it was set
+                        console.log('Job ID after setting:', $('#jobid').val());
+
+                        // Basic fields
+                        $('#title').val(job.title);
+                        $('#description').val(job.description);
+                        $('#customerinstructions').val(job.customer_instructions);
+                        $('#addonPrice').val(job.addon_price || 0);
+                        $('#addonPriceComments').val(job.addon_price_comments);
+
+                        // Branch
+                        $('#branchid').val(job.branch_id);
+
+                        // Load customers for this branch
+                        loadCustomersByBranch(job.branch_id, job.customer_id);
+
+                        // Amounts
+                        $('#amount').val(job.amount || 0);
+                        $('#amountPaid').val(job.amount_paid || 0);
+                        calculateBalance();
+
+                        // Location
+                        $('#location').val(job.location);
+
+                        // Scheduled date
+                        if (job.scheduled_date) {
+                            $('#scheduleddate').val(job.scheduled_date.split(' ')[0].split('T')[0]);
+                        } else {
+                            $('#scheduleddate').val('');
+                        }
+
+                        // Scheduled time
+                        if (job.scheduled_time) {
+                            $('#scheduledtime').val(job.scheduled_time.substring(0, 5));
+                        } else {
+                            $('#scheduledtime').val('');
+                        }
+
+                        // Status handling
+                        if (job.status === 'approved' || job.status === 'completed' || job.status === 'confirmed') {
+                            $('#statusDropdownRow').hide();
+                            $('#confirmCheckboxRow').hide();
+                            console.log('Status controls hidden - Job is', job.status);
+                        } else {
+                            $('#statusDropdownRow').show();
+                            if ($('#jobstatus').length) {
+                                $('#jobstatus').val(job.status).prop('disabled', false).removeClass('bg-light');
+                            }
+                            $('#confirmCheckboxRow').show();
+                            $('#confirmOnCreation').prop('checked', false);
+                            console.log('Status controls shown - Job is', job.status);
+                        }
+
+                        // Services
+                        const serviceType = job.service_type ?? job.servicetype ?? '';
+                        const serviceIds = job.service_ids ?? job.serviceids ?? [];
+                        const serviceQty = job.service_quantities ?? job.servicequantities ?? {};
+
+                        $('#servicetype').val(serviceType);
+                        currentJobServiceIds = serviceIds;
+
+                        // Normalize quantities
+                        const normalizedQty = {};
+                        Object.keys(serviceQty).forEach(k => {
+                            normalizedQty[parseInt(k, 10)] = parseInt(serviceQty[k], 10) || 1;
+                        });
+
+                        loadServices(serviceType, currentJobServiceIds, normalizedQty);
+
+                        // Clear errors
+                        $('.error-text').text('');
+
+                        // Update modal title and show
+                        $('#jobModalLabel').text('Edit Work Order');
+
+                        // ✅ VERIFY job ID one more time before showing modal
+                        console.log('Final verification - Job ID before modal show:', $('#jobid').val());
+
+                        jobModal.modal('show');
+                    },
+                    error: function(xhr) {
+                        console.error('Error loading job:', xhr);
+                        Swal.fire('Error!', 'Failed to load job data', 'error');
+                    }
+                });
+            });
+
+            // ✅ FIXED: SUBMIT JOB FORM
+            $('#jobForm').on('submit', function(e) {
+                e.preventDefault();
+
+                // ✅ CRITICAL: Get ID and validate it exists
+                const id = $('#jobid').val();
+
+                console.log('Form submitting, job ID:', id);
+                console.log('Job ID field value:', $('#jobid').val());
+                console.log('Job ID field exists:', $('#jobid').length);
+
+                if (!id) {
+                    console.error('No job ID found - cannot update!');
+                    console.log('All hidden inputs:', $('input[type="hidden"]').map(function() {
+                        return { id: this.id, name: this.name, value: this.value };
+                    }).get());
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Job ID is missing. Please close and reopen the form.'
+                    });
+                    return;
+                }
+
+                // Save current visible selections
+                saveCurrentSelections();
+
+                // Validate at least one service is selected
+                if (Object.keys(selectedServices).length === 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'Please select at least one service'
+                    });
+                    return;
+                }
+
+                // Inject ALL selected services
+                injectSelectedServicesIntoForm();
+
+                const formData = new FormData(this);
+                formData.append('_method', 'PUT');
+
+                console.log('Submitting to URL:', `/jobs/${id}`);
+
+                // Remove status if dropdown is disabled OR hidden
+                if ($('#jobstatus').prop('disabled') || !$('#statusDropdownRow').is(':visible')) {
+                    formData.delete('status');
+                }
+
+                // Remove confirm checkbox if hidden
+                if (!$('#confirmCheckboxRow').is(':visible')) {
+                    formData.delete('confirm_on_creation');
+                }
+
+                // Clear previous errors
+                $('.error-text').text('');
+
+                $.ajax({
+                    url: `/jobs/${id}`,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        console.log('Update response:', response);
+
+                        jobModal.modal('hide');
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.message || 'Work Order updated successfully!',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            // Reload page to show updated data
+                            window.location.reload();
+                        });
+                    },
+                    error: function(xhr) {
+                        // Remove injected inputs on error
+                        $('.injected-service-input').remove();
+
+                        console.error('Update error:', xhr);
+
+                        if (xhr.status === 422) {
+                            const errors = xhr.responseJSON.errors || {};
+                            $.each(errors, function(key, value) {
+                                // Try both formats for error fields
+                                $(`.${key.replaceAll('_', '')}error`).text(value[0]);
+                                $(`.${key}error`).text(value[0]);
+                            });
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Validation Error',
+                                text: 'Please check the form for errors'
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: xhr.responseJSON?.message || 'Something went wrong'
+                            });
+                        }
+                    }
+                });
+            });
+
+            // Show/hide confirmation message based on checkbox
+            $('#confirmOnCreation').on('change', function() {
+                if ($(this).is(':checked')) {
+                    // Optional: Show a small info message
+                    if ($('.confirm-info-message').length === 0) {
+                        $(this).closest('.form-check').after(`
+                            <div class="alert alert-info py-2 mt-2 confirm-info-message">
+                                <i class="las la-check-circle"></i> This job will be marked as <strong>Confirmed</strong> and sent directly to admin for approval.
+                            </div>
+                        `);
+                    }
+
+                    // Disable status dropdown and reset to pending
+                    $('#jobstatus').val('pending').prop('disabled', true).addClass('bg-light');
+                } else {
+                    $('.confirm-info-message').remove();
+
+                    // Re-enable status dropdown
+                    $('#jobstatus').prop('disabled', false).removeClass('bg-light');
+                }
+            });
+
+            // ===========================
+            // FOLLOWUP MANAGEMENT
+            // ===========================
+
             // Show/Hide followup section based on call outcome
             $('#outcome').on('change', function() {
                 let outcome = $(this).val();
-                if (outcome === 'follow_up_needed' || outcome === 'rescheduled') {
+                if (outcome === 'followupneeded' || outcome === 'rescheduled') {
                     $('#followupSection').slideDown();
                     let tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
-                    $('#followup_date').val(tomorrow.toISOString().split('T')[0]);
-                    $('#followup_date').prop('required', true);
+                    $('#followupdate').val(tomorrow.toISOString().split('T')[0]);
+                    $('#followupdate').prop('required', true);
                 } else {
                     $('#followupSection').slideUp();
-                    $('#followup_date').prop('required', false);
-                    $('#followup_date').val('');
-                    $('#followup_time').val('');
-                    $('#followup_notes').val('');
+                    $('#followupdate').prop('required', false);
+                    $('#followupdate').val('');
+                    $('#followuptime').val('');
+                    $('#followupnotes').val('');
                 }
             });
 
@@ -1513,7 +2304,7 @@
                 let formData = new FormData(this);
 
                 $.ajax({
-                    url: '{{ route('jobs.addCall', $job->id) }}',
+                    url: "{{ route('jobs.addCall', $job->id) }}",
                     type: 'POST',
                     data: formData,
                     processData: false,
@@ -1522,8 +2313,7 @@
                         $('#addCallModal').modal('hide');
                         let message = response.message;
                         if (response.followup_created) {
-                            message +=
-                                '<br><small class="text-success">Followup scheduled successfully!</small>';
+                            message += '<br><small class="text-success">Followup scheduled successfully!</small>';
                         }
                         Swal.fire({
                             icon: 'success',
@@ -1547,7 +2337,7 @@
                 let formData = new FormData(this);
 
                 $.ajax({
-                    url: '{{ route('jobs.addFollowup', $job->id) }}',
+                    url: "{{ route('jobs.addFollowup', $job->id) }}",
                     type: 'POST',
                     data: formData,
                     processData: false,
@@ -1577,7 +2367,7 @@
                 let formData = new FormData(this);
 
                 $.ajax({
-                    url: '{{ route('jobs.addNote', $job->id) }}',
+                    url: "{{ route('jobs.addNote', $job->id) }}",
                     type: 'POST',
                     data: formData,
                     processData: false,
@@ -1615,7 +2405,7 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: `/job-followups/${followupId}/complete`,
+                            url: `/jobs/{{ $job->id }}/followups/${followupId}/complete`,
                             type: 'POST',
                             success: function(response) {
                                 if (response.success) {
@@ -1631,8 +2421,7 @@
                                 }
                             },
                             error: function(xhr) {
-                                Swal.fire('Error', 'Could not complete followup',
-                                    'error');
+                                Swal.fire('Error', 'Could not complete followup', 'error');
                             }
                         });
                     }
@@ -1670,8 +2459,7 @@
                                 }
                             },
                             error: function(xhr) {
-                                Swal.fire('Error!', xhr.responseJSON?.message ||
-                                    'Failed to delete followup', 'error');
+                                Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete followup', 'error');
                             }
                         });
                     }
@@ -1709,8 +2497,7 @@
                                 }
                             },
                             error: function(xhr) {
-                                Swal.fire('Error!', xhr.responseJSON?.message ||
-                                    'Failed to delete call log', 'error');
+                                Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete call log', 'error');
                             }
                         });
                     }
@@ -1748,408 +2535,22 @@
                                 }
                             },
                             error: function(xhr) {
-                                Swal.fire('Error!', xhr.responseJSON?.message ||
-                                    'Failed to delete note', 'error');
+                                Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to delete note', 'error');
                             }
                         });
                     }
                 });
             });
 
-            const jobModal = $('#jobModal');
-
-            const jobForm = $('#jobForm');
-            const jobid = $('#jobid');
-
-            const title = $('#title');
-            const branchid = $('#branchid');
-            const customerId = $('#customerId');
-            const servicetype = $('#servicetype');
-            const servicesContainer = $('#servicesContainer');
-
-            const amount = $('#amount');
-            const amountPaid = $('#amountPaid');
-            const balanceAmount = $('#balanceAmount');
-
-            const location = $('#location');
-            const scheduleddate = $('#scheduleddate');
-            const scheduledtime = $('#scheduledtime');
-            const description = $('#description');
-            const customerinstructions = $('#customerinstructions');
-
-            // ----------------------------
-            // Select2: Customer dropdown
-            // ----------------------------
-            function initializeCustomerSelect2() {
-                if ($('.select2-customer').data('select2')) {
-                    $('.select2-customer').select2('destroy');
-                }
-
-                $('.select2-customer').select2({
-                    theme: 'bootstrap-5',
-                    placeholder: 'Search by name, code, or phone',
-                    allowClear: true,
-                    dropdownParent: jobModal,
-                    width: '100%'
-                });
-            }
-
-            function resetCustomerDropdown() {
-                customerId.html('<option value="">Select Customer</option>').val('').trigger('change');
-            }
-
-            function loadCustomersByBranch(branchId, preselectCustomerId = null) {
-                resetCustomerDropdown();
-                if (!branchId) return;
-
-                customerId.html('<option value="">Loading customers...</option>');
-
-                $.ajax({
-                    url: "{{ route('customers.byBranch') }}",
-                    type: "GET",
-                    data: {
-                        branch_id: branchId
-                    },
-                    success: function(customers) {
-                        let html = '<option value="">Select Customer</option>';
-
-                        customers.forEach(c => {
-                            const code = c.customer_code ?? '';
-                            const phone = c.phone ?? '';
-                            const text = (code ? (code + ' - ') : '') + c.name + (phone ? (
-                                ' - ' + phone) : '');
-                            html += `<option value="${c.id}">${text}</option>`;
-                        });
-
-                        customerId.html(html);
-                        initializeCustomerSelect2();
-
-                        if (preselectCustomerId) {
-                            customerId.val(preselectCustomerId).trigger('change');
-                        }
-                    },
-                    error: function() {
-                        resetCustomerDropdown();
-                    }
-                });
-            }
-
-            // Ensure select2 is ready when modal opens
-            jobModal.on('shown.bs.modal', function() {
-                if (!$('.select2-customer').data('select2')) {
-                    initializeCustomerSelect2();
-                }
-            });
-
-            // Branch change => reload customers
-            $(document).on('change', '#branchid', function() {
-                const branchId = $(this).val();
-                if (branchId) loadCustomersByBranch(branchId);
-                else resetCustomerDropdown();
-            });
-
-            // ----------------------------
-            // Balance calc
-            // ----------------------------
-            function calculateBalance() {
-                const total = parseFloat(amount.val()) || 0;
-                const paid = parseFloat(amountPaid.val()) || 0;
-                const bal = total - paid;
-                balanceAmount.val(bal.toFixed(2));
-            }
-
-            $(document).on('input', '#amount, #amountPaid', calculateBalance);
-
-            // ----------------------------
-            // Load services by type + qty
-            // ----------------------------
-            function loadServices(serviceType, preselectedIds = [], preselectedQty = {}) {
-                if (!serviceType) {
-                    servicesContainer.html(`
-                            <p class="text-muted text-center my-3">
-                            <i class="las la-arrow-up" style="font-size: 2rem;"></i><br>
-                            Please select a service type first
-                            </p>
-                        `);
-                    return;
-                }
-
-                servicesContainer.html(
-                    '<p class="text-center my-3"><i class="las la-spinner la-spin"></i> Loading services...</p>'
-                );
-
-                $.ajax({
-                    url: "{{ route('leads.servicesByType') }}",
-                    type: "GET",
-                    data: {
-                        service_type: serviceType
-                    },
-                    success: function(services) {
-                        if (!services || services.length === 0) {
-                            servicesContainer.html(
-                                '<p class="text-muted text-center my-3">No services available for this type</p>'
-                            );
-                            return;
-                        }
-
-                        let html = '';
-
-                        services.forEach(service => {
-                            const isChecked = (preselectedIds || []).includes(service.id);
-                            const qtyValue = (preselectedQty && preselectedQty[service.id]) ?
-                                preselectedQty[service.id] : 1;
-
-                            html += `
-                                <div class="service-checkbox-item justify-content-between">
-                                <div class="service-checkbox-wrapper">
-                                    <input type="checkbox"
-                                        name="service_ids[]"
-                                        value="${service.id}"
-                                        id="service_${service.id}"
-                                        class="service-checkbox"
-                                        data-service-id="${service.id}"
-                                        ${isChecked ? 'checked' : ''}>
-                                    <label for="service_${service.id}">${service.name}</label>
-                                </div>
-
-                                <div class="service-quantity-wrapper">
-                                    <span class="quantity-label">Qty</span>
-                                    <input type="number"
-                                        name="service_quantities[${service.id}]"
-                                        id="quantity_${service.id}"
-                                        class="service-quantity-input"
-                                        min="1"
-                                        value="${qtyValue}"
-                                        ${isChecked ? '' : 'disabled'}>
-                                </div>
-                                </div>
-                            `;
-                        });
-
-                        servicesContainer.html(html);
-                    },
-                    error: function() {
-                        servicesContainer.html(
-                            '<p class="text-danger text-center my-3">Error loading services. Please try again.</p>'
-                        );
-                    }
-                });
-            }
-
-            // Service type change => reload services
-            $(document).on('change', '#servicetype', function() {
-                loadServices($(this).val(), currentJobServiceIds, {});
-            });
-
-            // Enable/disable qty based on checkbox
-            $(document).on('change', '.service-checkbox', function() {
-                const serviceId = $(this).data('service-id');
-                const qtyInput = $('#quantity_' + serviceId);
-
-                if (this.checked) {
-                    qtyInput.prop('disabled', false);
-                    if (!qtyInput.val()) qtyInput.val(1);
-                } else {
-                    qtyInput.prop('disabled', true).val(1);
-                }
-            });
-
-            // Show/hide confirmation message based on checkbox
-            $(document).on('change', '#confirmOnCreation', function() {
-                if ($(this).is(':checked')) {
-                    // Show info message
-                    if ($('.confirm-info-message').length === 0) {
-                        $(this).closest('.form-check').after(
-                            '<div class="alert alert-info py-2 mt-2 confirm-info-message">' +
-                            '<i class="las la-check-circle"></i> ' +
-                            'This job will be marked as <strong>Confirmed</strong> and sent directly to admin for approval.' +
-                            '</div>'
-                        );
-                    }
-
-                    // Disable status dropdown and reset to pending
-                    $('#jobstatus').val('pending').prop('disabled', true).addClass('bg-light');
-                } else {
-                    $('.confirm-info-message').remove();
-                    // Re-enable status dropdown
-                    $('#jobstatus').prop('disabled', false).removeClass('bg-light');
-                }
-            });
-
-            // ----------------------------
-            // Edit button => load job data and open modal
-            // ----------------------------
-            $(document).on('click', '.editJobBtn', function() {
-                const id = $(this).data('id');
-
-                $.ajax({
-                    url: `/jobs/${id}/edit`,
-                    type: 'GET',
-                    success: function(response) {
-                        if (!response.success) return;
-
-                        const job = response.job;
-
-                        jobid.val(job.id);
-                        title.val(job.title || '');
-                        description.val(job.description || '');
-                        customerinstructions.val(job.customer_instructions || '');
-                        $('#addonPrice').val(job.addon_price || '');
-                        $('#addonPriceComments').val(job.addon_price_comments || '');
-
-                        // Branch
-                        branchid.val(job.branch_id);
-
-                        // Customers (branch-based) + preselect
-                        loadCustomersByBranch(job.branch_id, job.customer_id);
-
-                        // Amounts
-                        amount.val(job.amount || 0);
-                        amountPaid.val(job.amount_paid || 0);
-                        calculateBalance();
-
-                        // Other fields
-                        location.val(job.location || '');
-
-                        // Dates/times
-                        if (job.scheduled_date) {
-                            scheduleddate.val((job.scheduled_date + '').split(' ')[0].split('T')[0]);
-                        } else {
-                            scheduleddate.val('');
-                        }
-
-                        if (job.scheduled_time) {
-                            scheduledtime.val((job.scheduled_time + '').substring(0, 5));
-                        } else {
-                            scheduledtime.val('');
-                        }
-
-                        //  Clear previous messages
-                        $('.confirm-info-message').remove();
-
-                        // Hide status dropdown and confirm checkbox if approved or completed
-                        if (job.status === 'approved' || job.status === 'completed' || job.status === 'confirmed') {
-                            $('#statusDropdownRow').hide();
-                            $('#confirmCheckboxRow').hide();
-                            console.log('Status controls hidden - Job is ' + job.status);
-                        } else {
-                            // Show and set status dropdown
-                            $('#statusDropdownRow').show();
-                            if ($('#jobstatus').length) {
-                                $('#jobstatus').val(job.status).prop('disabled', false).removeClass('bg-light');
-                            }
-
-                            // Show and reset confirm checkbox
-                            $('#confirmCheckboxRow').show();
-                            $('#confirmOnCreation').prop('checked', false);
-                            console.log('Status controls shown - Job is ' + job.status);
-                        }
-
-                        // ---- Services (FIXED: quantities mapping) ----
-                        const serviceType = job.service_type ?? job.servicetype ?? '';
-                        const serviceIds = job.service_ids ?? job.serviceids ?? [];
-                        const serviceQty = job.service_quantities ?? job.servicequantities ?? {};
-
-                        servicetype.val(serviceType);
-                        currentJobServiceIds = serviceIds;
-
-                        // Make sure qty keys are numeric-consistent
-                        const normalizedQty = {};
-                        Object.keys(serviceQty || {}).forEach(k => {
-                            normalizedQty[parseInt(k, 10)] = parseInt(serviceQty[k], 10) || 1;
-                        });
-
-                        loadServices(serviceType, currentJobServiceIds, normalizedQty);
-
-                        $('.error-text').text('');
-                        $('#jobModalLabel').text('Edit Work Order');
-                        jobModal.modal('show');
-                    },
-                    error: function(xhr) {
-                        console.error('Error loading job:', xhr);
-                        Swal.fire('Error!', 'Failed to load job data', 'error');
-                    }
-                });
-            });
-
-            // ----------------------------
-            // Submit (PUT)
-            // ----------------------------
-            jobForm.on('submit', function(e) {
-                e.preventDefault();
-
-                const id = jobid.val();
-                if (!id) return;
-
-                if ($('.service-checkbox:checked').length === 0) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation Error',
-                        text: 'Please select at least one service'
-                    });
-                    return;
-                }
-
-                const formData = new FormData(this);
-                formData.append('_method', 'PUT');
-
-                // ✅ NEW: Remove status if dropdown is disabled OR hidden
-                if ($('#jobstatus').prop('disabled') || !$('#statusDropdownRow').is(':visible')) {
-                    formData.delete('status');
-                }
-
-                // ✅ NEW: Remove confirm checkbox if hidden
-                if (!$('#confirmCheckboxRow').is(':visible')) {
-                    formData.delete('confirm_on_creation');
-                }
-
-                $('.error-text').text('');
-
-                $.ajax({
-                    url: `/jobs/${id}`,
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        jobModal.modal('hide');
-
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: response.message || 'Work Order updated successfully!',
-                            timer: 2000,
-                            showConfirmButton: false
-                        }).then(() => {
-                            window.location.reload(); // reload details page
-                        });
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            const errors = xhr.responseJSON.errors || {};
-                            $.each(errors, function(key, value) {
-                                $(`.${key.replaceAll('_','')}error`).text(value[0]);
-                                $(`.${key}error`).text(value[0]);
-                            });
-                        } else {
-                            Swal.fire('Error!', xhr.responseJSON?.message ||
-                                'Something went wrong', 'error');
-                        }
-                    }
-                });
-            });
-
-            // Calculate balance on amount change
-            $(document).on('input', '#amount, #amount_paid', function() {
-                calculateBalance();
-            });
+            // ===========================
+            // ASSIGN JOB
+            // ===========================
 
             // Assign Job Button
             $('.assignJobBtn').click(function() {
                 let jobId = $(this).data('id');
-                $('#assign_job_id').val(jobId);
-                $('#assign_notes').val(''); // Clear notes
-
+                $('#assignjobid').val(jobId);
+                $('#assignnotes').val(''); // Clear notes
                 // Show modal (dropdown already has current assignment pre-selected from blade)
                 $('#assignJobModal').modal('show');
             });
@@ -2157,12 +2558,11 @@
             // Submit Assign Form
             $('#assignJobForm').on('submit', function(e) {
                 e.preventDefault();
-
-                let jobId = $('#assign_job_id').val();
+                let jobId = $('#assignjobid').val();
                 let formData = new FormData(this);
 
                 $.ajax({
-                    url: '/jobs/' + jobId + '/assign',
+                    url: `/jobs/${jobId}/assign`,
                     type: 'POST',
                     data: formData,
                     processData: false,
@@ -2180,71 +2580,40 @@
                         });
                     },
                     error: function(xhr) {
-                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to assign job',
-                            'error');
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to assign job', 'error');
                     }
                 });
             });
         });
 
-        function confirmJobStatus(jobId) {
+        // ===========================
+        // GLOBAL FUNCTIONS
+        // ===========================
+
+        function completeJob(jobId) {
             Swal.fire({
-                title: 'Confirm work order Status?',
-                text: 'This will change the work order status to confirmed.',
+                title: 'Complete Job?',
+                text: 'This will mark the work order as completed',
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'Yes, Confirm',
-                cancelButtonText: 'Cancel',
-                confirmButtonColor: '#28a745',
-                cancelButtonColor: '#6c757d'
+                confirmButtonText: 'Complete',
+                cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/jobs/${jobId}/confirm-status`,
+                        url: `/jobs/${jobId}/complete`,
                         type: 'POST',
-                        success: function(response) {
-                            if (response.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Confirmed!',
-                                    text: response.message,
-                                    timer: 2000,
-                                    showConfirmButton: false
-                                }).then(() => {
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function() {
+                            Swal.fire('Completed!', 'Work order completed successfully', 'success')
+                                .then(() => {
                                     location.reload();
                                 });
-                            }
                         },
                         error: function(xhr) {
-                            Swal.fire('Error', xhr.responseJSON?.message || 'Could not confirm job.',
-                                'error');
-                        }
-                    });
-                }
-            });
-        }
-
-        function deleteJob(jobId) {
-            Swal.fire({
-                title: 'Delete Job?',
-                text: "You won't be able to revert this!",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#dc3545',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, delete it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    $.ajax({
-                        url: '/jobs/' + jobId,
-                        type: 'DELETE',
-                        success: function() {
-                            Swal.fire('Deleted!', 'work order deleted successfully', 'success').then(() => {
-                                window.location.href = '{{ route('jobs.index') }}';
-                            });
-                        },
-                        error: function() {
-                            Swal.fire('Error!', 'Failed to delete job', 'error');
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to complete job', 'error');
                         }
                     });
                 }
@@ -2262,45 +2631,88 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: '/jobs/' + jobId + '/start',
+                        url: `/jobs/${jobId}/start`,
                         type: 'POST',
-                        success: function() {
-                            Swal.fire('Started!', 'work order started successfully', 'success').then(() => {
-                                location.reload();
-                            });
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                         },
-                        error: function() {
-                            Swal.fire('Error!', 'Failed to start job', 'error');
+                        success: function() {
+                            Swal.fire('Started!', 'Work order started successfully', 'success')
+                                .then(() => {
+                                    location.reload();
+                                });
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to start job', 'error');
                         }
                     });
                 }
             });
         }
 
-        function completeJob(jobId) {
+        function deleteJob(jobId) {
             Swal.fire({
-                title: 'Complete Job?',
-                text: 'This will mark the work order as completed',
-                icon: 'question',
+                title: 'Delete Job?',
+                text: 'You won\'t be able to revert this!',
+                icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Complete',
-                cancelButtonText: 'Cancel'
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, delete it!'
             }).then((result) => {
                 if (result.isConfirmed) {
                     $.ajax({
-                        url: `/jobs/${jobId}/complete`,
-                        type: 'POST',
-                        success: function() {
-                            Swal.fire('Completed!', 'Work order completed successfully', 'success')
-                                .then(() => location.reload());
+                        url: `/jobs/${jobId}`,
+                        type: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                         },
-                        error: function(xhr) {
-                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to complete job', 'error');
+                        success: function() {
+                            Swal.fire('Deleted!', 'work order deleted successfully', 'success').then(() => {
+                                window.location.href = "{{ route('jobs.index') }}";
+                            });
+                        },
+                        error: function() {
+                            Swal.fire('Error!', 'Failed to delete job', 'error');
                         }
                     });
                 }
             });
         }
 
+        function confirmJob(jobId) {
+            Swal.fire({
+                title: 'Confirm Job?',
+                text: 'This will send the job for admin approval',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Confirm',
+                confirmButtonColor: '#8b5cf6'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: `/jobs/${jobId}/confirm`,
+                        type: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                        },
+                        success: function(response) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Confirmed!',
+                                text: response.message,
+                                timer: 2000,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        },
+                        error: function(xhr) {
+                            Swal.fire('Error', xhr.responseJSON?.message || 'Could not confirm job.', 'error');
+                        }
+                    });
+                }
+            });
+        }
     </script>
 @endsection

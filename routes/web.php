@@ -31,10 +31,20 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
-    // Super Admin Only - User Management
-    Route::middleware('role:super_admin')->group(function () {
-        Route::resource('users', UserController::class);
-    });
+    // User details panel with pagination
+    Route::get('users/{user}/details/{type}', [UserController::class, 'getDetails'])
+        ->name('users.details')
+        ->middleware('role:super_admin,lead_manager');
+
+    // Both super_admin and lead_manager can view
+    Route::resource('users', UserController::class)
+        ->only(['index', 'show'])
+        ->middleware('role:super_admin,lead_manager');
+
+    // Only super_admin can manage
+    Route::resource('users', UserController::class)
+        ->except(['index', 'show'])
+        ->middleware('role:super_admin');
 
     // Service Management
     Route::resource('services', ServiceController::class);
@@ -88,6 +98,8 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     // Lead actions
     Route::post('leads/{lead}/approve', [LeadController::class, 'approve'])->name('leads.approve');
+    // Lead confirmation route for telecallers
+    Route::post('/leads/{lead}/confirm', [LeadController::class, 'confirmLead'])->name('leads.confirm');
     Route::post('leads/{lead}/reject', [LeadController::class, 'reject'])->name('leads.reject');
     Route::post('leads/{lead}/calls', [LeadController::class, 'addCall'])->name('leads.addCall');
     Route::post('leads/{lead}/notes', [LeadController::class, 'addNote'])->name('leads.addNote');

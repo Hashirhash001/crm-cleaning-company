@@ -517,7 +517,7 @@
 
                     {{-- Convert / Reject buttons: only when not approved/rejected --}}
                     @if(!in_array($lead->status, ['approved', 'rejected']))
-                        @if(in_array($user->role, ['super_admin', 'lead_manager', 'telecallers']))
+                        @if(in_array($user->role, ['super_admin', 'lead_manager']))
                             <button type="button" class="btn btn-success action-button me-2" onclick="approveLead()">
                                 <i class="las la-check me-2"></i>Convert to Work Order
                             </button>
