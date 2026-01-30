@@ -35,6 +35,8 @@
         pointer-events: none;
     }
 </style>
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 @endsection
 
 @section('content')
@@ -62,9 +64,9 @@
                         <label class="form-label fw-semibold">Service Type</label>
                         <select class="form-select" id="serviceTypeFilter">
                             <option value="">All Types</option>
-                            <option value="cleaning">Cleaning</option>
-                            <option value="pest_control">Pest Control</option>
-                            <option value="other">Other</option>
+                            @foreach($serviceTypes as $type)
+                                <option value="{{ $type }}">{{ ucwords(str_replace('_', ' ', $type)) }}</option>
+                            @endforeach
                         </select>
                     </div>
 
@@ -156,11 +158,11 @@
                     <div class="mb-3">
                         <label for="service_type" class="form-label">Service Type <span class="text-danger">*</span></label>
                         <select class="form-select" id="service_type" name="service_type" required>
-                            <option value="">Select Type</option>
-                            <option value="cleaning">Cleaning</option>
-                            <option value="pest_control">Pest Control</option>
-                            <option value="other">Other</option>
+                            <option value="">Select or type a service type</option>
                         </select>
+                        <small class="text-muted">
+                            <i class="las la-info-circle"></i> You can type a custom service type if not listed
+                        </small>
                         <span class="error-text service_type_error text-danger d-none"></span>
                     </div>
 
@@ -199,6 +201,7 @@
 @section('extra-scripts')
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
     $(document).ready(function() {
         $.ajaxSetup({
@@ -211,6 +214,39 @@
             column: 'created_at',
             direction: 'desc'
         };
+
+        let availableServiceTypes = @json($serviceTypes); // ✅ Get from backend
+
+        // Initialize Select2 with tagging for service_type (INSIDE MODAL)
+        function initServiceTypeSelect2() {
+            $('#service_type').select2({
+                theme: 'bootstrap-5',
+                tags: true,
+                placeholder: 'Select or type a service type',
+                allowClear: true,
+                dropdownParent: $('#serviceModal'), // ✅ FIX: Modal dropdown parent
+                data: availableServiceTypes.map(type => ({
+                    id: type,
+                    text: type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                })),
+                createTag: function (params) {
+                    const term = $.trim(params.term);
+
+                    if (term === '') {
+                        return null;
+                    }
+
+                    // Convert to snake_case
+                    const slug = term.toLowerCase().replace(/\s+/g, '_');
+
+                    return {
+                        id: slug,
+                        text: term + ' (New)',
+                        newTag: true
+                    };
+                }
+            });
+        }
 
         // Load services with filters
         function loadServices(url = null) {
@@ -236,6 +272,11 @@
                     $('#serviceCount').text(response.total);
                     $('#servicesTable').removeClass('table-loading');
                     updateSortIndicators();
+
+                    // ✅ Update available types dynamically
+                    if (response.serviceTypes) {
+                        availableServiceTypes = response.serviceTypes;
+                    }
                 },
                 error: function() {
                     $('#servicesTable').removeClass('table-loading');
@@ -243,7 +284,6 @@
                 }
             });
         }
-
         // Sorting
         $(document).on('click', '.sortable', function() {
             let column = $(this).data('column');
@@ -289,6 +329,13 @@
             $('#service_id').val('');
             $('#serviceModalLabel').text('Add Service');
             $('.error-text').text('').addClass('d-none');
+
+            // ✅ Destroy and reinitialize Select2
+            if ($('#service_type').hasClass('select2-hidden-accessible')) {
+                $('#service_type').select2('destroy');
+            }
+            initServiceTypeSelect2();
+
             $('#serviceModal').modal('show');
         });
 
@@ -310,6 +357,16 @@
                         $('#is_active').prop('checked', service.is_active);
                         $('#serviceModalLabel').text('Edit Service');
                         $('.error-text').text('').addClass('d-none');
+
+                        // ✅ Reinitialize and set value
+                        if ($('#service_type').hasClass('select2-hidden-accessible')) {
+                            $('#service_type').select2('destroy');
+                        }
+                        initServiceTypeSelect2();
+
+                        // ✅ Set the value and trigger change
+                        $('#service_type').val(service.service_type).trigger('change');
+
                         $('#serviceModal').modal('show');
                     }
                 },

@@ -132,6 +132,12 @@ class JobController extends Controller
         $branches = Branch::all();
         $customers = Customer::all();
         $services = Service::orderBy('name')->get();
+        // Get distinct service types from database
+        $serviceTypes = Service::select('service_type')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type')
+            ->toArray();
 
         $telecallers = User::where('role', 'telecallers')
             ->where('is_active', true)
@@ -157,7 +163,7 @@ class JobController extends Controller
             ]);
         }
 
-        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'field_staff', 'telecallers'));
+        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'serviceTypes', 'field_staff', 'telecallers'));
     }
 
     public function store(Request $request)
@@ -224,7 +230,7 @@ class JobController extends Controller
                 // 'job_code' => $jobCode,
                 'title' => $validated['title'],
                 'customer_id' => $validated['customer_id'] ?? null,
-                'service_id' => $validated['service_ids'][0] ?? null, // First service for backward compatibility
+                'service_id' => $validated['service_ids'][0] ?? null,
                 'description' => $validated['description'] ?? null,
                 'customer_instructions' => $validated['customer_instructions'] ?? null,
                 'branch_id' => $validated['branch_id'],
@@ -298,6 +304,12 @@ class JobController extends Controller
         $branches = Branch::all();
 
         $services = Service::orderBy('name')->get(['id', 'name', 'service_type']);
+        // Get distinct service types from database
+        $serviceTypes = Service::select('service_type')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type')
+            ->toArray();
 
         // Fetch telecallers and field staff separately for assignment
         $telecallers = User::where('role', 'telecallers')
@@ -310,7 +322,7 @@ class JobController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'branch_id']);
 
-        return view('jobs.show', compact('job', 'telecallers', 'field_staff', 'branches', 'services'));
+        return view('jobs.show', compact('job', 'telecallers', 'field_staff', 'branches', 'services', 'serviceTypes'));
     }
 
     public function edit(Job $job)
@@ -400,7 +412,7 @@ class JobController extends Controller
                 'amount_paid' => 'nullable|numeric|min:0',
                 'addon_price' => 'nullable|numeric|min:0',
                 'addon_price_comments' => 'nullable|string|max:1000',
-                'service_type' => 'nullable|in:cleaning,pest_control,other',
+                'service_type' => 'nullable|string',
                 'service_ids' => 'nullable|array',
                 'service_ids.*' => 'exists:services,id',
                 'service_quantities' => 'nullable|array',

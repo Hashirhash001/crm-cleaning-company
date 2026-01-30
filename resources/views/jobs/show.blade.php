@@ -1302,9 +1302,9 @@
                                 <label for="servicetype" class="form-label required-field">Service Type</label>
                                 <select class="form-select" id="servicetype" name="service_type">
                                     <option value="">All Services</option>
-                                    <option value="cleaning">Cleaning</option>
-                                    <option value="pest_control">Pest Control</option>
-                                    <option value="other">Other</option>
+                                    @foreach ($serviceTypes as $type)
+                                        <option value="{{ $type }}">{{ ucwords(str_replace('_', ' ', $type)) }}</option>
+                                    @endforeach
                                 </select>
                                 <span class="error-text servicetypeerror text-danger d-block mt-1"></span>
                             </div>
@@ -1591,6 +1591,63 @@
             let selectedServices = {};
             let currentSearchTerm = '';
 
+            $('#serviceSearchInput').on('input', function() {
+                currentSearchTerm = $(this).val().trim();
+                console.log('Search changed to:', currentSearchTerm);
+
+                // Save current visible selections before searching
+                saveCurrentSelections();
+
+                // Filter visible services
+                filterServicesInDOM(currentSearchTerm);
+            });
+
+            // Filter services in DOM without reloading
+            function filterServicesInDOM(searchTerm) {
+                if (!searchTerm) {
+                    $('.service-checkbox-item').show();
+                    updateSelectedServicesDisplay();
+                    return;
+                }
+
+                const search = searchTerm.toLowerCase();
+                let visibleCount = 0;
+
+                $('.service-checkbox-item').each(function() {
+                    const serviceName = $(this).find('.service-checkbox').data('service-name').toLowerCase();
+                    if (serviceName.includes(search)) {
+                        $(this).show();
+                        visibleCount++;
+                    } else {
+                        $(this).hide();
+                    }
+                });
+
+                // Show message if no results
+                if (visibleCount === 0) {
+                    if ($('#noSearchResults').length === 0) {
+                        $('#servicesContainer').append(`
+                            <p id="noSearchResults" class="text-muted text-center my-3">
+                                No services found matching "<strong>${searchTerm}</strong>"
+                            </p>
+                        `);
+                    }
+                } else {
+                    $('#noSearchResults').remove();
+                }
+
+                updateSelectedServicesDisplay();
+            }
+
+            // Clear search button
+            $('#clearServiceSearch').on('click', function() {
+                $('#serviceSearchInput').val('');
+                currentSearchTerm = '';
+                saveCurrentSelections();
+                filterServicesInDOM('');
+                $('#serviceSearchInput').focus();
+            });
+
             // ===========================
             // SELECT2 INITIALIZATION
             // ===========================
@@ -1833,13 +1890,14 @@
 
                 // Display grouped services with headers
                 Object.keys(grouped).sort().forEach(type => {
-                    let typeName = type === 'cleaning' ? '🧹 Cleaning Services' :
-                                type === 'pest_control' ? '🐛 Pest Control Services' :
-                                type === 'pestcontrol' ? '🐛 Pest Control Services' :
-                                '🔧 Other Services';
+                    let typeName = type.replace(/_/g, ' ')
+                        .split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ') + ' Services';
+
                     let typeColor = type === 'cleaning' ? '#3b82f6' :
-                                    (type === 'pest_control' || type === 'pestcontrol') ? '#10b981' :
-                                    '#6b7280';
+                                type === 'pest_control' ? '#10b981' :
+                                '#6b7280';
 
                     html += `
                         <div style="margin-top: ${html ? '15px' : '0'}; padding: 8px 10px; background: ${typeColor}15; border-left: 3px solid ${typeColor}; border-radius: 4px;">
@@ -1957,12 +2015,7 @@
 
                 if (selectedCount > 0) {
                     // Build list of selected service names grouped by type
-                    let byType = {
-                        cleaning: [],
-                        pest_control: [],
-                        pestcontrol: [],  // Handle both formats
-                        other: []
-                    };
+                    let byType = {};
 
                     Object.entries(selectedServices).forEach(([id, data]) => {
                         let type = data.type || 'other';
@@ -1975,21 +2028,18 @@
 
                     let servicesList = [];
 
-                    // Cleaning services
-                    if (byType.cleaning && byType.cleaning.length > 0) {
-                        servicesList.push(`<span style="color: #3b82f6">${byType.cleaning.join(', ')}</span>`);
-                    }
+                    // Dynamic display for all service types
+                    Object.keys(byType).sort().forEach(type => {
+                        let icon = type === 'cleaning' ? '🧹' :
+                                type === 'pest_control' ? '🐛' :
+                                '📦';
 
-                    // Pest Control services - handle both formats
-                    let pestControlServices = [...(byType.pest_control || []), ...(byType.pestcontrol || [])];
-                    if (pestControlServices.length > 0) {
-                        servicesList.push(`<span style="color: #10b981">${pestControlServices.join(', ')}</span>`);
-                    }
+                        let color = type === 'cleaning' ? '#3b82f6' :
+                                type === 'pest_control' ? '#10b981' :
+                                '#6b7280';
 
-                    // Other services
-                    if (byType.other && byType.other.length > 0) {
-                        servicesList.push(`<span style="color: #6b7280">${byType.other.join(', ')}</span>`);
-                    }
+                        servicesList.push(`<span style="color: ${color};">${icon} ${byType[type].join(', ')}</span>`);
+                    });
 
                     let displayList = servicesList.join(' | ');
 
@@ -2012,12 +2062,30 @@
                     }
 
                     // Bind clear all button
-                    $('#clearAllSelections').off('click').on('click', function() {
-                        if (confirm('Are you sure you want to clear all selected services?')) {
-                            selectedServices = {};
-                            console.log('All selections cleared');
-                            loadServices($('#servicetype').val());
-                        }
+                    $('#clearAllSelections').off('click').on('click', function () {
+                        Swal.fire({
+                            title: 'Clear all selected services?',
+                            text: 'This will remove all selected services from the list.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, clear',
+                            cancelButtonText: 'Cancel',
+                            reverseButtons: true
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                selectedServices = {};
+                                console.log('All selections cleared');
+                                loadServices($('#servicetype').val());
+
+                                // Swal.fire({
+                                //     title: 'Cleared!',
+                                //     text: 'All selected services were cleared.',
+                                //     icon: 'success',
+                                //     timer: 1200,
+                                //     showConfirmButton: false
+                                // });
+                            }
+                        });
                     });
                 } else {
                     existingBadge.remove();

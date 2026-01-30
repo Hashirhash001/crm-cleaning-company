@@ -6,19 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::table('services', function (Blueprint $table) {
-            // Change from enum to string (varchar)
+        Schema::table('leads', function (Blueprint $table) {
             $table->string('service_type', 50)->change();
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::table('services', function (Blueprint $table) {
-            // Revert back to enum
-            $table->enum('service_type', ['cleaning', 'pest_control'])->change();
+        Schema::table('leads', function (Blueprint $table) {
+            $table->enum('service_type', ['cleaning', 'pest_control', 'other'])->change();
         });
     }
 };

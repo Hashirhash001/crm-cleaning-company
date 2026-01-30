@@ -18,7 +18,7 @@ return new class extends Migration
     {
         Schema::table('services', function (Blueprint $table) {
             // Revert back to enum
-            $table->enum('service_type', ['cleaning', 'pest_control'])->change();
+            $table->enum('service_type', ['cleaning', 'pest_control', 'other'])->change();
         });
     }
 };

@@ -46,6 +46,7 @@ class Service extends Model
     // Get service type label
     public function getServiceTypeLabelAttribute()
     {
-        return $this->service_type === 'cleaning' ? 'Cleaning' : 'Pest Control';
+        // Convert snake_case to Title Case
+        return ucwords(str_replace('_', ' ', $this->service_type));
     }
 }

@@ -411,9 +411,11 @@
                                         id="service_type"
                                         name="service_type">
                                     <option value="">All Services</option>
-                                    <option value="cleaning" {{ old('service_type') == 'cleaning' ? 'selected' : '' }}>Cleaning</option>
-                                    <option value="pest_control" {{ old('service_type') == 'pest_control' ? 'selected' : '' }}>Pest Control</option>
-                                    <option value="other" {{ old('service_type') == 'other' ? 'selected' : '' }}>Other</option>
+                                    @foreach($serviceTypes as $type)
+                                        <option value="{{ $type }}" {{ old('service_type') == $type ? 'selected' : '' }}>
+                                            {{ ucwords(str_replace('_', ' ', $type)) }}
+                                        </option>
+                                    @endforeach
                                 </select>
                                 @error('service_type')
                                     <div class="invalid-feedback">{{ $message }}</div>
@@ -861,7 +863,6 @@ $(document).ready(function() {
                 </p>
             `);
 
-            // Show selected services display even when no search results
             updateSelectedServicesDisplay();
             return;
         }
@@ -880,13 +881,14 @@ $(document).ready(function() {
 
         // Display grouped services with headers
         Object.keys(grouped).sort().forEach(function(type) {
-            let typeName = type === 'cleaning' ? 'Cleaning Services' :
-                          type === 'pest_control' ? 'Pest Control Services' :
-                          'Other Services';
+            let typeName = type.replace(/_/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ') + ' Services';
 
             let typeColor = type === 'cleaning' ? '#3b82f6' :
-                           type === 'pest_control' ? '#10b981' :
-                           '#6b7280';
+                        type === 'pest_control' ? '#10b981' :
+                        '#6b7280';
 
             html += `
                 <div style="margin-top: ${html ? '15px' : '0'}; padding: 8px 10px; background: ${typeColor}15; border-left: 3px solid ${typeColor}; border-radius: 4px;">
@@ -950,10 +952,7 @@ $(document).ready(function() {
         console.log('DOM rendered. Checkboxes found:', $('.service-checkbox').length);
         console.log('Checked checkboxes:', $('.service-checkbox:checked').length);
 
-        // Update selected services display
         updateSelectedServicesDisplay();
-
-        // Re-bind event handlers after rendering
         bindServiceEvents();
     }
 
@@ -1009,28 +1008,28 @@ $(document).ready(function() {
         console.log('Updating display. Selected count:', selectedCount);
 
         if (selectedCount > 0) {
-            // Build list of selected service names grouped by type
-            let byType = {
-                cleaning: [],
-                pest_control: [],
-                other: []
-            };
+            let byType = {};
 
             Object.entries(selectedServices).forEach(([id, data]) => {
                 let type = data.type || 'other';
+                if (!byType[type]) {
+                    byType[type] = [];
+                }
                 byType[type].push(`${data.name} (x${data.quantity})`);
             });
 
             let servicesList = [];
-            if (byType.cleaning.length > 0) {
-                servicesList.push('<span style="color: #3b82f6;">🧹 ' + byType.cleaning.join(', ') + '</span>');
-            }
-            if (byType.pest_control.length > 0) {
-                servicesList.push('<span style="color: #10b981;">🐛 ' + byType.pest_control.join(', ') + '</span>');
-            }
-            if (byType.other.length > 0) {
-                servicesList.push('<span style="color: #6b7280;">📦 ' + byType.other.join(', ') + '</span>');
-            }
+            Object.keys(byType).sort().forEach(type => {
+                let icon = type === 'cleaning' ? '🧹' :
+                        type === 'pest_control' ? '🐛' :
+                        '📦';
+
+                let color = type === 'cleaning' ? '#3b82f6' :
+                        type === 'pest_control' ? '#10b981' :
+                        '#6b7280';
+
+                servicesList.push(`<span style="color: ${color};">${icon} ${byType[type].join(', ')}</span>`);
+            });
 
             let displayList = servicesList.join(' | ');
 
@@ -1058,13 +1057,30 @@ $(document).ready(function() {
                 $existingBadge.html(badgeHtml);
             }
 
-            // Bind clear all button
-            $('#clearAllSelections').off('click').on('click', function() {
-                if (confirm('Are you sure you want to clear all selected services?')) {
-                    selectedServices = {};
-                    console.log('All selections cleared');
-                    loadAllServices(currentFilterType, currentSearchTerm);
-                }
+            $('#clearAllSelections').off('click').on('click', function () {
+                Swal.fire({
+                    title: 'Clear all selected services?',
+                    text: 'This will remove all selected services from the list.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, clear',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        selectedServices = {};
+                        console.log('All selections cleared');
+                        loadAllServices($('#servicetype').val());
+
+                        // Swal.fire({
+                        //     title: 'Cleared!',
+                        //     text: 'All selected services were cleared.',
+                        //     icon: 'success',
+                        //     timer: 1200,
+                        //     showConfirmButton: false
+                        // });
+                    }
+                });
             });
         } else {
             $existingBadge.remove();

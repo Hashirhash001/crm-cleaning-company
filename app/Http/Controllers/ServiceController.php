@@ -52,6 +52,13 @@ class ServiceController extends Controller
 
         $services = $query->paginate(15);
 
+        // Get distinct service types from database
+        $serviceTypes = Service::select('service_type')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type')
+            ->toArray();
+
         // Return JSON for AJAX requests
         if ($request->ajax()) {
             return response()->json([
@@ -59,10 +66,11 @@ class ServiceController extends Controller
                 'html' => view('services.partials.table-rows', compact('services'))->render(),
                 'pagination' => $services->links('pagination::bootstrap-5')->render(),
                 'total' => $services->total(),
+                'serviceTypes' => $serviceTypes
             ]);
         }
 
-        return view('services.index', compact('services'));
+        return view('services.index', compact('services', 'serviceTypes'));
     }
 
     /**
@@ -73,7 +81,7 @@ class ServiceController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:services,name',
-                'service_type' => 'required|in:cleaning,pest_control,other',
+                'service_type' => 'required|string|max:50',
                 'description' => 'nullable|string|max:1000',
                 'price' => 'nullable|numeric|min:0',
                 'is_active' => 'nullable|in:0,1,true,false',
@@ -156,7 +164,7 @@ class ServiceController extends Controller
 
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:services,name,' . $service->id,
-                'service_type' => 'required|in:cleaning,pest_control,other',
+                'service_type' => 'required|string|max:50',
                 'description' => 'nullable|string|max:1000',
                 'price' => 'nullable|numeric|min:0',
                 'is_active' => 'nullable|in:0,1,true,false',

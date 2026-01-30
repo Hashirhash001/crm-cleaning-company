@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
+use App\Models\Service;
 use App\Models\Customer;
 use App\Models\CustomerNote;
 use Illuminate\Http\Request;
@@ -276,10 +277,17 @@ class CustomerController extends Controller
 
         $branches = Branch::all();
 
+        $services = Service::orderBy('name')->get(['id', 'name', 'service_type']);
+        $serviceTypes = Service::select('service_type')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type')
+            ->toArray();
+
         // Load relationships
         $customer->load(['jobs', 'customerNotes.createdBy', 'customerNotes.job', 'completedJobs', 'lead', 'branch']);
 
-        return view('customers.show', compact('customer', 'branches'));
+        return view('customers.show', compact('customer', 'branches', 'services', 'serviceTypes'));
     }
 
     public function update(Request $request, Customer $customer)

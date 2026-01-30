@@ -227,6 +227,12 @@ class LeadController extends Controller
         }
 
         $services = Service::where('is_active', true)->get();
+        // Get distinct service types from database
+        $serviceTypes = Service::select('service_type')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type')
+            ->toArray();
         $lead_sources = LeadSource::where('is_active', true)->get();
 
         if ($user->role === 'super_admin') {
@@ -244,7 +250,7 @@ class LeadController extends Controller
             $branches = Branch::where('id', $user->branch_id)->get();
         }
 
-        return view('leads.create', compact('services', 'lead_sources', 'telecallers', 'branches'));
+        return view('leads.create', compact('services', 'serviceTypes', 'lead_sources', 'telecallers', 'branches'));
     }
 
     public function store(Request $request)
@@ -468,6 +474,12 @@ class LeadController extends Controller
             ->orderBy('service_type')
             ->orderBy('name')
             ->get();
+        // Get distinct service types from database
+        $serviceTypes = Service::select('service_type')
+            ->distinct()
+            ->orderBy('service_type')
+            ->pluck('service_type')
+            ->toArray();
 
         $lead_sources = LeadSource::where('is_active', true)->get();
 
@@ -486,7 +498,7 @@ class LeadController extends Controller
             $branches = Branch::where('id', $user->branch_id)->get();
         }
 
-        return view('leads.edit', compact('lead', 'services', 'lead_sources', 'telecallers', 'branches'));
+        return view('leads.edit', compact('lead', 'services', 'serviceTypes', 'lead_sources', 'telecallers', 'branches'));
     }
 
     public function update(Request $request, Lead $lead)
