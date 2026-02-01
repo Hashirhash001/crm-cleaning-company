@@ -1,66 +1,82 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# CRM - Cleaning Company (Laravel)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A role-based CRM built for a service/cleaning business to manage leads, customers, jobs, follow-ups, telecaller workflows, and reporting from a central dashboard.
 
-## About Laravel
+## Tech Stack
+- Backend: PHP (Laravel)
+- Database: MySQL
+- Frontend: Blade + JavaScript (AJAX), Bootstrap/jQuery
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Core Modules
+### Lead Management
+- Leads CRUD with assignment and status updates
+- Lead approval flow (approve/reject/confirm)
+- Lead activity tracking: calls, notes, follow-ups
+- Lead filtering sources (WhatsApp leads, Google Ads leads)
+- Duplicate lead check before creation
+- Lead export
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Bulk Lead Import
+- Bulk import UI
+- Download template
+- Pre-validation before import
+- Import progress tracking
+- Download failed rows for corrections
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Customer Management
+- Customers CRUD
+- Customer notes (add/delete)
+- Customer listing by branch
+- Customer export
+- AJAX endpoints (fetch customer jobs/notes)
 
-## Learning Laravel
+### Job Management
+- Jobs CRUD with lifecycle actions:
+  - confirm status
+  - approve
+  - start
+  - complete
+  - assign staff
+- Job follow-ups (create/complete/delete)
+- Job calls & notes
+- Job export
+- Direct job creation for existing customers
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Services & Settings
+- Service management
+- Settings: daily budget update
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Users & Access Control
+- Role-based access control:
+  - `super admin` (full access)
+  - `lead manager` (limited user management + operational access)
+  - `Telecaller` lead management workflow support (quick search)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Screenshots
+![Screen 1](./docs/screens/screen1.png)
+![Screen 1](./docs/screens/screen2.png)
+![Screen 1](./docs/screens/screen3.png)
+![Screen 1](./docs/screens/screen4.png)
+![Screen 1](./docs/screens/screen5.png)
+![Screen 1](./docs/screens/screen6.png)
+![Screen 1](./docs/screens/screen7.png)
+![Screen 1](./docs/screens/screen8.png)
+![Screen 1](./docs/screens/screen88.png)
+![Screen 1](./docs/screens/screen9.png)
+![Screen 1](./docs/screens/screen10.png)
+![Screen 1](./docs/screens/screen11.png)
+![Screen 1](./docs/screens/screen12.png)
+![Screen 1](./docs/screens/screen13.png)
+![Screen 1](./docs/screens/screen14.png)
+![Screen 1](./docs/screens/screen15.png)
+![Screen 1](./docs/screens/screen16.png)
+![Screen 1](./docs/screens/screen17.png)
 
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Quick Start (Local)
+- git clone <YOUR_REPO_URL>
+- cd <YOUR_PROJECT_FOLDER>
+- composer install
+- cp .env.example .env
+- php artisan key:generate
+- php artisan migrate
+- php artisan serve
