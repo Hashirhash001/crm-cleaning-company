@@ -61,7 +61,6 @@ A role-based CRM built for a service/cleaning business to manage leads, customer
 ![Screen 1](./docs/screens/screen6.png)
 ![Screen 1](./docs/screens/screen7.png)
 ![Screen 1](./docs/screens/screen8.png)
-![Screen 1](./docs/screens/screen88.png)
 ![Screen 1](./docs/screens/screen9.png)
 ![Screen 1](./docs/screens/screen10.png)
 ![Screen 1](./docs/screens/screen11.png)
