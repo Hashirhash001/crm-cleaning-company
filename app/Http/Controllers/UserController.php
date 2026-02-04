@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Branch;
 use Illuminate\Http\Request;
@@ -574,5 +575,147 @@ class UserController extends Controller
 
         return response()->json(['html' => $html]);
     }
+
+    public function performance()
+    {
+        return view('users.performance');
+    }
+
+    public function performanceData(Request $request)
+    {
+        $user = auth()->user();
+
+        // Date range filter
+        $period = $request->get('period', 'month');
+        $startDate = null;
+        $endDate = null;
+
+        switch ($period) {
+            case 'day':
+                $startDate = Carbon::today();
+                $endDate = Carbon::now();
+                break;
+            case 'week':
+                $startDate = Carbon::now()->startOfWeek();
+                $endDate = Carbon::now();
+                break;
+            case 'month':
+                $startDate = Carbon::now()->startOfMonth();
+                $endDate = Carbon::now();
+                break;
+            case 'last_month':
+                $startDate = Carbon::now()->subMonth()->startOfMonth();
+                $endDate = Carbon::now()->subMonth()->endOfMonth();
+                break;
+            case '6months':
+                $startDate = Carbon::now()->subMonths(6);
+                $endDate = Carbon::now();
+                break;
+            case 'year':
+                $startDate = Carbon::now()->startOfYear();
+                $endDate = Carbon::now();
+                break;
+            case 'last_year':
+                $startDate = Carbon::now()->subYear()->startOfYear();
+                $endDate = Carbon::now()->subYear()->endOfYear();
+                break;
+            case 'custom':
+                $startDate = $request->get('start_date') ? Carbon::parse($request->get('start_date')) : Carbon::now()->startOfMonth();
+                $endDate = $request->get('end_date') ? Carbon::parse($request->get('end_date')) : Carbon::now();
+                break;
+        }
+
+        // Get all active users (filter by branch for lead_manager)
+        $usersQuery = User::where('is_active', true)
+            ->where('role', '!=', 'super_admin')
+            ->where('role', '!=', 'lead_manager');
+
+        if ($user->role === 'lead_manager') {
+            $usersQuery->where('branch_id', $user->branch_id);
+        }
+
+        $users = $usersQuery->get();
+
+        // Calculate metrics for each user
+        $leaderboard = $users->map(function ($user) use ($startDate, $endDate) {
+            // Leads created
+            $leadsCreated = $user->createdLeads()
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->count();
+
+            // ✅ Leads converted (status = 'approved' only)
+            $leadsConverted = $user->createdLeads()
+                ->where('status', 'approved')
+                ->whereBetween('approved_at', [$startDate, $endDate])
+                ->count();
+
+            // Conversion rate
+            $conversionRate = $leadsCreated > 0 ? round(($leadsConverted / $leadsCreated) * 100, 2) : 0;
+
+            // ✅ Work orders approved (approved + completed status)
+            $jobsApproved = $user->assignedJobs()
+                ->whereIn('status', ['approved', 'completed'])
+                ->whereBetween('approved_at', [$startDate, $endDate])
+                ->count();
+
+            // ✅ Total value of APPROVED leads only
+            $leadsValue = $user->createdLeads()
+                ->where('status', 'approved')
+                ->whereBetween('approved_at', [$startDate, $endDate])
+                ->sum('amount');
+
+            // ✅ Total value of APPROVED + COMPLETED work orders only
+            $jobsValue = $user->assignedJobs()
+                ->whereIn('status', ['approved', 'completed'])
+                ->whereBetween('approved_at', [$startDate, $endDate])
+                ->sum('amount');
+
+            // Total performance value
+            $totalValue = $leadsValue + $jobsValue;
+
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'branch' => $user->branch->name ?? 'N/A',
+                'leads_created' => $leadsCreated,
+                'leads_converted' => $leadsConverted,
+                'conversion_rate' => $conversionRate,
+                'jobs_approved' => $jobsApproved,
+                'leads_value' => $leadsValue,
+                'jobs_value' => $jobsValue,
+                'total_value' => $totalValue,
+            ];
+        });
+
+        // Sort by total value (highest first)
+        $leaderboard = $leaderboard->sortByDesc('total_value')->values();
+
+        // Add rank
+        $leaderboard = $leaderboard->map(function ($user, $index) {
+            $user['rank'] = $index + 1;
+            return $user;
+        });
+
+        // Summary stats
+        $summary = [
+            'total_leads_created' => $leaderboard->sum('leads_created'),
+            'total_leads_converted' => $leaderboard->sum('leads_converted'),
+            'total_jobs_approved' => $leaderboard->sum('jobs_approved'),
+            'total_value' => $leaderboard->sum('total_value'),
+            'avg_conversion_rate' => $leaderboard->avg('conversion_rate'),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'leaderboard' => $leaderboard,
+            'summary' => $summary,
+            'period' => $period,
+            'start_date' => $startDate->format('Y-m-d'),
+            'end_date' => $endDate->format('Y-m-d'),
+        ]);
+    }
+
 
 }

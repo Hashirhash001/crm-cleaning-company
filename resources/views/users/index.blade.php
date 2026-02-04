@@ -103,8 +103,11 @@
 <div class="row">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h4 class="card-title">Users List (<span id="userCount">{{ $users->total() }}</span> total)</h4>
+                <a href="{{ route('users.performance') }}" class="btn btn-primary">
+                    <i class="las la-trophy"></i> Performance
+                </a>
             </div>
             <div class="card-body pt-0">
                 <div class="table-responsive">
@@ -232,7 +235,6 @@
 @section('extra-scripts')
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
     <script>
         $(document).ready(function() {
             // CSRF Token Setup

@@ -31,6 +31,15 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
+    // Performance Leaderboard
+    Route::get('/performance', [UserController::class, 'performance'])
+        ->name('users.performance')
+        ->middleware('role:super_admin,lead_manager');
+
+    Route::get('/performance/data', [UserController::class, 'performanceData'])
+        ->name('users.performance.data')
+        ->middleware('role:super_admin,lead_manager');
+
     // User details panel with pagination
     Route::get('users/{user}/details/{type}', [UserController::class, 'getDetails'])
         ->name('users.details')
