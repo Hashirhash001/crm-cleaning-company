@@ -8,6 +8,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    <link rel="shortcut icon" href="{{ asset('assets/images/logos/ctree-logo-small.png') }}">
     <link href="{{ asset('assets/css/bootstrap.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/icons.min.css') }}" rel="stylesheet" type="text/css" />
     <link href="{{ asset('assets/css/app.min.css') }}" rel="stylesheet" type="text/css" />
@@ -60,7 +61,7 @@
                                 <div class="card-body p-0 bg-black auth-header-box rounded-top">
                                     <div class="text-center p-3">
                                         <a href="{{ route('login') }}" class="logo logo-admin">
-                                            <img src="{{ asset('assets/images/logos/logo.png') }}" height="140" alt="logo" class="auth-logo">
+                                            <img src="{{ asset('assets/images/logos/ctree-logo-3.png') }}" height="140" alt="logo" class="auth-logo">
                                         </a>
                                         <p class="text-muted fw-medium mb-0">Sign in to continue to your dashboard.</p>
                                     </div>

@@ -280,15 +280,20 @@ class LeadController extends Controller
                 'email' => [
                     'nullable',
                     'email',
-                    Rule::unique('leads', 'email')->where(fn ($q) => $q->where('branch_id', $branchId)),
+                    Rule::unique('leads', 'email')->where(
+                        fn ($q) => $q->where('branch_id', $branchId)->whereNull('deleted_at')
+                    ),
                 ],
 
                 'phone' => [
                     'required',
                     'string',
                     'max:20',
-                    Rule::unique('leads', 'phone')->where(fn ($q) => $q->where('branch_id', $branchId)),
+                    Rule::unique('leads', 'phone')->where(
+                        fn ($q) => $q->where('branch_id', $branchId)->whereNull('deleted_at')
+                    ),
                 ],
+
                 'phone_alternative' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
@@ -546,15 +551,16 @@ class LeadController extends Controller
                     'nullable',
                     'email',
                     Rule::unique('leads', 'email')
-                        ->where(fn ($q) => $q->where('branch_id', $branchId))
+                        ->where(fn ($q) => $q->where('branch_id', $branchId)->whereNull('deleted_at'))
                         ->ignore($lead->id),
                 ],
+
                 'phone' => [
                     'required',
                     'string',
                     'max:20',
                     Rule::unique('leads', 'phone')
-                        ->where(fn ($q) => $q->where('branch_id', $branchId))
+                        ->where(fn ($q) => $q->where('branch_id', $branchId)->whereNull('deleted_at'))
                         ->ignore($lead->id),
                 ],
                 'phone_alternative' => 'nullable|string|max:20',
@@ -1714,7 +1720,7 @@ class LeadController extends Controller
                 ->orWhere('name', 'like', "%{$query}%")
                 ->orWhere('lead_code', 'like', "%{$query}%");
             })
-            ->with(['service'])
+            ->with(['service', 'branch'])
             ->limit(5)
             ->get()
             ->map(function($lead) {
@@ -1725,7 +1731,9 @@ class LeadController extends Controller
                     'phone' => $lead->phone,
                     'email' => $lead->email,
                     'status' => $lead->status,
-                    'service' => $lead->service->name ?? 'N/A'
+                    'service' => $lead->service->name ?? 'N/A',
+                    'branch' => $lead->branch->name ?? 'N/A',
+                    'branch_id' => $lead->branch_id,
                 ];
             });
 
@@ -1736,6 +1744,7 @@ class LeadController extends Controller
                 ->orWhere('name', 'like', "%{$query}%")
                 ->orWhere('customer_code', 'like', "%{$query}%");
             })
+            ->with(['branch'])
             ->withCount('jobs')
             ->limit(5)
             ->get()
@@ -1747,7 +1756,9 @@ class LeadController extends Controller
                     'phone' => $customer->phone,
                     'email' => $customer->email,
                     'priority' => $customer->priority,
-                    'total_jobs' => $customer->jobs_count
+                    'total_jobs' => $customer->jobs_count,
+                    'branch' => $customer->branch->name ?? 'N/A',
+                    'branch_id' => $customer->branch_id
                 ];
             });
 

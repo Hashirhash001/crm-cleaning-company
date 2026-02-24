@@ -15,6 +15,21 @@
         --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
 
+    /* Add to your existing styles */
+    .bg-purple {
+        background-color: #8b5cf6 !important;
+        color: white !important;
+    }
+
+    .bg-purple-soft {
+        background-color: rgba(139, 92, 246, 0.1) !important;
+        color: #7c3aed !important;
+    }
+
+    .text-purple {
+        color: #8b5cf6 !important;
+    }
+
     .stat-card {
         height: 100%;
         min-height: 120px;
@@ -186,6 +201,10 @@
         background-color: #f8f9fa;
     }
 
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
     .search-result-header {
         background: #f8f9fa;
         padding: 8px 15px;
@@ -193,12 +212,22 @@
         font-size: 12px;
         text-transform: uppercase;
         color: #6c757d;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .search-result-header:first-child {
+        border-top: none;
     }
 
     .search-result-title {
         font-weight: 600;
         color: #212529;
         margin-bottom: 4px;
+        font-size: 15px;
+    }
+
+    .search-result-item .badge.bg-dark {
+        background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
     }
 
     .search-no-results {
@@ -1881,52 +1910,186 @@ $(document).ready(function() {
         let html = '';
         let hasResults = false;
 
+        // Display Leads
         if (response.leads && response.leads.length > 0) {
             hasResults = true;
             html += '<div class="search-result-header"><i class="las la-clipboard-list me-1"></i> Leads</div>';
+
             response.leads.forEach(function(lead) {
-                html += '<div class="search-result-item" onclick="window.location.href=\'/leads/' + lead.id + '\'">' +
-                        '<div class="search-result-title">' +
-                        '<span class="badge bg-primary me-2">' + lead.lead_code + '</span>' +
-                        lead.name +
-                        '<span class="badge ms-2">' + lead.status + '</span>' +
-                        '</div>' +
-                        '<div style="font-size: 13px; color: #6c757d;">' +
-                        '<i class="las la-phone"></i> ' + lead.phone +
-                        (lead.email ? ' | <i class="las la-envelope"></i> ' + lead.email : '') +
-                        ' | <i class="las la-briefcase"></i> ' + (lead.service || 'N/A') +
-                        '</div>' +
-                        '</div>';
+                const statusBadge = getStatusBadge(lead.status);
+
+                html += `
+                    <div class="search-result-item" onclick="window.location.href='/leads/${lead.id}'">
+                        <div class="search-result-title">
+                            <span class="badge bg-primary me-2">${lead.lead_code}</span>
+                            ${lead.name}
+                        </div>
+
+                        <!-- BRANCH & STATUS BADGES -->
+                        <div class="mb-2 mt-1">
+                            <span class="badge bg-dark" style="font-size: 0.8rem; padding: 0.3em 0.7em;">
+                                <i class="las la-building me-1"></i>${lead.branch}
+                            </span>
+                            ${statusBadge}
+                        </div>
+
+                        <div style="font-size: 13px; color: #6c757d;">
+                            <i class="las la-phone"></i> ${lead.phone}
+                            ${lead.email ? `&nbsp;&nbsp;<i class="las la-envelope"></i> ${lead.email}` : ''}
+                            &nbsp;&nbsp;<i class="las la-briefcase"></i> ${lead.service || 'N/A'}
+                        </div>
+                    </div>
+                `;
             });
         }
 
+        // Display Customers
         if (response.customers && response.customers.length > 0) {
             hasResults = true;
             html += '<div class="search-result-header"><i class="las la-user-check me-1"></i> Existing Customers</div>';
+
             response.customers.forEach(function(customer) {
-                html += '<div class="search-result-item" onclick="window.location.href=\'/customers/' + customer.id + '\'">' +
-                        '<div class="search-result-title">' +
-                        '<span class="badge bg-success me-2">' + customer.customer_code + '</span>' +
-                        customer.name +
-                        '<span class="badge bg-info ms-2">' + customer.priority + '</span>' +
-                        '</div>' +
-                        '<div style="font-size: 13px; color: #6c757d;">' +
-                        '<i class="las la-phone"></i> ' + customer.phone +
-                        (customer.email ? ' | <i class="las la-envelope"></i> ' + customer.email : '') +
-                        ' | <i class="las la-briefcase"></i> ' + customer.total_jobs + ' jobs' +
-                        '</div>' +
-                        '</div>';
+                const priorityBadge = getPriorityBadge(customer.priority);
+
+                html += `
+                    <div class="search-result-item" onclick="window.location.href='/customers/${customer.id}'">
+                        <div class="search-result-title">
+                            <span class="badge bg-success me-2">${customer.customer_code}</span>
+                            ${customer.name}
+                        </div>
+
+                        <!-- BRANCH, PRIORITY & JOBS BADGES -->
+                        <div class="mb-2 mt-1">
+                            <span class="badge bg-dark" style="font-size: 0.8rem; padding: 0.3em 0.7em;">
+                                <i class="las la-building me-1"></i>${customer.branch}
+                            </span>
+                            ${priorityBadge}
+                            <span class="badge bg-secondary ms-1">
+                                <i class="las la-briefcase"></i> ${customer.total_jobs} jobs
+                            </span>
+                        </div>
+
+                        <div style="font-size: 13px; color: #6c757d;">
+                            <i class="las la-phone"></i> ${customer.phone}
+                            ${customer.email ? `&nbsp;&nbsp;<i class="las la-envelope"></i> ${customer.email}` : ''}
+                        </div>
+                    </div>
+                `;
             });
         }
 
+        // No results
         if (!hasResults) {
-            html = '<div class="search-no-results">' +
-                   '<i class="las la-search" style="font-size: 2rem; opacity: 0.3;"></i>' +
-                   '<p class="mb-0 mt-2">No leads or customers found</p>' +
-                   '</div>';
+            html = `
+                <div class="search-no-results">
+                    <i class="las la-search" style="font-size: 2rem; opacity: 0.3;"></i>
+                    <p class="mb-0 mt-2">No leads or customers found</p>
+                </div>
+            `;
         }
 
         $('.search-content').html(html);
+    }
+
+    // COMPLETE STATUS BADGE FUNCTION WITH ALL STATUSES
+    function getStatusBadge(status) {
+        const statusConfig = {
+            'pending': {
+                color: 'bg-warning',
+                text: 'Pending'
+            },
+            'site_visit': {
+                color: 'bg-info',
+                text: 'Site Visit'
+            },
+            'not_accepting_tc': {
+                color: 'bg-danger',
+                text: 'Not Accepting T&C'
+            },
+            'they_will_confirm': {
+                color: 'bg-primary',
+                text: 'They Will Confirm'
+            },
+            'date_issue': {
+                color: 'bg-warning',
+                text: 'Date Issue'
+            },
+            'rate_issue': {
+                color: 'bg-warning',
+                text: 'Rate Issue'
+            },
+            'service_not_provided': {
+                color: 'bg-danger',
+                text: 'Service Not Provided'
+            },
+            'just_enquiry': {
+                color: 'bg-secondary',
+                text: 'Just Enquiry'
+            },
+            'immediate_service': {
+                color: 'bg-purple',
+                text: 'Immediate Service'
+            },
+            'no_response': {
+                color: 'bg-secondary',
+                text: 'No Response'
+            },
+            'location_not_available': {
+                color: 'bg-danger',
+                text: 'Location Not Available'
+            },
+            'night_work_demanded': {
+                color: 'bg-info',
+                text: 'Night Work Demanded'
+            },
+            'customisation': {
+                color: 'bg-primary',
+                text: 'Customisation'
+            },
+            'confirmed': {
+                color: 'bg-info',
+                text: 'Confirmed'
+            },
+            'approved': {
+                color: 'bg-success',
+                text: 'Approved'
+            },
+            'rejected': {
+                color: 'bg-danger',
+                text: 'Rejected'
+            }
+        };
+
+        const config = statusConfig[status] || { color: 'bg-secondary', text: status };
+        return `<span class="badge ${config.color} ms-1" style="font-size: 0.75rem;">${config.text}</span>`;
+    }
+
+    // PRIORITY BADGE FUNCTION
+    function getPriorityBadge(priority) {
+        if (!priority) return '';
+
+        const priorityConfig = {
+            'high': {
+                color: 'bg-danger',
+                text: 'High Priority',
+                icon: 'la-exclamation-circle'
+            },
+            'medium': {
+                color: 'bg-warning',
+                text: 'Medium Priority',
+                icon: 'la-exclamation-triangle'
+            },
+            'low': {
+                color: 'bg-secondary',
+                text: 'Low Priority',
+                icon: 'la-info-circle'
+            }
+        };
+
+        const config = priorityConfig[priority] || { color: 'bg-secondary', text: priority, icon: 'la-flag' };
+        return `<span class="badge ${config.color} ms-1" style="font-size: 0.75rem;">
+            <i class="las ${config.icon} me-1"></i>${config.text}
+        </span>`;
     }
 
     $(document).on('click', function(e) {

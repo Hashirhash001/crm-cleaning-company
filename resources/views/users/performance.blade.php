@@ -814,19 +814,19 @@ $(document).ready(function() {
 
                             <div class="row g-2 mb-3">
                                 <div class="col-4">
-                                    <div class="p-2 rounded" style="background: rgba(13, 110, 253, 0.1);">
+                                    <div class="p-2 rounded" style="background: rgba(13, 110, 253, 0.1); word-wrap: normal;">
                                         <h6 class="mb-0 fw-bold text-primary counter">${user.leads_created}</h6>
                                         <small class="text-muted" style="font-size: 0.7rem;">Leads Created</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
-                                    <div class="p-2 rounded" style="background: rgba(25, 135, 84, 0.1);">
+                                    <div class="p-2 rounded" style="background: rgba(25, 135, 84, 0.1); word-wrap: normal;">
                                         <h6 class="mb-0 fw-bold text-success counter">${user.leads_converted}</h6>
                                         <small class="text-muted" style="font-size: 0.7rem;">Leads Converted</small>
                                     </div>
                                 </div>
                                 <div class="col-4">
-                                    <div class="p-2 rounded" style="background: rgba(13, 202, 240, 0.1);">
+                                    <div class="p-2 rounded" style="background: rgba(13, 202, 240, 0.1); word-wrap: normal;">
                                         <h6 class="mb-0 fw-bold text-info counter">${user.jobs_approved}</h6>
                                         <small class="text-muted" style="font-size: 0.7rem;">Work Orders Approved</small>
                                     </div>

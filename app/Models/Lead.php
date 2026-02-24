@@ -202,44 +202,34 @@ class Lead extends Model
     {
         parent::boot();
 
-        // Auto-generate lead_code
         static::creating(function ($lead) {
             if (empty($lead->lead_code)) {
                 $lead->lead_code = self::generateLeadCode();
             }
         });
 
-        // Clean up related data on delete (works with soft deletes too)
         static::deleting(function ($lead) {
-            // Load FULL collections (bypassing latest() scope)
             $lead->load(['calls', 'notes', 'followups', 'approvals']);
 
-            // Delete calls
             $lead->calls->each->delete();
-
-            // Delete notes
             $lead->notes->each->delete();
-
-            // Delete followups
             $lead->followups->each->delete();
-
-            // Delete approvals
             $lead->approvals->each->delete();
 
-            // Delete lead_service pivot records
             LeadService::where('lead_id', $lead->id)->delete();
 
-            // Delete customer if exists and not used elsewhere
+            // ✅ Step 1: Delete jobs FIRST
+            $lead->jobs()->delete();
+
+            // ✅ Step 2: NOW the count will be 0, so customer gets deleted
             if ($lead->customer) {
                 if ($lead->customer->jobs()->count() === 0) {
                     $lead->customer->delete();
                 }
             }
-
-            // Delete pending jobs
-            $lead->jobs()->delete();
         });
     }
+
 
     public static function generateLeadCode()
     {
