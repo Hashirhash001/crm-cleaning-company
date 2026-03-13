@@ -576,6 +576,49 @@
             font-weight: 500;
         }
 
+        /* Staff Cards */
+        .staff-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: box-shadow 0.2s;
+        }
+        .staff-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .staff-card.supervisor { border-left: 4px solid #2563eb; }
+        .staff-card.worker     { border-left: 4px solid #7c3aed; }
+        .staff-avatar {
+            width: 42px; height: 42px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 1rem; color: #fff; flex-shrink: 0;
+        }
+        .staff-avatar.supervisor { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .staff-avatar.worker     { background: linear-gradient(135deg, #7c3aed, #8b5cf6); }
+        .staff-meta { flex-grow: 1; min-width: 0; margin-left: 0.85rem; }
+        .staff-meta .staff-name  { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
+        .staff-meta .staff-sub   { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+        .staff-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
+        /* Pending approval banner */
+        .staff-approval-banner {
+            background: linear-gradient(135deg, #fffbeb, #fef3c7);
+            border: 1px solid #fcd34d;
+            border-radius: 10px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+        .staff-approval-banner .banner-text { font-weight: 600; color: #92400e; font-size: 0.92rem; }
+        .staff-approval-banner .banner-sub  { font-size: 0.8rem; color: #b45309; margin-top: 2px; }
+
     </style>
 @endsection
 
@@ -588,13 +631,15 @@
                 <div class="row align-items-center">
                     <div class="col-md-4">
                         <div class="d-flex align-items-center mb-2">
-                            <h2 class="mb-0 me-3">{{ $job->title }}</h2>
+                            <h2 class="mb-0 me-3" style="font-size: 1.3rem;">{{ $job->title }}</h2>
                             <span class="job-status-badge">{{ ucfirst(str_replace('_', ' ', $job->status)) }}</span>
                         </div>
-                        <p class="mb-0" style="opacity: 0.95; font-weight: 500;">
-                            <i class="las la-tag me-2"></i>{{ $job->job_code }}
-                            <i class="las la-calendar ms-3 me-2"></i>{{ $job->created_at->format('d M Y') }}
-                        </p>
+                        {{-- ✅ Staff pending badge --}}
+                        @if($job->status === 'staff_pending_approval')
+                            <span class="ms-2 badge" style="background:rgba(245,158,11,0.9); font-size:0.8rem;">
+                                <i class="las la-user-clock me-1"></i>Staff Pending Approval
+                            </span>
+                        @endif
                     </div>
 
                     <div class="col-md-8 text-md-end mt-3 mt-md-0">
@@ -870,6 +915,178 @@
                             </div>
                         @endif
                     </div>
+
+                    @if(in_array($job->status, ['completed', 'staff_pending_approval']))
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5>
+                                        <i class="las la-hard-hat"></i> Supervisors &amp; Workers
+                                        @php $allStaff = $job->staff()->with('user','addedBy')->get(); @endphp
+                                        @if($allStaff->count())
+                                            <span class="badge bg-primary ms-2" style="font-size:0.72rem;">
+                                                {{ $allStaff->count() }} {{ Str::plural('member', $allStaff->count()) }}
+                                            </span>
+                                        @endif
+                                    </h5>
+                                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                                        <button class="btn btn-sm btn-primary action-button"
+                                            data-bs-toggle="modal" data-bs-target="#addStaffModal">
+                                            <i class="las la-plus me-1"></i>Add Staff
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- ✅ Pending approval banner with approve/reject --}}
+                            @if($job->status === 'staff_pending_approval' && auth()->user()->role === 'super_admin')
+                            <div class="staff-approval-banner">
+                                <div>
+                                    <div class="banner-text">
+                                        <i class="las la-clock me-1"></i>Staff assignment is pending your approval
+                                    </div>
+                                    <div class="banner-sub">Review the staff below, then approve or reject.</div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-success btn-sm fw-semibold px-3"
+                                        onclick="approveJobStaff('approve')">
+                                        <i class="las la-check me-1"></i>Approve All
+                                    </button>
+                                    <button class="btn btn-danger btn-sm fw-semibold px-3"
+                                        onclick="approveJobStaff('reject')">
+                                        <i class="las la-times me-1"></i>Reject &amp; Remove
+                                    </button>
+                                </div>
+                            </div>
+                            @endif
+
+                            {{-- Staff list --}}
+                            @if($allStaff->count())
+
+                                {{-- Supervisors --}}
+                                @php $supervisorList = $allStaff->where('role','supervisor'); @endphp
+                                @if($supervisorList->count())
+                                <div class="mb-3">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span style="width:10px;height:10px;border-radius:50%;background:#2563eb;display:inline-block;margin-right:8px;"></span>
+                                        <small class="fw-bold text-uppercase text-muted" style="letter-spacing:0.5px;">Supervisors</small>
+                                    </div>
+                                    @foreach($supervisorList as $member)
+                                    <div class="staff-card supervisor">
+                                        <div class="staff-avatar supervisor">
+                                            {{ strtoupper(substr($member->display_name, 0, 2)) }}
+                                        </div>
+                                        <div class="staff-meta">
+                                            <div class="staff-name">{{ $member->display_name }}</div>
+                                            <div class="staff-sub">
+                                                @if($member->display_phone)
+                                                    <i class="las la-phone me-1"></i>{{ $member->display_phone }}
+                                                    &nbsp;·&nbsp;
+                                                @endif
+                                                <span class="badge" style="background:#eff6ff;color:#2563eb;font-size:0.7rem;padding:2px 7px;">
+                                                    {{ ucfirst($member->staff_type) }}
+                                                </span>
+                                                &nbsp;·&nbsp;
+                                                <small>Added by {{ $member->addedBy?->name ?? 'N/A' }}</small>
+                                            </div>
+                                        </div>
+                                        <div class="staff-actions">
+                                            @if(auth()->user()->role === 'super_admin' || $member->added_by === auth()->id())
+                                            <button class="btn btn-sm btn-outline-danger deleteStaffBtn"
+                                                data-id="{{ $member->id }}" title="Remove">
+                                                <i class="las la-trash"></i>
+                                            </button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endif
+
+                                {{-- Workers --}}
+                                @php $workerList = $allStaff->where('role','worker'); @endphp
+                                @if($workerList->count())
+                                <div class="mb-2">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span style="width:10px;height:10px;border-radius:50%;background:#7c3aed;display:inline-block;margin-right:8px;"></span>
+                                        <small class="fw-bold text-uppercase text-muted" style="letter-spacing:0.5px;">Workers</small>
+                                    </div>
+                                    @foreach($workerList as $member)
+                                    <div class="staff-card worker">
+                                        <div class="staff-avatar worker">
+                                            {{ strtoupper(substr($member->display_name, 0, 2)) }}
+                                        </div>
+                                        <div class="staff-meta">
+                                            <div class="staff-name">{{ $member->display_name }}</div>
+                                            <div class="staff-sub">
+                                                @if($member->display_phone)
+                                                    <i class="las la-phone me-1"></i>{{ $member->display_phone }}
+                                                    &nbsp;·&nbsp;
+                                                @endif
+                                                <span class="badge" style="background:#f5f3ff;color:#7c3aed;font-size:0.7rem;padding:2px 7px;">
+                                                    {{ ucfirst($member->staff_type) }}
+                                                </span>
+                                                &nbsp;·&nbsp;
+                                                <small>Added by {{ $member->addedBy?->name ?? 'N/A' }}</small>
+                                            </div>
+                                        </div>
+                                        <div class="staff-actions">
+                                            @if(auth()->user()->role === 'super_admin' || $member->added_by === auth()->id())
+                                            <button class="btn btn-sm btn-outline-danger deleteStaffBtn"
+                                                data-id="{{ $member->id }}" title="Remove">
+                                                <i class="las la-trash"></i>
+                                            </button>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                                @endif
+
+                            @else
+                                <div class="empty-state">
+                                    <i class="las la-hard-hat"></i>
+                                    <p class="mb-0">No staff assigned yet</p>
+                                </div>
+                            @endif
+                        </div>
+                        {{-- Rating Card --}}
+                        <div class="info-card">
+                            <div class="info-card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5><i class="las la-star"></i> Rating &amp; Feedback</h5>
+                                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                                    <button class="btn btn-sm btn-warning action-button"
+                                        data-bs-toggle="modal" data-bs-target="#addRatingModal">
+                                        <i class="las la-edit me-1"></i>{{ $job->rating ? 'Edit' : 'Add' }} Rating
+                                    </button>
+                                    @endif
+                                </div>
+                            </div>
+                            @if($job->rating)
+                                <div class="text-center py-3">
+                                    <div class="mb-2" style="font-size:2rem; color:#f59e0b;">
+                                        @for($i = 1; $i <= 5; $i++)
+                                            <i class="las la-star{{ $i <= $job->rating->rating ? '' : '-o' }}"></i>
+                                        @endfor
+                                    </div>
+                                    <h4 class="fw-bold">{{ $job->rating->rating }}/5</h4>
+                                    @if($job->rating->feedback)
+                                        <p class="text-muted mt-2">{{ $job->rating->feedback }}</p>
+                                    @endif
+                                    <small class="text-muted">
+                                        Rated by {{ $job->rating->ratedBy?->name ?? 'N/A' }}
+                                        on {{ $job->rating->created_at->format('d M Y') }}
+                                    </small>
+                                </div>
+                            @else
+                                <div class="empty-state">
+                                    <i class="las la-star"></i>
+                                    <p class="mb-0">No rating yet</p>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
 
                     <!-- Scheduled Followups -->
                     <div class="info-card">
@@ -1526,7 +1743,7 @@
                                 @endif
 
                                 <!-- Field Staff Group -->
-                                @if ($field_staff->count() > 0)
+                                {{-- @if ($field_staff->count() > 0)
                                     <optgroup label="🔧 Field Staff">
                                         @foreach ($field_staff as $staff)
                                             <option value="{{ $staff->id }}"
@@ -1535,7 +1752,7 @@
                                             </option>
                                         @endforeach
                                     </optgroup>
-                                @endif
+                                @endif --}}
                             </select>
                             <small class="text-muted">
                                 <i class="las la-info-circle"></i> Select a staff member to assign this work order to
@@ -1560,6 +1777,126 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="las la-check me-1"></i>Assign Job
                         </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addStaffModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="las la-hard-hat me-2"></i>Add Supervisor / Worker</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="addStaffForm">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Role <span class="text-danger">*</span></label>
+                                <select name="role" class="form-select" required>
+                                    <option value="">Select Role</option>
+                                    <option value="supervisor">Supervisor</option>
+                                    <option value="worker">Worker</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Staff Type <span class="text-danger">*</span></label>
+                                <select name="staff_type" id="staffType" class="form-select" required>
+                                    <option value="registered">Registered User</option>
+                                    <option value="temporary">Temporary Worker</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="registeredFields">
+                            <div class="mb-3">
+                                <label class="form-label">Select User <span class="text-danger">*</span></label>
+                                <select name="user_id" id="staffUserId" class="form-select">
+                                    <option value="">— Select Role First —</option>
+
+                                    @if($supervisors->count())
+                                    <optgroup label="Supervisors" id="supervisorOptions">
+                                        @foreach($supervisors as $s)
+                                            <option value="{{ $s->id }}" data-role="supervisor">{{ $s->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                    @endif
+
+                                    @if($workers->count())
+                                    <optgroup label="Workers" id="workerOptions">
+                                        @foreach($workers as $w)
+                                            <option value="{{ $w->id }}" data-role="worker">{{ $w->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                    @endif
+
+                                    @if($supervisors->isEmpty() && $workers->isEmpty())
+                                        <option disabled>No supervisors or workers found</option>
+                                    @endif
+                                </select>
+                                <small class="text-muted">Only users with matching role are shown after selecting a role</small>
+                            </div>
+                        </div>
+
+                        <div id="temporaryFields" style="display:none;">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Name <span class="text-danger">*</span></label>
+                                    <input type="text" name="temp_name" class="form-control" placeholder="Worker name">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone <span class="text-danger">*</span></label>
+                                    <input type="text" name="temp_phone" class="form-control" placeholder="Phone number">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea name="notes" class="form-control" rows="2"
+                                placeholder="Optional notes about this staff member..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Staff</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addRatingModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="las la-star me-2"></i>Rate This Job</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="addRatingForm">
+                    @csrf
+                    <div class="modal-body">
+                        <div class="mb-4 text-center">
+                            <label class="form-label d-block fw-semibold mb-3">Rating <span class="text-danger">*</span></label>
+                            <div class="star-rating d-flex justify-content-center gap-2" style="font-size:2.5rem; cursor:pointer;">
+                                @for($i = 1; $i <= 5; $i++)
+                                    <i class="las la-star star-icon" data-value="{{ $i }}" style="color:#d1d5db;"></i>
+                                @endfor
+                            </div>
+                            <input type="hidden" name="rating" id="ratingValue"
+                                value="{{ $job->rating?->rating ?? '' }}">
+                            <small class="text-muted mt-2 d-block" id="ratingLabel">Click a star to rate</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Feedback</label>
+                            <textarea name="feedback" class="form-control" rows="3"
+                                placeholder="Customer feedback or internal notes...">{{ $job->rating?->feedback }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Save Rating</button>
                     </div>
                 </form>
             </div>
@@ -2652,6 +2989,94 @@
                     }
                 });
             });
+
+            // Staff type toggle
+            document.getElementById('staffType')?.addEventListener('change', function () {
+                document.getElementById('registeredFields').style.display = this.value === 'registered' ? '' : 'none';
+                document.getElementById('temporaryFields').style.display  = this.value === 'temporary'  ? '' : 'none';
+            });
+
+            // Role filter — show only matching users
+            document.querySelector('#addStaffModal select[name="role"]')
+                ?.addEventListener('change', function () {
+                    const role          = this.value;
+                    const supervisorGroup = document.getElementById('supervisorOptions');
+                    const workerGroup     = document.getElementById('workerOptions');
+                    const userSelect      = document.getElementById('staffUserId');
+
+                    if (role === 'supervisor') {
+                        if (supervisorGroup) supervisorGroup.style.display = '';
+                        if (workerGroup)     workerGroup.style.display     = 'none';
+                    } else if (role === 'worker') {
+                        if (supervisorGroup) supervisorGroup.style.display = 'none';
+                        if (workerGroup)     workerGroup.style.display     = '';
+                    } else {
+                        if (supervisorGroup) supervisorGroup.style.display = '';
+                        if (workerGroup)     workerGroup.style.display     = '';
+                    }
+                    if (userSelect) userSelect.value = '';
+                });
+
+            // Use correct element IDs matching your modal HTML
+            document.getElementById('addStaffModal')?.addEventListener('show.bs.modal', function () {
+                const roleEl      = document.querySelector('#addStaffModal select[name="role"]');
+                const typeEl      = document.getElementById('staffType');
+                const userEl      = document.getElementById('staffUserId');
+                const regFields   = document.getElementById('registeredFields');
+                const tempFields  = document.getElementById('temporaryFields');
+                const supGroup    = document.getElementById('supervisorOptions');
+                const wrkGroup    = document.getElementById('workerOptions');
+
+                if (roleEl)    roleEl.value    = '';
+                if (typeEl)    typeEl.value    = 'registered';
+                if (userEl)    userEl.value    = '';
+                if (regFields) regFields.style.display  = '';
+                if (tempFields) tempFields.style.display = 'none';
+                if (supGroup)  supGroup.style.display   = '';
+                if (wrkGroup)  wrkGroup.style.display   = '';
+            });
+
+            // Add Staff
+            $('#addStaffForm').on('submit', function (e) {
+                e.preventDefault();
+                $.ajax({
+                    url: "{{ route('jobs.addStaff', $job->id) }}",
+                    type: 'POST',
+                    data: new FormData(this),
+                    processData: false,
+                    contentType: false,
+                    success: res => {
+                        $('#addStaffModal').modal('hide');
+                        Swal.fire({ icon: 'success', title: 'Done!', text: res.message,
+                            timer: 2500, showConfirmButton: false })
+                            .then(() => location.reload());
+                    },
+                    error: xhr => Swal.fire('Error!', xhr.responseJSON?.message || 'Failed', 'error')
+                });
+            });
+
+            // Delete individual staff member
+            $(document).on('click', '.deleteStaffBtn', function () {
+                const id = $(this).data('id');
+                Swal.fire({
+                    title: 'Remove this staff member?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    confirmButtonText: 'Yes, remove'
+                }).then(r => {
+                    if (!r.isConfirmed) return;
+                    $.ajax({
+                        url: `/jobs/{{ $job->id }}/staff/${id}`,
+                        type: 'DELETE',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        success: res => Swal.fire('Removed!', res.message, 'success')
+                            .then(() => location.reload()),
+                        error: xhr => Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to remove', 'error')
+                    });
+                });
+            });
+
         });
 
         // ===========================
@@ -2782,5 +3207,31 @@
                 }
             });
         }
+
+        function approveJobStaff(action) {
+            const isApprove = action === 'approve';
+            Swal.fire({
+                title: isApprove ? 'Approve Staff?' : 'Reject Staff?',
+                text: isApprove
+                    ? 'All staff will be approved. Work order restored to Completed.'
+                    : 'All staff entries will be removed. Work order restored to Completed.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: isApprove ? '#10b981' : '#ef4444',
+                confirmButtonText: isApprove ? 'Yes, Approve' : 'Yes, Reject & Remove',
+            }).then(r => {
+                if (!r.isConfirmed) return;
+                $.ajax({
+                    url: "{{ route('jobs.approveStaff', $job->id) }}",
+                    type: 'POST',
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    data: { action: action },
+                    success: res => Swal.fire('Done!', res.message, 'success')
+                        .then(() => location.reload()),
+                    error: xhr => Swal.fire('Error!', xhr.responseJSON?.message || 'Request failed', 'error')
+                });
+            });
+        }
+
     </script>
 @endsection

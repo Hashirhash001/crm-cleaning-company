@@ -35,8 +35,6 @@ class User extends Authenticatable
         ];
     }
 
-    // Relationships
-
     /**
      * Get the branch that the user belongs to
      */
@@ -84,6 +82,21 @@ class User extends Authenticatable
     public function isFieldStaff()
     {
         return $this->role === 'field_staff';
+    }
+
+    public function isSupervisor()
+    {
+        return $this->role === 'supervisor';
+    }
+
+    public function isWorker()
+    {
+        return $this->role === 'worker';
+    }
+
+    public function isTelecaller()
+    {
+        return $this->role === 'telecallers';
     }
 
     public function isReportingUser()

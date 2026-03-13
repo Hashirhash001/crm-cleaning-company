@@ -295,6 +295,7 @@ class LeadController extends Controller
                 ],
 
                 'phone_alternative' => 'nullable|string|max:20',
+                'telecaller_number' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
                 'property_type' => 'nullable|in:commercial,residential',
@@ -360,6 +361,7 @@ class LeadController extends Controller
                 'email' => $validated['email'] ?? null,
                 'phone' => $validated['phone'],
                 'phone_alternative' => $validated['phone_alternative'] ?? null,
+                'telecaller_number' => $validated['telecaller_number'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'district' => $validated['district'] ?? null,
                 'service_type' => $serviceType, // Auto-detected
@@ -564,6 +566,7 @@ class LeadController extends Controller
                         ->ignore($lead->id),
                 ],
                 'phone_alternative' => 'nullable|string|max:20',
+                'telecaller_number' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:500',
                 'district' => 'nullable|string|max:100',
                 'property_type' => 'nullable|in:commercial,residential',
@@ -660,6 +663,7 @@ class LeadController extends Controller
                 'email' => $validated['email'] ?? null,
                 'phone' => $validated['phone'],
                 'phone_alternative' => $validated['phone_alternative'] ?? null,
+                'telecaller_number' => $validated['telecaller_number'] ?? null,
                 'address' => $validated['address'] ?? null,
                 'district' => $validated['district'] ?? null,
                 'service_type' => $serviceType, // Auto-detected or existing
@@ -1329,18 +1333,37 @@ class LeadController extends Controller
             DB::beginTransaction();
 
             try {
-                // Create Customer
-                $customer = Customer::create([
-                    'name' => $lead->name,
-                    'email' => $lead->email ?? null,
-                    'phone' => $lead->phone,
-                    'address' => $lead->address ?? null,
-                    'priority' => 'low',
-                    'notes' => $lead->description,
-                    'lead_id' => $lead->id,
-                    'branch_id' => $lead->branch_id,
-                    'is_active' => true,
-                ]);
+                // Check if a soft-deleted customer already exists for this phone + branch
+                $customer = Customer::withTrashed()
+                    ->where('phone', $lead->phone)
+                    ->where('branch_id', $lead->branch_id)
+                    ->first();
+
+                if ($customer) {
+                    // Restore and update the existing soft-deleted customer
+                    $customer->restore();
+                    $customer->update([
+                        'name'      => $lead->name,
+                        'email'     => $lead->email ?? null,
+                        'address'   => $lead->address ?? null,
+                        'notes'     => $lead->description,
+                        'lead_id'   => $lead->id,
+                        'is_active' => true,
+                    ]);
+                } else {
+                    // Create a fresh customer
+                    $customer = Customer::create([
+                        'name'      => $lead->name,
+                        'email'     => $lead->email ?? null,
+                        'phone'     => $lead->phone,
+                        'address'   => $lead->address ?? null,
+                        'priority'  => 'low',
+                        'notes'     => $lead->description,
+                        'lead_id'   => $lead->id,
+                        'branch_id' => $lead->branch_id,
+                        'is_active' => true,
+                    ]);
+                }
 
                 // $jobCode = $this->generateUniqueJobCode();
 
@@ -2155,6 +2178,7 @@ class LeadController extends Controller
                     'Email',
                     'Phone',
                     'Phone Alternative',
+                    'Telecaller Number',
                     'Address',
                     'District',
                     'Property Type',
@@ -2185,6 +2209,7 @@ class LeadController extends Controller
                             $lead->email ?? '',
                             $lead->phone,
                             $lead->phone_alternative ?? '',
+                            $lead->telecaller_number ?? '',
                             $lead->address ?? '',
                             $lead->district ?? '',
                             $lead->property_type ?? '',

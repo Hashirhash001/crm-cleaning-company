@@ -242,7 +242,25 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-8">
+                            <div class="col-md-4">
+                                <label for="telecaller_number" class="form-label">
+                                    <i class="las la-headset me-1"></i>Telecaller Contact Number
+                                </label>
+                                <input type="text"
+                                    class="form-control @error('telecaller_number') is-invalid @enderror"
+                                    id="telecaller_number"
+                                    name="telecaller_number"
+                                    value="{{ old('telecaller_number') }}"
+                                    maxlength="20"
+                                    placeholder="telecaller's contact number (optional)">
+                                @error('telecaller_number')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted">
+                                    <i class="las la-info-circle"></i> Optional — the number used by the telecaller for this lead
+                                </small>
+                            </div>
+                            <div class="col-md-4">
                                 <label for="address" class="form-label">Place/Address</label>
                                 <input type="text"
                                        class="form-control @error('address') is-invalid @enderror"

@@ -152,6 +152,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('jobs/{job}/start', [JobController::class, 'startJob'])->name('jobs.start');
     // Route::post('jobs/{job}/complete', [JobController::class, 'completeJob'])->name('jobs.complete');
 
+    Route::post('/jobs/{job}/staff',                  [JobController::class, 'addStaff'])->name('jobs.addStaff');
+    Route::post('/jobs/{job}/staff/approve', [JobController::class, 'approveStaff'])->name('jobs.approveStaff');
+    Route::delete('/jobs/{job}/staff/{staff}',        [JobController::class, 'deleteStaff'])->name('jobs.deleteStaff');
+    Route::post('/jobs/{job}/rating',                 [JobController::class, 'addRating'])->name('jobs.addRating');
+    Route::get('/jobs/completed', [JobController::class, 'completedOrders'])->name('jobs.completed');
+
     // Duplicate check and direct job creation
     Route::post('leads/check-duplicate', [LeadController::class, 'checkDuplicate'])->name('leads.checkDuplicate');
     Route::post('jobs/create-for-customer', [JobController::class, 'createForCustomer'])->name('jobs.createForCustomer');

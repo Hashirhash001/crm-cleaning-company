@@ -79,7 +79,7 @@ class UserController extends Controller
             'password' => 'required|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'branch_id' => 'required|exists:branches,id',
-            'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers',
+            'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers,supervisor,worker',
         ]);
 
         User::create([
@@ -129,7 +129,7 @@ class UserController extends Controller
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
             'branch_id' => 'required|exists:branches,id',
-            'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers',
+            'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers,supervisor,worker',
         ]);
 
         $user->update([
@@ -585,137 +585,266 @@ class UserController extends Controller
     {
         $user = auth()->user();
 
-        // Date range filter
-        $period = $request->get('period', 'month');
+        // Date range
+        $period    = $request->get('period', 'month');
         $startDate = null;
-        $endDate = null;
+        $endDate   = null;
 
         switch ($period) {
             case 'day':
                 $startDate = Carbon::today();
-                $endDate = Carbon::now();
+                $endDate   = Carbon::now();
                 break;
             case 'week':
                 $startDate = Carbon::now()->startOfWeek();
-                $endDate = Carbon::now();
+                $endDate   = Carbon::now();
                 break;
             case 'month':
                 $startDate = Carbon::now()->startOfMonth();
-                $endDate = Carbon::now();
+                $endDate   = Carbon::now();
                 break;
-            case 'last_month':
+            case 'lastmonth':
                 $startDate = Carbon::now()->subMonth()->startOfMonth();
-                $endDate = Carbon::now()->subMonth()->endOfMonth();
+                $endDate   = Carbon::now()->subMonth()->endOfMonth();
                 break;
             case '6months':
                 $startDate = Carbon::now()->subMonths(6);
-                $endDate = Carbon::now();
+                $endDate   = Carbon::now();
                 break;
             case 'year':
                 $startDate = Carbon::now()->startOfYear();
-                $endDate = Carbon::now();
+                $endDate   = Carbon::now();
                 break;
-            case 'last_year':
+            case 'lastyear':
                 $startDate = Carbon::now()->subYear()->startOfYear();
-                $endDate = Carbon::now()->subYear()->endOfYear();
+                $endDate   = Carbon::now()->subYear()->endOfYear();
                 break;
             case 'custom':
-                $startDate = $request->get('start_date') ? Carbon::parse($request->get('start_date')) : Carbon::now()->startOfMonth();
-                $endDate = $request->get('end_date') ? Carbon::parse($request->get('end_date')) : Carbon::now();
+                $startDate = $request->get('start_date')
+                    ? Carbon::parse($request->get('start_date'))
+                    : Carbon::now()->startOfMonth();
+                $endDate   = $request->get('end_date')
+                    ? Carbon::parse($request->get('end_date'))
+                    : Carbon::now();
                 break;
+            default:
+                $startDate = Carbon::now()->startOfMonth();
+                $endDate   = Carbon::now();
         }
 
-        // Get all active users (filter by branch for lead_manager)
+        // ── FIX 1: lead_manager sees ALL branches ──────────────────────────────
         $usersQuery = User::where('is_active', true)
-            ->where('role', '!=', 'super_admin')
-            ->where('role', '!=', 'lead_manager');
+            ->whereNotIn('role', ['super_admin', 'lead_manager']);
 
-        if ($user->role === 'lead_manager') {
-            $usersQuery->where('branch_id', $user->branch_id);
+        // super_admin sees everyone; lead_manager now also sees all branches
+        // (removed the branch restriction for lead_manager)
+
+        // Branch filter from request (both roles can use it)
+        if ($request->filled('branch_id')) {
+            $usersQuery->where('branch_id', $request->branch_id);
         }
 
-        $users = $usersQuery->get();
+        // Role filter from request (new — lets the UI filter by role tab)
+        if ($request->filled('role_filter')) {
+            $usersQuery->where('role', $request->role_filter);
+        }
 
-        // Calculate metrics for each user
+        $users = $usersQuery->with('branch')->get();
+
+        // ── Build leaderboard ──────────────────────────────────────────────────
         $leaderboard = $users->map(function ($user) use ($startDate, $endDate) {
-            // Leads created
-            $leadsCreated = $user->createdLeads()
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->count();
 
-            // ✅ Leads converted (status = 'approved' only)
-            $leadsConverted = $user->createdLeads()
-                ->where('status', 'approved')
-                ->whereBetween('approved_at', [$startDate, $endDate])
-                ->count();
+            $role = $user->role;
 
-            // Conversion rate
-            $conversionRate = $leadsCreated > 0 ? round(($leadsConverted / $leadsCreated) * 100, 2) : 0;
+            // ── Telecaller / Lead Manager metrics ─────────────────────────────
+            $leadsCreated   = 0;
+            $leadsConverted = 0;
+            $leadsValue     = 0;
+            $conversionRate = 0;
 
-            // ✅ Work orders approved (approved + completed status)
-            $jobsApproved = $user->assignedJobs()
-                ->whereIn('status', ['approved', 'completed'])
-                ->whereBetween('approved_at', [$startDate, $endDate])
-                ->count();
+            if (in_array($role, ['telecallers', 'field_staff'])) {
+                $leadsCreated = $user->createdLeads()
+                    ->whereBetween('created_at', [$startDate, $endDate])
+                    ->count();
 
-            // ✅ Total value of APPROVED leads only
-            $leadsValue = $user->createdLeads()
-                ->where('status', 'approved')
-                ->whereBetween('approved_at', [$startDate, $endDate])
-                ->sum('amount');
+                $leadsConverted = $user->createdLeads()
+                    ->where('status', 'approved')
+                    ->whereBetween('approved_at', [$startDate, $endDate])
+                    ->count();
 
-            // ✅ Total value of APPROVED + COMPLETED work orders only
-            $jobsValue = $user->assignedJobs()
-                ->whereIn('status', ['approved', 'completed'])
-                ->whereBetween('approved_at', [$startDate, $endDate])
-                ->sum('amount');
+                $conversionRate = $leadsCreated > 0
+                    ? round($leadsConverted / $leadsCreated * 100, 2) : 0;
 
-            // Total performance value
+                $leadsValue = $user->createdLeads()
+                    ->where('status', 'approved')
+                    ->whereBetween('approved_at', [$startDate, $endDate])
+                    ->sum('amount');
+            }
+
+            // ── Jobs assigned to user (field_staff / telecaller) ───────────────
+            $jobsApproved = 0;
+            $jobsValue    = 0;
+
+            if (in_array($role, ['telecallers', 'field_staff'])) {
+                $jobsApproved = $user->assignedJobs()
+                    ->whereIn('status', ['approved', 'completed'])
+                    ->whereBetween('approved_at', [$startDate, $endDate])
+                    ->count();
+
+                $jobsValue = $user->assignedJobs()
+                    ->whereIn('status', ['approved', 'completed'])
+                    ->whereBetween('approved_at', [$startDate, $endDate])
+                    ->sum('amount');
+            }
+
+            // ── FIX 2: Supervisor / Worker — jobs from job_staff pivot ─────────
+            $staffJobsCount   = 0;
+            $staffJobsValue   = 0;
+            $staffAddonValue  = 0;   // ← NEW: addon_price contribution
+            $avgRating        = null;
+
+            if (in_array($role, ['supervisor', 'worker'])) {
+                // Get completed/staff_pending job IDs this person was on
+                $staffJobIds = \App\Models\JobStaff::where('user_id', $user->id)
+                    ->whereHas('job', function ($q) use ($startDate, $endDate) {
+                        $q->whereIn('status', ['completed', 'staff_pending_approval'])
+                        ->whereBetween('completed_at', [$startDate, $endDate]);
+                    })
+                    ->pluck('job_id');
+
+                $staffJobsCount  = $staffJobIds->count();
+
+                $staffJobsValue  = \App\Models\Job::whereIn('id', $staffJobIds)
+                    ->sum('amount');
+
+                // ── FIX 3: Add addon_price to supervisor/worker performance ────
+                $staffAddonValue = \App\Models\Job::whereIn('id', $staffJobIds)
+                    ->sum('addon_price');
+
+                // Average rating on jobs this staff member worked
+                $avgRating = \App\Models\JobRating::whereIn('job_id', $staffJobIds)
+                    ->avg('rating');
+
+                // Use for sorting / total value
+                $jobsApproved = $staffJobsCount;
+                $jobsValue    = $staffJobsValue + $staffAddonValue;
+            }
+
             $totalValue = $leadsValue + $jobsValue;
 
             return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'branch' => $user->branch->name ?? 'N/A',
-                'leads_created' => $leadsCreated,
+                'id'              => $user->id,
+                'name'            => $user->name,
+                'email'           => $user->email,
+                'role'            => $user->role,
+                'branch'          => $user->branch->name ?? 'N/A',
+                'leads_created'   => $leadsCreated,
                 'leads_converted' => $leadsConverted,
                 'conversion_rate' => $conversionRate,
-                'jobs_approved' => $jobsApproved,
-                'leads_value' => $leadsValue,
-                'jobs_value' => $jobsValue,
-                'total_value' => $totalValue,
+                'jobs_approved'   => $jobsApproved,
+                'jobs_value'      => $jobsValue,
+                'addon_value'     => $staffAddonValue,   // ← NEW
+                'leads_value'     => $leadsValue,
+                'total_value'     => $totalValue,
+                'avg_rating'      => $avgRating ? round($avgRating, 1) : null,
+                'staff_jobs'      => $staffJobsCount,
             ];
         });
 
-        // Sort by total value (highest first)
-        $leaderboard = $leaderboard->sortByDesc('total_value')->values();
+        // ── FIX 4: Only rank users who have actual activity ────────────────────
+        // Filter out zero-activity users before ranking
+        $activeLeaderboard = $leaderboard->filter(function ($u) {
+            return $u['total_value'] > 0
+                || $u['leads_created'] > 0
+                || $u['jobs_approved'] > 0;
+        });
 
-        // Add rank
-        $leaderboard = $leaderboard->map(function ($user, $index) {
-            $user['rank'] = $index + 1;
-            return $user;
+        // Sort by total value desc
+        $sorted = $activeLeaderboard->sortByDesc('total_value')->values();
+
+        // Add rank only to active users
+        $ranked = $sorted->map(function ($u, $index) {
+            $u['rank'] = $index + 1;
+            return $u;
         });
 
         // Summary stats
         $summary = [
-            'total_leads_created' => $leaderboard->sum('leads_created'),
-            'total_leads_converted' => $leaderboard->sum('leads_converted'),
-            'total_jobs_approved' => $leaderboard->sum('jobs_approved'),
-            'total_value' => $leaderboard->sum('total_value'),
-            'avg_conversion_rate' => $leaderboard->avg('conversion_rate'),
+            'total_leads_created'   => $ranked->sum('leads_created'),
+            'total_leads_converted' => $ranked->sum('leads_converted'),
+            'total_jobs_approved'   => $ranked->sum('jobs_approved'),
+            'total_value'           => $ranked->sum('total_value'),
+            'avg_conversion_rate'   => $ranked->avg('conversion_rate') ?? 0,
         ];
 
+        // ── FIX 5: CSV Export ──────────────────────────────────────────────────
+        if ($request->get('export') === 'csv') {
+            return $this->exportPerformanceCsv($ranked, $startDate, $endDate, $period);
+        }
+
         return response()->json([
-            'success' => true,
-            'leaderboard' => $leaderboard,
-            'summary' => $summary,
-            'period' => $period,
+            'success'    => true,
+            'leaderboard'=> $ranked,
+            'summary'    => $summary,
+            'period'     => $period,
             'start_date' => $startDate->format('Y-m-d'),
-            'end_date' => $endDate->format('Y-m-d'),
+            'end_date'   => $endDate->format('Y-m-d'),
         ]);
     }
 
+    // ── CSV Export helper ──────────────────────────────────────────────────────
+    private function exportPerformanceCsv($leaderboard, $startDate, $endDate, $period)
+    {
+        $fileName = 'performance_' . $period . '_' . now()->format('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        $callback = function () use ($leaderboard, $startDate, $endDate) {
+            $file = fopen('php://output', 'w');
+
+            // UTF-8 BOM for Excel
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            // Header row
+            fputcsv($file, [
+                'Rank', 'Name', 'Email', 'Role', 'Branch',
+                'Leads Created', 'Leads Converted', 'Conversion Rate (%)',
+                'Jobs/Work Orders', 'Jobs Value (₹)', 'Addon Value (₹)',
+                'Leads Value (₹)', 'Total Value (₹)', 'Avg Rating',
+                'Period Start', 'Period End',
+            ]);
+
+            foreach ($leaderboard as $u) {
+                fputcsv($file, [
+                    $u['rank'],
+                    $u['name'],
+                    $u['email'],
+                    ucfirst(str_replace('_', ' ', $u['role'])),
+                    $u['branch'],
+                    $u['leads_created'],
+                    $u['leads_converted'],
+                    $u['conversion_rate'],
+                    $u['jobs_approved'],
+                    number_format($u['jobs_value'], 2, '.', ''),
+                    number_format($u['addon_value'], 2, '.', ''),
+                    number_format($u['leads_value'], 2, '.', ''),
+                    number_format($u['total_value'], 2, '.', ''),
+                    $u['avg_rating'] ?? '-',
+                    $startDate->format('Y-m-d'),
+                    $endDate->format('Y-m-d'),
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 
 }

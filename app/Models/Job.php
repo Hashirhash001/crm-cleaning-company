@@ -211,6 +211,26 @@ class Job extends Model
         return $this->hasMany(JobNote::class)->latest();
     }
 
+    public function staff()
+    {
+        return $this->hasMany(JobStaff::class);
+    }
+
+    public function supervisors()
+    {
+        return $this->hasMany(JobStaff::class)->where('role', 'supervisor');
+    }
+
+    public function workers()
+    {
+        return $this->hasMany(JobStaff::class)->where('role', 'worker');
+    }
+
+    public function rating()
+    {
+        return $this->hasOne(JobRating::class);
+    }
+
     /**
      * Scope for dynamic sorting
      */

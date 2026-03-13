@@ -2,14 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Job;
-use App\Models\User;
 use App\Models\Branch;
-use App\Models\JobCall;
-use App\Models\JobNote;
-use App\Models\Service;
 use App\Models\Customer;
+use App\Models\Job;
+use App\Models\JobCall;
 use App\Models\JobFollowup;
+use App\Models\JobNote;
+use App\Models\JobRating;
+use App\Models\JobStaff;
+use App\Models\Service;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +28,7 @@ class JobController extends Controller
         $user = auth()->user();
 
         // Allow telecallers, leadmanager, superadmin, and fieldstaff to view jobs
-        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers'])) {
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers', 'supervisor', 'worker'])) {
             return back()->with('error', 'Unauthorized');
         }
 
@@ -99,6 +101,10 @@ class JobController extends Controller
             $query->where('assigned_to', $user->id);
         }
 
+        if (in_array($user->role, ['supervisor', 'worker'])) {
+            $query->whereHas('staff', fn($q) => $q->where('user_id', $user->id));
+        }
+
         // APPLY SORTING - This must come AFTER all filters but BEFORE pagination
         $sortColumn = $request->get('sortcolumn', 'created_at');
         $sortDirection = $request->get('sortdirection', 'desc');
@@ -149,6 +155,9 @@ class JobController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'branch_id']);
 
+        $supervisors = User::where('role', 'supervisor')->where('is_active', true)->orderBy('name')->get(['id', 'name', 'branch_id']);
+        $workers = User::where('role', 'worker')->where('is_active', true)->orderBy('name')->get(['id', 'name', 'branch_id']);
+
         // Return JSON for AJAX requests
         if ($request->ajax()) {
             return response()->json([
@@ -163,7 +172,7 @@ class JobController extends Controller
             ]);
         }
 
-        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'serviceTypes', 'field_staff', 'telecallers'));
+        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'serviceTypes', 'field_staff', 'telecallers', 'supervisors', 'workers'));
     }
 
     public function store(Request $request)
@@ -277,52 +286,42 @@ class JobController extends Controller
     {
         $user = auth()->user();
 
-        // Allow telecallers to view jobs
-        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers'])) {
-            return back()->with('error', 'Unauthorized');
-        }
-
-        if ($user->role === 'telecallers' && $job->assigned_to !== $user->id) {
-            abort(403, 'You can only view jobs assigned to you.');
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'field_staff', 'telecallers', 'supervisor', 'worker'])) {
+            return back()->withError('Unauthorized');
         }
 
         $job->load([
-            'branch',
-            'lead.services',
-            'customer.customerNotes.createdBy',
-            'customer.customerNotes.job',
-            'services',
-            'service',
-            'assignedTo',
-            'createdBy',
-            'followups.assignedTo',
-            'followups.createdBy',
-            'calls.user',
-            'notes.createdBy'
+            'branch', 'lead.services', 'customer.customerNotes.createdBy',
+            'customer.customerNotes.job', 'services', 'service',
+            'assignedTo', 'createdBy', 'followups.assignedTo',
+            'followups.createdBy', 'calls.user', 'notes.createdBy',
+            'staff.user', 'staff.addedBy',
+            'rating.ratedBy',
         ]);
 
-        $branches = Branch::all();
+        $branches     = Branch::all();
+        $services     = Service::orderBy('name')->get(['id', 'name', 'service_type']);
+        $serviceTypes = Service::select('service_type')->distinct()->orderBy('service_type')
+                            ->pluck('service_type')->toArray();
 
-        $services = Service::orderBy('name')->get(['id', 'name', 'service_type']);
-        // Get distinct service types from database
-        $serviceTypes = Service::select('service_type')
-            ->distinct()
-            ->orderBy('service_type')
-            ->pluck('service_type')
-            ->toArray();
+        $telecallers = User::where('role', 'telecallers')->where('is_active', true)
+                            ->orderBy('name')->get(['id', 'name', 'branch_id']);
 
-        // Fetch telecallers and field staff separately for assignment
-        $telecallers = User::where('role', 'telecallers')
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'branch_id']);
+        $fieldstaff  = User::where('role', 'field_staff')->where('is_active', true)
+                            ->orderBy('name')->get(['id', 'name', 'branch_id']);
 
-        $field_staff = User::where('role', 'field_staff')
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'branch_id']);
+        // ✅ NEW — for Add Staff modal
+        $supervisors = User::where('role', 'supervisor')->where('is_active', true)
+                            ->orderBy('name')->get(['id', 'name']);
 
-        return view('jobs.show', compact('job', 'telecallers', 'field_staff', 'branches', 'services', 'serviceTypes'));
+        $workers     = User::where('role', 'worker')->where('is_active', true)
+                            ->orderBy('name')->get(['id', 'name']);
+
+        return view('jobs.show', compact(
+            'job', 'telecallers', 'fieldstaff',
+            'supervisors', 'workers',           // ✅ NEW
+            'branches', 'services', 'serviceTypes'
+        ));
     }
 
     public function edit(Job $job)
@@ -1431,5 +1430,275 @@ class JobController extends Controller
             return back()->withError('Error exporting jobs: ' . $e->getMessage());
         }
     }
+
+    // ─── ADD STAFF ─────────────────────────────────────────────────────────────
+
+    public function addStaff(Request $request, Job $job)
+    {
+        try {
+            if (!in_array($job->status, ['completed', 'staff_pending_approval'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Staff can only be added to completed work orders.'
+                ], 400);
+            }
+
+            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager'])) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            $validated = $request->validate([
+                'staff_type' => 'required|in:registered,temporary',
+                'role'       => 'required|in:supervisor,worker',
+                'user_id'    => 'required_if:staff_type,registered|nullable|exists:users,id',
+                'temp_name'  => 'required_if:staff_type,temporary|nullable|string|max:255',
+                'temp_phone' => 'nullable|string|max:20',
+                'notes'      => 'nullable|string|max:500',
+            ]);
+
+            // Validate the registered user actually has the correct role
+            if ($validated['staff_type'] === 'registered' && !empty($validated['user_id'])) {
+                $selectedUser = User::find($validated['user_id']);
+                if ($selectedUser && $selectedUser->role !== $validated['role']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Selected user is not a {$validated['role']}."
+                    ], 422);
+                }
+            }
+
+            JobStaff::create([
+                ...$validated,
+                'job_id'   => $job->id,
+                'added_by' => auth()->id(),
+                // ✅ NO approval_status here — removed
+            ]);
+
+            // ✅ Flip the whole work order to pending approval
+            $job->update(['status' => 'staff_pending_approval']);
+
+            Log::info('Staff added to job — awaiting approval', [
+                'job_id' => $job->id, 'added_by' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Staff added. Work order is now pending super admin approval.',
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ─── APPROVE STAFF ─────────────────────────────────────────────────────────
+
+    public function approveStaff(Request $request, Job $job)
+    {
+        try {
+            if (auth()->user()->role !== 'super_admin') {
+                return response()->json(['success' => false, 'message' => 'Only Super Admin can approve.'], 403);
+            }
+
+            if ($job->status !== 'staff_pending_approval') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This work order is not pending staff approval.'
+                ], 400);
+            }
+
+            $validated = $request->validate([
+                'action' => 'required|in:approve,reject',
+            ]);
+
+            if ($validated['action'] === 'approve') {
+                $job->update([
+                    'status'      => 'completed',
+                    'approved_by' => auth()->id(),
+                    'approved_at' => now(),
+                ]);
+                $message = 'Staff approved. Work order restored to Completed.';
+            } else {
+                // Reject — wipe all staff and restore
+                $job->staff()->delete();
+                $job->update(['status' => 'completed']);
+                $message = 'Staff rejected and removed. Work order restored to Completed.';
+            }
+
+            Log::info('Job staff approval', [
+                'job_id' => $job->id, 'action' => $validated['action'], 'by' => auth()->id(),
+            ]);
+
+            return response()->json(['success' => true, 'message' => $message]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ─── DELETE STAFF ───────────────────────────────────────────────────────────
+
+    public function deleteStaff(Job $job, JobStaff $staff)
+    {
+        try {
+            $user = auth()->user();
+
+            if ($user->role !== 'super_admin' && $staff->added_by !== $user->id) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+            }
+
+            $staff->delete();
+
+            // ✅ If no staff remain, restore completed status
+            if ($job->status === 'staff_pending_approval' && $job->staff()->count() === 0) {
+                $job->update(['status' => 'completed']);
+            }
+
+            return response()->json(['success' => true, 'message' => 'Staff removed successfully.']);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // ─── ADD / UPDATE RATING ───────────────────────────────────────────────────
+
+    public function addRating(Request $request, Job $job)
+    {
+        try {
+            if (!in_array($job->status, ['completed', 'staff_pending_approval'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Rating can only be added to completed work orders.'
+                ], 400);
+            }
+
+            $validated = $request->validate([
+                'rating'   => 'required|integer|min:1|max:5',
+                'feedback' => 'nullable|string|max:1000',
+            ]);
+
+            $rating = JobRating::updateOrCreate(
+                ['job_id' => $job->id],
+                [
+                    'customer_id'   => $job->customer_id,
+                    'rating'        => $validated['rating'],
+                    'feedback'      => $validated['feedback'] ?? null,
+                    'rated_by_type' => 'admin',
+                    'rated_by'      => auth()->id(),
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Rating saved successfully!',
+                'rating'  => $rating,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function completedOrders(Request $request)
+    {
+        $user = auth()->user();
+
+        if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $query = Job::with(['customer', 'services', 'branch', 'assignedTo', 'staff.user', 'rating'])
+            ->whereIn('status', ['completed', 'staff_pending_approval']);
+
+        if ($user->role !== 'super_admin') {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        // Status filter
+        $statusFilter = $request->input('status');
+        if ($statusFilter === 'staff_pending_approval') {
+            $query->where('status', 'staff_pending_approval');
+        } elseif ($statusFilter === 'completed') {
+            $query->where('status', 'completed');
+        }
+
+        // Branch filter
+        if ($request->filled('branch_id') && $user->role === 'super_admin') {
+            $query->where('branch_id', $request->branch_id);
+        }
+
+        // Date filter
+        if ($request->filled('date_from')) {
+            $query->whereDate('completed_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('completed_at', '<=', $request->date_to);
+        }
+
+        // Search
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', $search)
+                ->orWhere('job_code', 'like', $search)
+                ->orWhereHas('customer', fn($c) => $c->where('name', 'like', $search));
+            });
+        }
+
+        $query->orderByRaw("FIELD(status, 'staff_pending_approval', 'completed')")
+            ->orderBy('completed_at', 'desc');
+
+        $jobs = $query->paginate(15);
+
+        $branches       = \App\Models\Branch::all();
+        $staffPending   = \App\Models\Job::where('status', 'staff_pending_approval')->count();
+        $totalCompleted = \App\Models\Job::where('status', 'completed')->count();
+
+        // ── FIX: pass supervisors & workers so the modal dropdown works ──────────
+        $supervisors = \App\Models\User::where('role', 'supervisor')
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'branch_id']);
+
+        $workers = \App\Models\User::where('role', 'worker')
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'branch_id']);
+
+        // kept for any re-assign needs
+        $fieldstaff  = \App\Models\User::where('role', 'field_staff')
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'branch_id']);
+
+        $telecallers = \App\Models\User::where('role', 'telecallers')
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'branch_id']);
+
+        if ($request->ajax()) {
+            return response()->json([
+                'success'         => true,
+                'html'            => view('jobs.partials.completed-rows', compact('jobs'))->render(),
+                'pagination'      => $jobs->links('pagination::bootstrap-5')->render(),
+                'total'           => $jobs->total(),
+                'staff_pending'   => $staffPending,
+                'total_completed' => $totalCompleted,
+            ]);
+        }
+
+        return view('jobs.completed', compact(
+            'jobs',
+            'branches',
+            'staffPending',
+            'totalCompleted',
+            'supervisors',   // ← was missing
+            'workers',       // ← was missing
+            'fieldstaff',
+            'telecallers'
+        ));
+    }
+
 
 }

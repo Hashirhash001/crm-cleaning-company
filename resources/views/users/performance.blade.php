@@ -518,41 +518,80 @@
             <div class="card filter-card border-0">
                 <div class="card-body">
                     <div class="row align-items-end g-3">
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold">⏱️ Time Period</label>
-                            <select class="form-select shadow-sm" id="periodSelect" style="border-radius: 10px;">
+
+                        {{-- Period --}}
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Time Period</label>
+                            <select class="form-select shadow-sm" id="periodSelect" style="border-radius:10px;">
                                 <option value="day">Today</option>
                                 <option value="week">This Week</option>
                                 <option value="month" selected>This Month</option>
-                                <option value="last_month">Last Month</option>
+                                <option value="lastmonth">Last Month</option>
                                 <option value="6months">Last 6 Months</option>
                                 <option value="year">This Year</option>
-                                <option value="last_year">Last Year</option>
+                                <option value="lastyear">Last Year</option>
                                 <option value="custom">Custom Range</option>
                             </select>
                         </div>
 
-                        <div class="col-md-3" id="startDateDiv" style="display: none;">
-                            <label class="form-label fw-bold">📅 Start Date</label>
-                            <input type="date" class="form-control shadow-sm" id="startDate" style="border-radius: 10px;">
+                        {{-- Custom date range --}}
+                        <div class="col-md-2" id="startDateDiv" style="display:none;">
+                            <label class="form-label fw-bold">Start Date</label>
+                            <input type="date" class="form-control shadow-sm" id="startDate" style="border-radius:10px;">
+                        </div>
+                        <div class="col-md-2" id="endDateDiv" style="display:none;">
+                            <label class="form-label fw-bold">End Date</label>
+                            <input type="date" class="form-control shadow-sm" id="endDate" style="border-radius:10px;">
                         </div>
 
-                        <div class="col-md-3" id="endDateDiv" style="display: none;">
-                            <label class="form-label fw-bold">📅 End Date</label>
-                            <input type="date" class="form-control shadow-sm" id="endDate" style="border-radius: 10px;">
+                        {{-- Branch filter (super_admin & lead_manager both see all) --}}
+                        @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Branch</label>
+                            <select class="form-select shadow-sm" id="branchFilter" style="border-radius:10px;">
+                                <option value="">All Branches</option>
+                                @foreach(\App\Models\Branch::where('is_active', true)->get() as $branch)
+                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        @endif
+
+                        {{-- Role filter --}}
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Role</label>
+                            <select class="form-select shadow-sm" id="roleFilter" style="border-radius:10px;">
+                                <option value="">All Roles</option>
+                                <option value="telecallers">Telecallers</option>
+                                <option value="field_staff">Field Staff</option>
+                                <option value="supervisor">Supervisors</option>
+                                <option value="worker">Workers</option>
+                            </select>
                         </div>
 
-                        <div class="col-md-3">
+                        {{-- Apply --}}
+                        <div class="col-md-auto">
                             <button type="button" class="btn btn-primary w-100 shadow" id="applyFilter"
-                                    style="border-radius: 10px; font-weight: bold; background: linear-gradient(135deg, #667eea, #764ba2); border: none;">
-                                <i class="las la-filter me-1"></i> Apply Filter
+                                    style="border-radius:10px;font-weight:bold;
+                                        background:linear-gradient(135deg,#667eea,#764ba2);border:none;">
+                                <i class="las la-filter me-1"></i>Apply Filter
                             </button>
                         </div>
+
+                        {{-- Export CSV --}}
+                        <div class="col-md-auto">
+                            <button type="button" class="btn btn-success w-100 shadow" id="exportCsvBtn"
+                                    style="border-radius:10px;font-weight:bold;">
+                                <i class="las la-file-csv me-1"></i>Export CSV
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
 
     <!-- Summary Cards -->
     <div class="row mb-4" id="summaryCards">
@@ -595,17 +634,19 @@
                         <table class="table mb-0 leaderboard-table">
                             <thead>
                                 <tr>
-                                    <th width="80">Rank</th>
+                                    <th width="60">Rank</th>
                                     <th>User</th>
                                     <th>Role</th>
                                     <th>Branch</th>
                                     <th class="text-center">Leads Created</th>
                                     <th class="text-center">Converted</th>
-                                    <th class="text-center">conversion Rate</th>
-                                    <th class="text-center">Work orders Approved</th>
-                                    <th class="text-end">💰 Leads</th>
-                                    <th class="text-end">💰 Jobs</th>
-                                    <th class="text-end">🏆 Total</th>
+                                    <th class="text-center">Conv. Rate</th>
+                                    <th class="text-center">Jobs Done</th>
+                                    <th class="text-end">Jobs Value</th>
+                                    <th class="text-end">Addon Value</th>
+                                    <th class="text-end">Leads Value</th>
+                                    <th class="text-end">Total Value</th>
+                                    <th class="text-center">Rating</th>
                                 </tr>
                             </thead>
                             <tbody id="leaderboardTableBody">
@@ -629,50 +670,31 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-$(document).ready(function() {
-    $.ajaxSetup({
-        headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')}
-    });
+$(document).ready(function () {
 
-    // Professional confetti effect
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
+
+    // ── Confetti ────────────────────────────────────────────────────────────
     function createProfessionalConfetti() {
-        const colors = [
-            '#667eea', '#764ba2', '#f093fb', '#4facfe',
-            '#43e97b', '#fa709a', '#fee140', '#30cfd0'
-        ];
-
-        const confettiCount = 100;
-        const container = $('#confettiContainer');
-
-        for (let i = 0; i < confettiCount; i++) {
-            const confetti = $('<div class="confetti-piece"></div>');
-
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const left = Math.random() * 100;
-            const animationDuration = 2 + Math.random() * 2;
-            const delay = Math.random() * 0.5;
-            const rotation = Math.random() * 360;
-
-            confetti.css({
-                left: left + '%',
-                background: color,
-                opacity: 0.8 + Math.random() * 0.2,
-                animationDuration: animationDuration + 's',
-                animationDelay: delay + 's',
-                transform: `rotate(${rotation}deg)`,
-                borderRadius: Math.random() > 0.5 ? '50%' : '2px'
+        const colors = ['#667eea','#764ba2','#f093fb','#4facfe','#43e97b','#fa709a'];
+        for (let i = 0; i < 80; i++) {
+            const el = $('<div class="confetti-piece">');
+            el.css({
+                left             : Math.random() * 100 + '%',
+                background       : colors[Math.floor(Math.random() * colors.length)],
+                opacity          : 0.7 + Math.random() * 0.3,
+                animationDuration: (2 + Math.random() * 2) + 's',
+                animationDelay   : Math.random() * 0.5 + 's',
+                transform        : `rotate(${Math.random() * 360}deg)`,
+                borderRadius     : Math.random() > 0.5 ? '50%' : '2px',
             });
-
-            container.append(confetti);
-
-            setTimeout(() => {
-                confetti.remove();
-            }, (animationDuration + delay) * 1000);
+            $('#confettiContainer').append(el);
+            setTimeout(() => el.remove(), 4500);
         }
     }
 
-    // Show/hide custom dates
-    $('#periodSelect').on('change', function() {
+    // ── Show/hide custom date range ─────────────────────────────────────────
+    $('#periodSelect').on('change', function () {
         if ($(this).val() === 'custom') {
             $('#startDateDiv, #endDateDiv').slideDown(300);
         } else {
@@ -680,255 +702,296 @@ $(document).ready(function() {
         }
     });
 
-    // Load performance data
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function formatNumber(n) {
+        return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function formatRole(role) {
+        const map = {
+            telecallers: 'Telecaller',
+            field_staff: 'Field Staff',
+            supervisor : 'Supervisor',
+            worker     : 'Worker',
+        };
+        return map[role] || role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    function renderStars(rating) {
+        if (!rating) return '<span class="text-muted">—</span>';
+        let stars = '';
+        for (let i = 1; i <= 5; i++) {
+            stars += `<i class="las la-star" style="color:${i <= Math.round(rating) ? '#f59e0b' : '#e2e8f0'};font-size:0.85rem;"></i>`;
+        }
+        return `<span title="${rating}/5">${stars} <small class="text-muted">${rating}</small></span>`;
+    }
+
+    // ── Load performance data ───────────────────────────────────────────────
     function loadPerformanceData() {
-        const period = $('#periodSelect').val();
-        const startDate = $('#startDate').val();
-        const endDate = $('#endDate').val();
+        const data = {
+            period    : $('#periodSelect').val(),
+            start_date: $('#startDate').val(),
+            end_date  : $('#endDate').val(),
+            branch_id : $('#branchFilter').val() || '',
+            role_filter: $('#roleFilter').val() || '',
+        };
+
+        $('#topPerformersContainer').html(`
+            <div class="col-12 text-center py-5">
+                <div class="spinner-professional mx-auto"></div>
+                <p class="text-muted mt-3">Loading champions…</p>
+            </div>`);
+        $('#leaderboardTableBody').html(`
+            <tr><td colspan="13" class="text-center py-5">
+                <div class="spinner-professional mx-auto"></div>
+                <p class="text-muted mt-2">Loading rankings…</p>
+            </td></tr>`);
 
         $.ajax({
-            url: '{{ route("users.performance.data") }}',
-            type: 'GET',
-            data: { period, start_date: startDate, end_date: endDate },
-            success: function(response) {
-                if (response.success) {
-                    updateSummaryCards(response.summary);
-                    updateTopPerformers(response.leaderboard.slice(0, 3));
-                    updateLeaderboardTable(response.leaderboard);
-                    createProfessionalConfetti();
-                }
+            url    : "{{ route('users.performance.data') }}",
+            type   : 'GET',
+            data,
+            success(res) {
+                if (!res.success) return;
+                updateSummaryCards(res.summary);
+                updateTopPerformers(res.leaderboard.slice(0, 3));
+                updateLeaderboardTable(res.leaderboard);
+                if (res.leaderboard.length > 0) createProfessionalConfetti();
             },
-            error: function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Oops...',
-                    text: 'Failed to load performance data',
-                    confirmButtonColor: '#667eea'
-                });
+            error() {
+                Swal.fire({ icon: 'error', title: 'Oops…', text: 'Failed to load performance data' });
             }
         });
     }
 
-    // Update summary cards
+    // ── Export CSV ──────────────────────────────────────────────────────────
+    $('#exportCsvBtn').on('click', function () {
+        const params = new URLSearchParams({
+            period     : $('#periodSelect').val(),
+            start_date : $('#startDate').val(),
+            end_date   : $('#endDate').val(),
+            branch_id  : $('#branchFilter').val() || '',
+            role_filter: $('#roleFilter').val() || '',
+            export     : 'csv',
+        });
+        window.location.href = "{{ route('users.performance.data') }}?" + params.toString();
+    });
+
+    // ── Summary cards ───────────────────────────────────────────────────────
     function updateSummaryCards(summary) {
         const html = `
-            <div class="col-md-3 fade-in-up">
-                <div class="card stat-card border-0">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <p class="text-muted mb-1 fw-semibold">Total Leads</p>
-                                <h2 class="mb-0 fw-bold counter">${summary.total_leads_created}</h2>
-                            </div>
-                            <div class="bg-primary bg-opacity-10 p-3 rounded-circle stat-icon">
-                                <i class="las la-user-plus text-primary" style="font-size: 2rem;"></i>
-                            </div>
+        <div class="col-md-3 fade-in-up">
+            <div class="card stat-card border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 fw-semibold">Total Leads</p>
+                            <h2 class="mb-0 fw-bold">${summary.total_leads_created}</h2>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle stat-icon">
+                            <i class="las la-user-plus text-primary" style="font-size:2rem;"></i>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 fade-in-up" style="animation-delay: 0.1s;">
-                <div class="card stat-card border-0">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <p class="text-muted mb-1 fw-semibold">Converted</p>
-                                <h2 class="mb-0 fw-bold counter">${summary.total_leads_converted}</h2>
-                                <small class="text-success fw-bold">${summary.avg_conversion_rate.toFixed(1)}% avg</small>
-                            </div>
-                            <div class="bg-success bg-opacity-10 p-3 rounded-circle stat-icon">
-                                <i class="las la-check-circle text-success" style="font-size: 2rem;"></i>
-                            </div>
+        </div>
+        <div class="col-md-3 fade-in-up" style="animation-delay:.1s">
+            <div class="card stat-card border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 fw-semibold">Converted</p>
+                            <h2 class="mb-0 fw-bold">${summary.total_leads_converted}</h2>
+                            <small class="text-success fw-bold">${(summary.avg_conversion_rate || 0).toFixed(1)}% avg</small>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded-circle stat-icon">
+                            <i class="las la-check-circle text-success" style="font-size:2rem;"></i>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 fade-in-up" style="animation-delay: 0.2s;">
-                <div class="card stat-card border-0">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <p class="text-muted mb-1 fw-semibold">Jobs Approved</p>
-                                <h2 class="mb-0 fw-bold counter">${summary.total_jobs_approved}</h2>
-                            </div>
-                            <div class="bg-info bg-opacity-10 p-3 rounded-circle stat-icon">
-                                <i class="las la-briefcase text-info" style="font-size: 2rem;"></i>
-                            </div>
+        </div>
+        <div class="col-md-3 fade-in-up" style="animation-delay:.2s">
+            <div class="card stat-card border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 fw-semibold">Jobs Completed</p>
+                            <h2 class="mb-0 fw-bold">${summary.total_jobs_approved}</h2>
+                        </div>
+                        <div class="bg-info bg-opacity-10 p-3 rounded-circle stat-icon">
+                            <i class="las la-briefcase text-info" style="font-size:2rem;"></i>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 fade-in-up" style="animation-delay: 0.3s;">
-                <div class="card stat-card border-0">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <p class="text-muted mb-1 fw-semibold">Total Value</p>
-                                <h2 class="mb-0 fw-bold counter text-warning">₹${formatNumber(summary.total_value)}</h2>
-                            </div>
-                            <div class="bg-warning bg-opacity-10 p-3 rounded-circle stat-icon">
-                                <i class="las la-coins text-warning" style="font-size: 2rem;"></i>
-                            </div>
+        </div>
+        <div class="col-md-3 fade-in-up" style="animation-delay:.3s">
+            <div class="card stat-card border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="text-muted mb-1 fw-semibold">Total Value</p>
+                            <h2 class="mb-0 fw-bold text-warning">₹${formatNumber(summary.total_value)}</h2>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle stat-icon">
+                            <i class="las la-coins text-warning" style="font-size:2rem;"></i>
                         </div>
                     </div>
                 </div>
             </div>
-        `;
+        </div>`;
         $('#summaryCards').html(html);
     }
 
-    // Update top 3 podium
+    // ── Top 3 Podium ────────────────────────────────────────────────────────
     function updateTopPerformers(topUsers) {
-        if (topUsers.length === 0) {
+        if (!topUsers || topUsers.length === 0) {
             $('#topPerformersContainer').html(`
                 <div class="col-12 text-center py-5">
-                    <div class="glass-card p-5">
-                        <i class="las la-trophy" style="font-size: 4rem; color: #ccc;"></i>
+                    <div class="glass-card p-5 d-inline-block">
+                        <i class="las la-trophy" style="font-size:4rem;color:#ccc;"></i>
                         <p class="text-muted mt-3 mb-0">No performance data yet</p>
                     </div>
-                </div>
-            `);
+                </div>`);
             return;
         }
 
-        let html = '';
         const medals = ['🥇', '🥈', '🥉'];
+        let html = '';
 
-        topUsers.forEach((user) => {
+        topUsers.forEach(user => {
+            // ── FIX 6: No 1st/2nd/3rd if fewer than 3 active users ───────
+            const rankClass  = user.rank <= 3 ? `rank-${user.rank}` : 'rank-other';
+            const medalEmoji = medals[user.rank - 1] || '';
+
+            // Show addon line only for supervisors/workers
+            const isStaff = ['supervisor','worker'].includes(user.role);
+            const addonLine = isStaff && user.addon_value > 0
+                ? `<div class="col-12 mt-1">
+                       <div class="p-2 rounded" style="background:rgba(245,158,11,0.1);">
+                           <small class="text-muted d-block" style="font-size:0.7rem;">Addon Value</small>
+                           <small class="fw-bold text-warning">₹${formatNumber(user.addon_value)}</small>
+                       </div>
+                   </div>`
+                : '';
+
+            const ratingLine = user.avg_rating
+                ? `<div class="mt-2">${renderStars(user.avg_rating)}</div>` : '';
+
             html += `
-                <div class="col-lg-4 col-md-6 mb-3 winner-card">
-                    <div class="card glass-card border-0 h-100">
-                        <div class="card-body text-center p-4">
-                            <div class="mb-3">
-                                <span class="medal-emoji">${medals[user.rank - 1]}</span>
-                            </div>
-                            <div class="rank-badge rank-${user.rank} mx-auto mb-3">
-                                <span style="font-weight: 900;">#${user.rank}</span>
-                            </div>
-
-                            <h5 class="fw-bold mb-1">${user.name}</h5>
-                            <p class="text-muted small mb-3">
-                                <span class="badge bg-light text-dark">${formatRole(user.role)}</span>
-                                <span class="badge bg-light text-dark ms-1">${user.branch}</span>
-                            </p>
-
-                            <div class="row g-2 mb-3">
-                                <div class="col-4">
-                                    <div class="p-2 rounded" style="background: rgba(13, 110, 253, 0.1); word-wrap: normal;">
-                                        <h6 class="mb-0 fw-bold text-primary counter">${user.leads_created}</h6>
-                                        <small class="text-muted" style="font-size: 0.7rem;">Leads Created</small>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 rounded" style="background: rgba(25, 135, 84, 0.1); word-wrap: normal;">
-                                        <h6 class="mb-0 fw-bold text-success counter">${user.leads_converted}</h6>
-                                        <small class="text-muted" style="font-size: 0.7rem;">Leads Converted</small>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="p-2 rounded" style="background: rgba(13, 202, 240, 0.1); word-wrap: normal;">
-                                        <h6 class="mb-0 fw-bold text-info counter">${user.jobs_approved}</h6>
-                                        <small class="text-muted" style="font-size: 0.7rem;">Work Orders Approved</small>
-                                    </div>
+            <div class="col-lg-4 col-md-6 mb-3 winner-card">
+                <div class="card glass-card border-0 h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-2">
+                            <span class="medal-emoji">${medalEmoji}</span>
+                        </div>
+                        <div class="rank-badge ${rankClass} mx-auto mb-3">
+                            <span style="font-weight:900;">${user.rank}</span>
+                        </div>
+                        <h5 class="fw-bold mb-1">${user.name}</h5>
+                        <p class="text-muted small mb-3">
+                            <span class="badge bg-light text-dark">${formatRole(user.role)}</span>
+                            <span class="badge bg-light text-dark ms-1">${user.branch}</span>
+                        </p>
+                        <div class="row g-2 mb-3">
+                            ${!isStaff ? `
+                            <div class="col-4">
+                                <div class="p-2 rounded" style="background:rgba(13,110,253,0.1);">
+                                    <h6 class="mb-0 fw-bold text-primary">${user.leads_created}</h6>
+                                    <small class="text-muted" style="font-size:0.7rem;">Leads</small>
                                 </div>
                             </div>
-
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <small class="text-muted">Conversion Rate</small>
-                                    <span class="badge bg-success">${user.conversion_rate}%</span>
+                            <div class="col-4">
+                                <div class="p-2 rounded" style="background:rgba(25,135,84,0.1);">
+                                    <h6 class="mb-0 fw-bold text-success">${user.leads_converted}</h6>
+                                    <small class="text-muted" style="font-size:0.7rem;">Converted</small>
                                 </div>
-                                <div class="progress progress-thin">
-                                    <div class="progress-bar progress-bar-gradient"
-                                         style="width: ${Math.min(user.conversion_rate, 100)}%"
-                                         role="progressbar"></div>
+                            </div>` : ''}
+                            <div class="col-4">
+                                <div class="p-2 rounded" style="background:rgba(13,202,240,0.1);">
+                                    <h6 class="mb-0 fw-bold text-info">${user.jobs_approved}</h6>
+                                    <small class="text-muted" style="font-size:0.7rem;">Jobs Done</small>
                                 </div>
                             </div>
-
-                            <div class="value-highlight">
-                                <small class="text-muted d-block mb-1">Total Value</small>
-                                <h4 class="mb-0 fw-bold counter" style="color: #f59e0b;">
-                                    ₹${formatNumber(user.total_value)}
-                                </h4>
-                            </div>
+                            ${addonLine}
+                        </div>
+                        ${ratingLine}
+                        <div class="value-highlight">
+                            <small class="text-muted d-block mb-1">Total Value</small>
+                            <h4 class="mb-0 fw-bold" style="color:#f59e0b;">₹${formatNumber(user.total_value)}</h4>
                         </div>
                     </div>
                 </div>
-            `;
+            </div>`;
         });
 
         $('#topPerformersContainer').html(html);
     }
 
-    // Update leaderboard table
+    // ── Full leaderboard table ───────────────────────────────────────────────
     function updateLeaderboardTable(leaderboard) {
         $('#userCount').text(leaderboard.length);
 
-        if (leaderboard.length === 0) {
+        if (!leaderboard || leaderboard.length === 0) {
             $('#leaderboardTableBody').html(`
-                <tr><td colspan="11" class="text-center py-5 text-muted">
-                    <i class="las la-inbox" style="font-size: 3rem;"></i>
-                    <p>No data available</p>
-                </td></tr>
-            `);
+                <tr><td colspan="13" class="text-center py-5">
+                    <i class="las la-inbox" style="font-size:3rem;color:#ccc;"></i>
+                    <p class="text-muted mt-2 mb-0">No activity data for this period</p>
+                </td></tr>`);
             return;
         }
 
         let html = '';
         leaderboard.forEach(user => {
-            const badgeClass = user.conversion_rate >= 50 ? 'bg-success' :
-                              (user.conversion_rate >= 25 ? 'bg-warning' : 'bg-danger');
+            const isStaff      = ['supervisor', 'worker'].includes(user.role);
+            const badgeClass   = user.conversion_rate >= 50 ? 'bg-success'
+                               : user.conversion_rate >= 25 ? 'bg-warning' : 'bg-danger';
+
+            // ── FIX 6: rank badge only shows medal for ranks 1-3 IF they exist
+            const rankHtml = `
+                <div class="rank-badge ${user.rank <= 3 ? 'rank-' + user.rank : 'rank-other'}"
+                     style="width:40px;height:40px;font-size:0.95rem;">
+                    ${user.rank}
+                </div>`;
 
             html += `
-                <tr>
-                    <td>
-                        <div class="rank-badge rank-${user.rank <= 3 ? user.rank : 'other'}"
-                             style="width: 45px; height: 45px; font-size: 1rem;">
-                            ${user.rank}
-                        </div>
-                    </td>
-                    <td>
-                        <a href="{{ url('/users') }}/${user.id}" class="text-decoration-none fw-bold">
-                            ${user.name}
-                        </a>
-                        <br><small class="text-muted">${user.email}</small>
-                    </td>
-                    <td><span class="badge bg-secondary">${formatRole(user.role)}</span></td>
-                    <td>${user.branch}</td>
-                    <td class="text-center">
-                        <span class="badge bg-primary counter">${user.leads_created}</span>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge bg-success counter">${user.leads_converted}</span>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge ${badgeClass}">${user.conversion_rate}%</span>
-                    </td>
-                    <td class="text-center">
-                        <span class="badge bg-info counter">${user.jobs_approved}</span>
-                    </td>
-                    <td class="text-end counter">₹${formatNumber(user.leads_value)}</td>
-                    <td class="text-end counter">₹${formatNumber(user.jobs_value)}</td>
-                    <td class="text-end">
-                        <strong class="text-warning counter">₹${formatNumber(user.total_value)}</strong>
-                    </td>
-                </tr>
-            `;
+            <tr>
+                <td>${rankHtml}</td>
+                <td>
+                    <a href="/users/${user.id}" class="text-decoration-none fw-bold">${user.name}</a>
+                    <br><small class="text-muted">${user.email}</small>
+                </td>
+                <td><span class="badge bg-secondary">${formatRole(user.role)}</span></td>
+                <td>${user.branch}</td>
+                <td class="text-center">
+                    ${!isStaff ? `<span class="badge bg-primary">${user.leads_created}</span>` : '<span class="text-muted">—</span>'}
+                </td>
+                <td class="text-center">
+                    ${!isStaff ? `<span class="badge bg-success">${user.leads_converted}</span>` : '<span class="text-muted">—</span>'}
+                </td>
+                <td class="text-center">
+                    ${!isStaff ? `<span class="badge ${badgeClass}">${user.conversion_rate}%</span>` : '<span class="text-muted">—</span>'}
+                </td>
+                <td class="text-center"><span class="badge bg-info">${user.jobs_approved}</span></td>
+                <td class="text-end">₹${formatNumber(user.jobs_value)}</td>
+                <td class="text-end">
+                    ${user.addon_value > 0
+                        ? `<span class="fw-semibold text-warning">₹${formatNumber(user.addon_value)}</span>`
+                        : '<span class="text-muted">—</span>'}
+                </td>
+                <td class="text-end">
+                    ${!isStaff ? `₹${formatNumber(user.leads_value)}` : '<span class="text-muted">—</span>'}
+                </td>
+                <td class="text-end"><strong class="text-warning">₹${formatNumber(user.total_value)}</strong></td>
+                <td class="text-center">${renderStars(user.avg_rating)}</td>
+            </tr>`;
         });
 
         $('#leaderboardTableBody').html(html);
     }
 
-    // Helper functions
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-
-    function formatRole(role) {
-        return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    }
-
-    // Apply filter
+    // ── Events ──────────────────────────────────────────────────────────────
     $('#applyFilter').on('click', loadPerformanceData);
 
     // Initial load

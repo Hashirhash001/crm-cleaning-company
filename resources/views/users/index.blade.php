@@ -56,6 +56,8 @@
                             <option value="super_admin" {{ request('role') == 'super_admin' ? 'selected' : '' }}>Super Admin</option>
                             <option value="lead_manager" {{ request('role') == 'lead_manager' ? 'selected' : '' }}>Lead Manager</option>
                             <option value="telecallers" {{ request('role') == 'telecallers' ? 'selected' : '' }}>Telecaller</option>
+                            <option value="supervisor">{{ request('role') == 'supervisor' ? 'selected' : '' }}Supervisor</option>
+                            <option value="worker">{{ request('role') == 'worker' ? 'selected' : '' }}Worker</option>
                         </select>
                     </div>
                     @else
@@ -195,6 +197,8 @@
                                 <option value="lead_manager">Lead Manager</option>
                                 <option value="telecallers">Telecaller</option>
                                 <option value="field_staff">Field Staff</option>
+                                <option value="supervisor">Supervisor</option>
+                                <option value="worker">Worker</option>
                             </select>
                             <span class="text-danger error-text role_error"></span>
                         </div>

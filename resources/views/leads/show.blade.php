@@ -645,6 +645,12 @@
                         <span class="info-value">{{ $lead->phone_alternative }}</span>
                     </div>
                     @endif
+                    @if($lead->telecaller_number)
+                    <div class="info-row">
+                        <span class="info-label">Telecaller Number</span>
+                        <span class="info-value">{{ $lead->telecaller_number }}</span>
+                    </div>
+                    @endif
                     @if($lead->address)
                     <div class="info-row">
                         <span class="info-label">Address</span>

@@ -22,6 +22,7 @@ class Lead extends Model
         'email',
         'phone',
         'phone_alternative',
+        'telecaller_number',
         'address',
         'district',
         'property_type',

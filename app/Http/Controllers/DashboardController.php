@@ -102,31 +102,13 @@ class DashboardController extends Controller
         if ($user->role === 'lead_manager') {
             $branches = Branch::where('is_active', true)->get();
 
-            // Budget
-            $dailyBudget = Setting::get('daily_budget_limit', 100000);
-            $todayTotal = Lead::whereDate('approved_at', today())
-                ->where('status', 'approved')
-                ->where('created_by', $user->id)
-                ->when($branchId, function($q) use ($branchId) {
-                    return $q->where('branch_id', $branchId);
-                })
-                ->sum('amount');
-            $remaining = $dailyBudget - $todayTotal;
-            $percentage = $dailyBudget > 0 ? ($todayTotal / $dailyBudget) * 100 : 0;
-
-            // Sales
+            // Sales - all branches (no branch filter)
             $approvedWeekly = Lead::where('created_by', $user->id)
-                ->when($branchId, function($q) use ($branchId) {
-                    return $q->where('branch_id', $branchId);
-                })
                 ->where('status', 'approved')
                 ->whereBetween('approved_at', [now()->startOfWeek(), now()->endOfWeek()])
                 ->sum('amount');
 
             $approvedMonthly = Lead::where('created_by', $user->id)
-                ->when($branchId, function($q) use ($branchId) {
-                    return $q->where('branch_id', $branchId);
-                })
                 ->where('status', 'approved')
                 ->whereYear('approved_at', now()->year)
                 ->whereMonth('approved_at', now()->month)
@@ -135,10 +117,6 @@ class DashboardController extends Controller
             $followupData = $this->getFollowupData($user, $branchId);
 
             return view('dashboard', compact(
-                'dailyBudget',
-                'todayTotal',
-                'remaining',
-                'percentage',
                 'followupData',
                 'approvedWeekly',
                 'approvedMonthly',

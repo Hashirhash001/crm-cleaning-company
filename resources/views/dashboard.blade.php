@@ -980,46 +980,6 @@
 
     <!-- LEAD MANAGER DASHBOARD -->
     @if(auth()->user()->role === 'lead_manager')
-        <!-- Budget Card -->
-        <div class="row mb-3">
-            <div class="col-12">
-                <div class="card mb-0 overflow-hidden" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <h3 class="text-white fw-semibold fs-20 lh-base mb-3">
-                                    <i class="las la-wallet me-2"></i>Today's Budget Status
-                                </h3>
-                                <div class="row text-white g-3 mb-3">
-                                    <div class="col-6 col-lg-3">
-                                        <small class="d-block opacity-75 mb-1">Daily Limit</small>
-                                        <h5 class="text-white mb-0 fs-16">₹{{ number_format($dailyBudget, 0) }}</h5>
-                                    </div>
-                                    <div class="col-6 col-lg-3">
-                                        <small class="d-block opacity-75 mb-1">Used Today</small>
-                                        <h5 class="text-white mb-0 fs-16">₹{{ number_format($todayTotal, 0) }}</h5>
-                                    </div>
-                                    <div class="col-6 col-lg-3">
-                                        <small class="d-block opacity-75 mb-1">Remaining</small>
-                                        <h5 class="text-white mb-0 fs-16">₹{{ number_format($remaining, 0) }}</h5>
-                                    </div>
-                                    <div class="col-6 col-lg-3">
-                                        <small class="d-block opacity-75 mb-1">Usage</small>
-                                        <h5 class="text-white mb-0 fs-16">{{ number_format($percentage, 1) }}%</h5>
-                                    </div>
-                                </div>
-                                <div class="progress" style="height: 10px; background: rgba(255,255,255,0.2);">
-                                    <div class="progress-bar bg-white" style="width: {{ min($percentage, 100) }}%"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 text-end d-none d-md-block">
-                                <img src="{{ asset('assets/images/extra/fund.png') }}" alt="" style="max-width: 100%; height: auto; max-height: 180px;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Branch Filter -->
         <div class="row mb-3">
