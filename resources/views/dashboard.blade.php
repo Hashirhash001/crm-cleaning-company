@@ -1870,82 +1870,164 @@ $(document).ready(function() {
         let html = '';
         let hasResults = false;
 
-        // Display Leads
+        // ─── LEADS ───────────────────────────────────────────────────────────────
         if (response.leads && response.leads.length > 0) {
             hasResults = true;
-            html += '<div class="search-result-header"><i class="las la-clipboard-list me-1"></i> Leads</div>';
+            html += `<div class="search-result-header">
+                        <i class="las la-clipboard-list me-1"></i> Leads
+                    </div>`;
 
             response.leads.forEach(function(lead) {
                 const statusBadge = getStatusBadge(lead.status);
-
-                html += `
-                    <div class="search-result-item" onclick="window.location.href='/leads/${lead.id}'">
-                        <div class="search-result-title">
-                            <span class="badge bg-primary me-2">${lead.lead_code}</span>
-                            ${lead.name}
-                        </div>
-
-                        <!-- BRANCH & STATUS BADGES -->
-                        <div class="mb-2 mt-1">
-                            <span class="badge bg-dark" style="font-size: 0.8rem; padding: 0.3em 0.7em;">
-                                <i class="las la-building me-1"></i>${lead.branch}
-                            </span>
-                            ${statusBadge}
-                        </div>
-
-                        <div style="font-size: 13px; color: #6c757d;">
-                            <i class="las la-phone"></i> ${lead.phone}
-                            ${lead.email ? `&nbsp;&nbsp;<i class="las la-envelope"></i> ${lead.email}` : ''}
-                            &nbsp;&nbsp;<i class="las la-briefcase"></i> ${lead.service || 'N/A'}
-                        </div>
+                html += `<div class="search-result-item" onclick="window.location.href='/leads/${lead.id}'">
+                    <div class="search-result-title">
+                        <span class="badge bg-primary me-2">${lead.lead_code}</span>${lead.name}
                     </div>
-                `;
+                    <div class="mb-2 mt-1">
+                        <span class="badge bg-dark" style="font-size:0.8rem;padding:0.3em 0.7em">
+                            <i class="las la-building me-1"></i>${lead.branch}
+                        </span>
+                        ${statusBadge}
+                    </div>
+                    <div style="font-size:13px;color:#6c757d">
+                        <i class="las la-phone"></i> ${lead.phone}
+                        ${lead.email ? `&nbsp;&nbsp;<i class="las la-envelope"></i> ${lead.email}` : ''}
+                        &nbsp;&nbsp;<i class="las la-briefcase"></i> ${lead.service ?? 'N/A'}
+                    </div>
+                </div>`;
             });
         }
 
-        // Display Customers
+        // ─── WORK ORDERS / JOBS ──────────────────────────────────────────────────
+        if (response.jobs && response.jobs.length > 0) {
+            hasResults = true;
+            html += `<div class="search-result-header">
+                        <i class="las la-briefcase me-1"></i> Work Orders
+                    </div>`;
+
+            response.jobs.forEach(function(job) {
+                const statusBadge = getStatusBadge(job.status);
+
+                let staffHtml = '';
+
+                if (job.assigned_user) {
+                    staffHtml += `<div style="font-size:12px;color:#374151;margin-top:4px">
+                        <i class="las la-user-tie text-primary"></i>
+                        <strong>Assigned:</strong> ${job.assigned_user.name}
+                    </div>`;
+                }
+
+                if (job.supervisors && job.supervisors.length > 0) {
+                    staffHtml += `<div style="font-size:12px;color:#374151;margin-top:2px">
+                        <i class="las la-user-shield text-warning"></i>
+                        <strong>Supervisors:</strong> ${job.supervisors.map(s => s.name).join(', ')}
+                    </div>`;
+                }
+
+                if (job.workers && job.workers.length > 0) {
+                    staffHtml += `<div style="font-size:12px;color:#374151;margin-top:2px">
+                        <i class="las la-hard-hat text-secondary"></i>
+                        <strong>Workers:</strong> ${job.workers.map(w => w.name).join(', ')}
+                    </div>`;
+                }
+
+                html += `<div class="search-result-item" onclick="window.location.href='/jobs/${job.id}'">
+                    <div class="search-result-title">
+                        <span class="badge me-2" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)">${job.job_code}</span>
+                        ${job.customer_name}
+                    </div>
+                    <div class="mb-2 mt-1">
+                        <span class="badge bg-dark" style="font-size:0.8rem;padding:0.3em 0.7em">
+                            <i class="las la-building me-1"></i>${job.branch}
+                        </span>
+                        ${statusBadge}
+                        <span class="badge bg-info ms-1">
+                            <i class="las la-tools me-1"></i>${job.service}
+                        </span>
+                    </div>
+                    <div style="font-size:13px;color:#6c757d">
+                        <i class="las la-phone"></i> ${job.customer_phone}
+                        ${job.title ? `&nbsp;&nbsp;<i class="las la-tag"></i> ${job.title}` : ''}
+                    </div>
+                    ${staffHtml}
+                </div>`;
+            });
+        }
+
+        // ─── CUSTOMERS ───────────────────────────────────────────────────────────
         if (response.customers && response.customers.length > 0) {
             hasResults = true;
-            html += '<div class="search-result-header"><i class="las la-user-check me-1"></i> Existing Customers</div>';
+            html += `<div class="search-result-header">
+                        <i class="las la-user-check me-1"></i> Existing Customers
+                    </div>`;
 
             response.customers.forEach(function(customer) {
                 const priorityBadge = getPriorityBadge(customer.priority);
 
-                html += `
-                    <div class="search-result-item" onclick="window.location.href='/customers/${customer.id}'">
-                        <div class="search-result-title">
-                            <span class="badge bg-success me-2">${customer.customer_code}</span>
-                            ${customer.name}
-                        </div>
+                let completedJobsHtml = '';
+                if (customer.completed_jobs && customer.completed_jobs.length > 0) {
+                    customer.completed_jobs.forEach(function(job) {
+                        const jobStatusBadge = getStatusBadge(job.status);
+                        let jobStaffHtml = '';
 
-                        <!-- BRANCH, PRIORITY & JOBS BADGES -->
-                        <div class="mb-2 mt-1">
-                            <span class="badge bg-dark" style="font-size: 0.8rem; padding: 0.3em 0.7em;">
-                                <i class="las la-building me-1"></i>${customer.branch}
-                            </span>
-                            ${priorityBadge}
-                            <span class="badge bg-secondary ms-1">
-                                <i class="las la-briefcase"></i> ${customer.total_jobs} jobs
-                            </span>
-                        </div>
+                        if (job.assigned_user) {
+                            jobStaffHtml += `<div style="font-size:12px;color:#374151">
+                                <i class="las la-user-tie text-primary"></i>
+                                <strong>Assigned:</strong> ${job.assigned_user.name}
+                            </div>`;
+                        }
+                        if (job.supervisors && job.supervisors.length > 0) {
+                            jobStaffHtml += `<div style="font-size:12px;color:#374151">
+                                <i class="las la-user-shield text-warning"></i>
+                                <strong>Supervisors:</strong> ${job.supervisors.map(s => s.name).join(', ')}
+                            </div>`;
+                        }
+                        if (job.workers && job.workers.length > 0) {
+                            jobStaffHtml += `<div style="font-size:12px;color:#374151">
+                                <i class="las la-hard-hat text-secondary"></i>
+                                <strong>Workers:</strong> ${job.workers.map(w => w.name).join(', ')}
+                            </div>`;
+                        }
 
-                        <div style="font-size: 13px; color: #6c757d;">
-                            <i class="las la-phone"></i> ${customer.phone}
-                            ${customer.email ? `&nbsp;&nbsp;<i class="las la-envelope"></i> ${customer.email}` : ''}
-                        </div>
+                        if (jobStaffHtml) {
+                            completedJobsHtml += `<div class="mt-2 pt-2" style="border-top:1px dashed #e5e7eb">
+                                <small class="text-muted fw-bold">
+                                    <i class="las la-briefcase"></i> ${job.job_code} ${jobStatusBadge}
+                                </small>
+                                ${jobStaffHtml}
+                            </div>`;
+                        }
+                    });
+                }
+
+                html += `<div class="search-result-item" onclick="window.location.href='/customers/${customer.id}'">
+                    <div class="search-result-title">
+                        <span class="badge bg-success me-2">${customer.customer_code}</span>${customer.name}
                     </div>
-                `;
+                    <div class="mb-2 mt-1">
+                        <span class="badge bg-dark" style="font-size:0.8rem;padding:0.3em 0.7em">
+                            <i class="las la-building me-1"></i>${customer.branch}
+                        </span>
+                        ${priorityBadge}
+                        <span class="badge bg-secondary ms-1">
+                            <i class="las la-briefcase"></i> ${customer.total_jobs} jobs
+                        </span>
+                    </div>
+                    <div style="font-size:13px;color:#6c757d">
+                        <i class="las la-phone"></i> ${customer.phone}
+                        ${customer.email ? `&nbsp;&nbsp;<i class="las la-envelope"></i> ${customer.email}` : ''}
+                    </div>
+                    ${completedJobsHtml}
+                </div>`;
             });
         }
 
-        // No results
+        // ─── NO RESULTS ──────────────────────────────────────────────────────────
         if (!hasResults) {
-            html = `
-                <div class="search-no-results">
-                    <i class="las la-search" style="font-size: 2rem; opacity: 0.3;"></i>
-                    <p class="mb-0 mt-2">No leads or customers found</p>
-                </div>
-            `;
+            html = `<div class="search-no-results">
+                        <i class="las la-search" style="font-size:2rem;opacity:0.3"></i>
+                        <p class="mb-0 mt-2">No leads, work orders or customers found</p>
+                    </div>`;
         }
 
         $('.search-content').html(html);

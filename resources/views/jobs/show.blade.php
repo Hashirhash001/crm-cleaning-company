@@ -747,6 +747,9 @@
                             <div class="mb-3">
                                 <strong>Name:</strong> {{ $job->customer->name }}
                             </div>
+                            <div class="mb-3">
+                                <strong>Mobile:</strong> {{ $job->customer->phone }}
+                            </div>
                             <a href="{{ route('customers.show', $job->customer->id) }}" class="btn view-profile-btn">
                                 <i class="las la-external-link-alt me-2"></i>View Customer Profile
                             </a>
@@ -1783,86 +1786,159 @@
         </div>
     </div>
 
+    {{-- ═══════════════════════════════════════════
+     ADD STAFF MODAL — Multi-entry builder
+═══════════════════════════════════════════ --}}
     <div class="modal fade" id="addStaffModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="las la-hard-hat me-2"></i>Add Supervisor / Worker</h5>
+        <div class="modal-dialog modal-dialog-centered" style="max-width:560px;">
+            <div class="modal-content" style="border-radius:16px;border:none;overflow:hidden;">
+
+                <div class="modal-header"
+                    style="background:linear-gradient(135deg,#f3e8ff,#ede9fe);border-bottom:1px solid #ddd6fe;">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0" style="color:#6d28d9;">
+                            <i class="las la-user-plus me-2"></i>Add Staff Members
+                        </h5>
+                        <small class="text-muted" style="font-size:0.78rem;">
+                            {{ $job->job_code }} — {{ $job->title }}
+                        </small>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="addStaffForm">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="row mb-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Role <span class="text-danger">*</span></label>
-                                <select name="role" class="form-select" required>
-                                    <option value="">Select Role</option>
-                                    <option value="supervisor">Supervisor</option>
-                                    <option value="worker">Worker</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Staff Type <span class="text-danger">*</span></label>
-                                <select name="staff_type" id="staffType" class="form-select" required>
-                                    <option value="registered">Registered User</option>
-                                    <option value="temporary">Temporary Worker</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div id="registeredFields">
-                            <div class="mb-3">
-                                <label class="form-label">Select User <span class="text-danger">*</span></label>
-                                <select name="user_id" id="staffUserId" class="form-select">
-                                    <option value="">— Select Role First —</option>
 
-                                    @if($supervisors->count())
-                                    <optgroup label="Supervisors" id="supervisorOptions">
-                                        @foreach($supervisors as $s)
-                                            <option value="{{ $s->id }}" data-role="supervisor">{{ $s->name }}</option>
-                                        @endforeach
-                                    </optgroup>
-                                    @endif
+                <div class="modal-body p-4">
 
-                                    @if($workers->count())
-                                    <optgroup label="Workers" id="workerOptions">
-                                        @foreach($workers as $w)
-                                            <option value="{{ $w->id }}" data-role="worker">{{ $w->name }}</option>
-                                        @endforeach
-                                    </optgroup>
-                                    @endif
+                    {{-- ── Entry Builder ── --}}
+                    <div id="staffEntryBuilder">
 
-                                    @if($supervisors->isEmpty() && $workers->isEmpty())
-                                        <option disabled>No supervisors or workers found</option>
-                                    @endif
-                                </select>
-                                <small class="text-muted">Only users with matching role are shown after selecting a role</small>
-                            </div>
-                        </div>
-
-                        <div id="temporaryFields" style="display:none;">
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <label class="form-label">Name <span class="text-danger">*</span></label>
-                                    <input type="text" name="temp_name" class="form-control" placeholder="Worker name">
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="form-label">Phone <span class="text-danger">*</span></label>
-                                    <input type="text" name="temp_phone" class="form-control" placeholder="Phone number">
-                                </div>
-                            </div>
-                        </div>
+                        {{-- Staff Type --}}
                         <div class="mb-3">
-                            <label class="form-label">Notes</label>
-                            <textarea name="notes" class="form-control" rows="2"
-                                placeholder="Optional notes about this staff member..."></textarea>
+                            <label class="form-label fw-semibold mb-2" style="font-size:0.83rem;">
+                                Staff Type <span class="text-danger">*</span>
+                            </label>
+                            <div class="d-flex gap-2">
+                                <div class="staff-type-card selected flex-fill" data-type="registered"
+                                    id="typeCardRegistered"
+                                    style="border:2px solid #7c3aed;background:#f5f3ff;color:#6d28d9;
+                                            border-radius:10px;padding:0.75rem 1rem;cursor:pointer;
+                                            display:flex;align-items:center;gap:0.6rem;
+                                            font-size:0.88rem;font-weight:500;">
+                                    <i class="las la-id-card" style="color:#7c3aed;font-size:1.1rem;"></i>
+                                    Registered User
+                                </div>
+                                <div class="staff-type-card flex-fill" data-type="temporary"
+                                    id="typeCardTemporary"
+                                    style="border:2px solid #e2e8f0;border-radius:10px;padding:0.75rem 1rem;
+                                            cursor:pointer;display:flex;align-items:center;gap:0.6rem;
+                                            font-size:0.88rem;font-weight:500;color:#374151;">
+                                    <i class="las la-user-circle" style="color:#64748b;font-size:1.1rem;"></i>
+                                    Temporary / External
+                                </div>
+                            </div>
                         </div>
+
+                        {{-- Role --}}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" style="font-size:0.83rem;">
+                                Role <span class="text-danger">*</span>
+                            </label>
+                            <div class="d-flex gap-2">
+                                <div class="staff-type-card flex-fill" data-role="supervisor"
+                                    id="roleCardSupervisor"
+                                    style="border:2px solid #e2e8f0;border-radius:10px;padding:0.75rem 1rem;
+                                            cursor:pointer;display:flex;align-items:center;gap:0.6rem;
+                                            font-size:0.88rem;font-weight:500;color:#374151;">
+                                    <i class="las la-user-cog" style="color:#2563eb;font-size:1.1rem;"></i>
+                                    Supervisor
+                                </div>
+                                <div class="staff-type-card flex-fill" data-role="worker"
+                                    id="roleCardWorker"
+                                    style="border:2px solid #e2e8f0;border-radius:10px;padding:0.75rem 1rem;
+                                            cursor:pointer;display:flex;align-items:center;gap:0.6rem;
+                                            font-size:0.88rem;font-weight:500;color:#374151;">
+                                    <i class="las la-hard-hat" style="color:#7c3aed;font-size:1.1rem;"></i>
+                                    Worker
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Registered: User dropdown --}}
+                        <div id="inlineRegisteredFields" class="mb-3">
+                            <label class="form-label fw-semibold" style="font-size:0.83rem;">
+                                Select User <span class="text-danger">*</span>
+                            </label>
+                            <div class="position-relative" id="userSelectWrapper">
+                                <select id="inlineStaffUserId" class="form-select"
+                                        style="border-radius:8px;font-size:0.88rem;">
+                                    <option value="">— Select a role first —</option>
+                                </select>
+                            </div>
+                            <small class="text-muted" id="noStaffHint" style="display:none;font-size:0.78rem;">
+                                <i class="las la-exclamation-triangle me-1" style="color:#f59e0b;"></i>
+                                No registered users found for this role.
+                            </small>
+                        </div>
+
+                        {{-- Temporary fields --}}
+                        <div id="inlineTemporaryFields" style="display:none;">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem;">
+                                    Full Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="tempName" class="form-control"
+                                    style="border-radius:8px;" placeholder="Enter full name">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold" style="font-size:0.83rem;">Mobile Number</label>
+                                <input type="text" id="tempPhone" class="form-control"
+                                    style="border-radius:8px;" placeholder="Phone number (optional)">
+                            </div>
+                        </div>
+
+                        {{-- Notes --}}
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold" style="font-size:0.83rem;">Notes</label>
+                            <input type="text" id="entryNotes" class="form-control"
+                                style="border-radius:8px;font-size:0.88rem;"
+                                placeholder="Optional notes for this staff member…">
+                        </div>
+
+                        {{-- Add to list button --}}
+                        <button type="button" id="addToListBtn"
+                                class="btn btn-outline-primary w-100" style="border-radius:8px;">
+                            <i class="las la-plus-circle me-1"></i> Add to List
+                        </button>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Add Staff</button>
+
+                    {{-- ── Queued Staff List ── --}}
+                    <div id="staffQueueSection" class="mt-3" style="display:none;">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0" style="font-size:0.83rem;color:#374151;">
+                                <i class="las la-users me-1" style="color:#7c3aed;"></i>
+                                Staff to be Added
+                                <span class="badge rounded-pill ms-1"
+                                    style="background:#ede9fe;color:#6d28d9;font-size:0.75rem;"
+                                    id="queueCount">0</span>
+                            </label>
+                        </div>
+                        <div id="staffQueueList"
+                            style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;"></div>
                     </div>
-                </form>
+
+                </div>
+
+                <div class="modal-footer" style="border-top:1px solid #e2e8f0;background:#fafafa;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+                            style="border-radius:8px;">
+                        <i class="las la-times me-1"></i>Cancel
+                    </button>
+                    <button type="button" id="saveAllStaffBtn"
+                            class="btn btn-primary" style="border-radius:8px;" disabled>
+                        <i class="las la-save me-1"></i>
+                        Save All Staff (<span id="saveCount">0</span>)
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
@@ -2990,92 +3066,384 @@
                 });
             });
 
-            // Staff type toggle
-            document.getElementById('staffType')?.addEventListener('change', function () {
-                document.getElementById('registeredFields').style.display = this.value === 'registered' ? '' : 'none';
-                document.getElementById('temporaryFields').style.display  = this.value === 'temporary'  ? '' : 'none';
-            });
+            // ════════════════════════════════════════════════════════
+            //  ADD STAFF MODAL — Multi-entry builder (Show Page)
+            // ════════════════════════════════════════════════════════
 
-            // Role filter — show only matching users
-            document.querySelector('#addStaffModal select[name="role"]')
-                ?.addEventListener('change', function () {
-                    const role          = this.value;
-                    const supervisorGroup = document.getElementById('supervisorOptions');
-                    const workerGroup     = document.getElementById('workerOptions');
-                    const userSelect      = document.getElementById('staffUserId');
+            const addStaffModal  = new bootstrap.Modal(document.getElementById('addStaffModal'));
+            const allSupervisors = @json($supervisors ?? []);
+            const allWorkers     = @json($workers ?? []);
 
-                    if (role === 'supervisor') {
-                        if (supervisorGroup) supervisorGroup.style.display = '';
-                        if (workerGroup)     workerGroup.style.display     = 'none';
-                    } else if (role === 'worker') {
-                        if (supervisorGroup) supervisorGroup.style.display = 'none';
-                        if (workerGroup)     workerGroup.style.display     = '';
+            let selectedRole = '';
+            let selectedType = 'registered';
+            let staffQueue   = [];
+
+            // ── Helper: render queue list ───────────────────────────
+            function renderQueue() {
+                const $list    = $('#staffQueueList');
+                const $section = $('#staffQueueSection');
+                const count    = staffQueue.length;
+
+                $('#queueCount, #saveCount').text(count);
+                $('#saveAllStaffBtn').prop('disabled', count === 0);
+
+                if (count === 0) { $section.hide(); return; }
+                $section.show();
+
+                let html = '';
+                staffQueue.forEach((entry, idx) => {
+                    const roleColor = entry.role === 'supervisor' ? '#2563eb' : '#7c3aed';
+                    const roleIcon  = entry.role === 'supervisor' ? 'la-user-cog' : 'la-hard-hat';
+                    const typeIcon  = entry.staff_type === 'registered' ? 'la-id-card' : 'la-user-circle';
+                    const typeColor = entry.staff_type === 'registered' ? '#7c3aed' : '#64748b';
+
+                    html += `<div class="d-flex align-items-center justify-content-between px-3 py-2"
+                                style="border-bottom:1px solid #f1f5f9;background:${idx % 2 === 0 ? '#fff' : '#fafafa'}">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="las ${roleIcon}" style="color:${roleColor};font-size:1.1rem;"></i>
+                            <div>
+                                <span class="fw-semibold" style="font-size:0.88rem;">${entry.display_name}</span>
+                                <span class="badge ms-1" style="background:#ede9fe;color:#6d28d9;font-size:0.72rem;">
+                                    ${entry.role}
+                                </span>
+                                <span class="badge ms-1" style="background:#f1f5f9;color:#64748b;font-size:0.72rem;">
+                                    <i class="las ${typeIcon}" style="color:${typeColor};"></i>
+                                    ${entry.staff_type}
+                                </span>
+                                ${entry.notes ? `<div style="font-size:0.75rem;color:#94a3b8;">${entry.notes}</div>` : ''}
+                            </div>
+                        </div>
+                        <button type="button" class="removeQueueEntry"
+                                data-idx="${idx}"
+                                style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;
+                                    width:28px;height:28px;padding:0;display:flex;align-items:center;
+                                    justify-content:center;flex-shrink:0;cursor:pointer;">
+                            <i class="las la-times" style="font-size:0.9rem;pointer-events:none;"></i>
+                        </button>
+                    </div>`;
+                });
+                $list.html(html);
+            }
+
+            // ── Helper: populate user dropdown ──────────────────────
+            function populateStaffDropdown(role) {
+                const $select  = $('#inlineStaffUserId');
+                const $hint    = $('#noStaffHint');
+                const $wrapper = $('#userSelectWrapper');
+
+                $select.html('<option value="">Loading…</option>');
+                $wrapper.css('opacity', '0.6');
+
+                const list = role === 'supervisor' ? allSupervisors : allWorkers;
+
+                setTimeout(() => {
+                    $wrapper.css('opacity', '1');
+                    if (!list || list.length === 0) {
+                        $select.html('<option value="">No users found for this role</option>');
+                        $hint.show();
                     } else {
-                        if (supervisorGroup) supervisorGroup.style.display = '';
-                        if (workerGroup)     workerGroup.style.display     = '';
+                        let html = '<option value="">— Select a user —</option>';
+                        list.forEach(u => { html += `<option value="${u.id}">${u.name}</option>`; });
+                        $select.html(html);
+                        $hint.hide();
                     }
-                    if (userSelect) userSelect.value = '';
+                }, 250);
+            }
+
+            // ── Helper: reset builder fields (not the queue) ────────
+            function resetEntryBuilder() {
+                selectedRole = '';
+                selectedType = 'registered';
+
+                // Reset type cards
+                $('#typeCardRegistered').css({
+                    'border-color': '#7c3aed', 'background': '#f5f3ff', 'color': '#6d28d9'
+                });
+                $('#typeCardTemporary').css({
+                    'border-color': '#e2e8f0', 'background': '', 'color': '#374151'
                 });
 
-            // Use correct element IDs matching your modal HTML
-            document.getElementById('addStaffModal')?.addEventListener('show.bs.modal', function () {
-                const roleEl      = document.querySelector('#addStaffModal select[name="role"]');
-                const typeEl      = document.getElementById('staffType');
-                const userEl      = document.getElementById('staffUserId');
-                const regFields   = document.getElementById('registeredFields');
-                const tempFields  = document.getElementById('temporaryFields');
-                const supGroup    = document.getElementById('supervisorOptions');
-                const wrkGroup    = document.getElementById('workerOptions');
+                // Reset role cards
+                $('#roleCardSupervisor, #roleCardWorker').css({
+                    'border-color': '#e2e8f0', 'background': '', 'color': '#374151'
+                });
 
-                if (roleEl)    roleEl.value    = '';
-                if (typeEl)    typeEl.value    = 'registered';
-                if (userEl)    userEl.value    = '';
-                if (regFields) regFields.style.display  = '';
-                if (tempFields) tempFields.style.display = 'none';
-                if (supGroup)  supGroup.style.display   = '';
-                if (wrkGroup)  wrkGroup.style.display   = '';
+                $('#inlineRegisteredFields').show();
+                $('#inlineTemporaryFields').hide();
+                $('#inlineStaffUserId').html('<option value="">— Select a role first —</option>');
+                $('#noStaffHint').hide();
+                $('#tempName, #tempPhone, #entryNotes').val('');
+            }
+
+            // ── Open modal — reset queue on every open ──────────────
+            $('[data-bs-target="#addStaffModal"]').on('click', function () {
+                staffQueue = [];
+                resetEntryBuilder();
+                renderQueue();
             });
 
-            // Add Staff
-            $('#addStaffForm').on('submit', function (e) {
-                e.preventDefault();
+            // ── Staff TYPE card click ────────────────────────────────
+            $(document).on('click', '.staff-type-card[data-type]', function () {
+                selectedType = $(this).data('type');
+
+                // Update visual state
+                $('#typeCardRegistered, #typeCardTemporary').css({
+                    'border-color': '#e2e8f0', 'background': '', 'color': '#374151'
+                });
+                $(this).css({ 'border-color': '#7c3aed', 'background': '#f5f3ff', 'color': '#6d28d9' });
+
+                if (selectedType === 'registered') {
+                    $('#inlineRegisteredFields').show();
+                    $('#inlineTemporaryFields').hide();
+                    if (selectedRole) populateStaffDropdown(selectedRole);
+                } else {
+                    $('#inlineRegisteredFields').hide();
+                    $('#inlineTemporaryFields').show();
+                }
+            });
+
+            // ── Staff ROLE card click ────────────────────────────────
+            $(document).on('click', '.staff-type-card[data-role]', function () {
+                selectedRole = $(this).data('role');
+
+                // Update visual state
+                $('#roleCardSupervisor, #roleCardWorker').css({
+                    'border-color': '#e2e8f0', 'background': '', 'color': '#374151'
+                });
+                $(this).css({ 'border-color': '#7c3aed', 'background': '#f5f3ff', 'color': '#6d28d9' });
+
+                if (selectedType === 'registered') populateStaffDropdown(selectedRole);
+            });
+
+            // ── ADD TO LIST button ───────────────────────────────────
+            $('#addToListBtn').on('click', function () {
+                if (!selectedRole) {
+                    Swal.fire('Missing Role', 'Please select Supervisor or Worker.', 'warning');
+                    return;
+                }
+
+                let entry = {
+                    role      : selectedRole,
+                    staff_type: selectedType,
+                    notes     : $('#entryNotes').val().trim(),
+                };
+
+                if (selectedType === 'registered') {
+                    const userId   = $('#inlineStaffUserId').val();
+                    const userName = $('#inlineStaffUserId option:selected').text();
+                    if (!userId) {
+                        Swal.fire('Missing User', 'Please select a user.', 'warning');
+                        return;
+                    }
+                    // Prevent duplicate
+                    if (staffQueue.find(e => e.staff_type === 'registered' && e.user_id == userId && e.role === selectedRole)) {
+                        Swal.fire('Duplicate', `${userName} is already in the list for this role.`, 'warning');
+                        return;
+                    }
+                    entry.user_id      = userId;
+                    entry.display_name = userName;
+                } else {
+                    const name = $('#tempName').val().trim();
+                    const phone = $('#tempPhone').val().trim();
+                    if (!name) {
+                        Swal.fire('Missing Name', "Please enter the staff member's name.", 'warning');
+                        return;
+                    }
+                    entry.temp_name    = name;
+                    entry.temp_phone   = phone;
+                    entry.display_name = name;
+                }
+
+                staffQueue.push(entry);
+                renderQueue();
+
+                // Clear inputs but keep role/type for quick repeat additions
+                $('#inlineStaffUserId').val('');
+                $('#tempName, #tempPhone, #entryNotes').val('');
+            });
+
+            // ── REMOVE entry from queue ──────────────────────────────
+            $(document).on('click', '.removeQueueEntry', function () {
+                staffQueue.splice($(this).data('idx'), 1);
+                renderQueue();
+            });
+
+            // ── SAVE ALL ─────────────────────────────────────────────
+            $('#saveAllStaffBtn').on('click', function () {
+                if (staffQueue.length === 0) return;
+
+                const $btn = $(this);
+                $btn.prop('disabled', true).html(
+                    '<span class="spinner-border spinner-border-sm me-1"></span>Saving…'
+                );
+
                 $.ajax({
-                    url: "{{ route('jobs.addStaff', $job->id) }}",
-                    type: 'POST',
-                    data: new FormData(this),
-                    processData: false,
-                    contentType: false,
-                    success: res => {
-                        $('#addStaffModal').modal('hide');
-                        Swal.fire({ icon: 'success', title: 'Done!', text: res.message,
-                            timer: 2500, showConfirmButton: false })
-                            .then(() => location.reload());
+                    url        : `/jobs/{{ $job->id }}/staff/bulk`,
+                    type       : 'POST',
+                    contentType: 'application/json',
+                    data       : JSON.stringify({ staff: staffQueue }),
+                    headers    : { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    success(res) {
+                        addStaffModal.hide();
+                        Swal.fire({
+                            icon             : 'success',
+                            title            : 'Staff Added!',
+                            text             : res.message,
+                            timer            : 2200,
+                            showConfirmButton: false,
+                        }).then(() => window.location.reload());
                     },
-                    error: xhr => Swal.fire('Error!', xhr.responseJSON?.message || 'Failed', 'error')
+                    error(xhr) {
+                        $btn.prop('disabled', false).html(
+                            `<i class="las la-save me-1"></i>Save All Staff (<span id="saveCount">${staffQueue.length}</span>)`
+                        );
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to save staff.', 'error');
+                    }
                 });
             });
 
-            // Delete individual staff member
+            // ── DELETE individual staff member ──────────────────────
             $(document).on('click', '.deleteStaffBtn', function () {
                 const id = $(this).data('id');
                 Swal.fire({
-                    title: 'Remove this staff member?',
-                    icon: 'warning',
-                    showCancelButton: true,
+                    title             : 'Remove this staff member?',
+                    icon              : 'warning',
+                    showCancelButton  : true,
                     confirmButtonColor: '#ef4444',
-                    confirmButtonText: 'Yes, remove'
+                    confirmButtonText : 'Yes, Remove',
                 }).then(r => {
                     if (!r.isConfirmed) return;
                     $.ajax({
-                        url: `/jobs/{{ $job->id }}/staff/${id}`,
-                        type: 'DELETE',
+                        url    : `/jobs/{{ $job->id }}/staff/${id}`,
+                        type   : 'DELETE',
                         headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
-                        success: res => Swal.fire('Removed!', res.message, 'success')
-                            .then(() => location.reload()),
-                        error: xhr => Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to remove', 'error')
+                        success(res) {
+                            Swal.fire({
+                                icon: 'success', title: 'Removed!',
+                                text: res.message, timer: 1800, showConfirmButton: false,
+                            }).then(() => window.location.reload());
+                        },
+                        error(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to remove staff.', 'error');
+                        }
                     });
                 });
             });
+
+            // ════════════════════════════════════════════════════════
+            //  STAR RATING — interactive click + hover
+            // ════════════════════════════════════════════════════════
+
+            // Pre-fill stars if an existing rating exists on page load
+            (function initStars() {
+                const existing = parseInt($('#ratingValue').val()) || 0;
+                if (existing > 0) paintStars(existing);
+            })();
+
+            function paintStars(value) {
+                $('.star-icon').each(function () {
+                    const starVal = parseInt($(this).data('value'));
+                    $(this)
+                        .css('color', starVal <= value ? '#f59e0b' : '#d1d5db')
+                        .removeClass('las la-star-half-alt')
+                        .addClass('las');
+                });
+            }
+
+            // Hover — preview highlight
+            $(document).on('mouseenter', '.star-icon', function () {
+                const hovered = parseInt($(this).data('value'));
+                $('.star-icon').each(function () {
+                    $(this).css('color', parseInt($(this).data('value')) <= hovered ? '#fbbf24' : '#d1d5db');
+                });
+            });
+
+            // Mouse leave — revert to selected value
+            $(document).on('mouseleave', '.star-rating', function () {
+                const selected = parseInt($('#ratingValue').val()) || 0;
+                paintStars(selected);
+            });
+
+            // Click — set the value
+            $(document).on('click', '.star-icon', function () {
+                const val = parseInt($(this).data('value'));
+                $('#ratingValue').val(val);
+                paintStars(val);
+                $('#ratingLabel').text('You selected ' + val + ' out of 5 stars');
+            });
+
+            // Reset stars when modal is closed
+            $('#addRatingModal').on('hidden.bs.modal', function () {
+                const existing = parseInt($('#ratingValue').val()) || 0;
+                paintStars(existing);
+                if (!existing) $('#ratingLabel').text('Click a star to rate');
+            });
+
+            // Submit rating form
+            $('#addRatingForm').on('submit', function (e) {
+                e.preventDefault();
+
+                if (!$('#ratingValue').val()) {
+                    Swal.fire('No Rating', 'Please click a star to select a rating.', 'warning');
+                    return;
+                }
+
+                let formData = new FormData(this);
+                $.ajax({
+                    url        : "{{ route('jobs.addRating', $job->id) }}",
+                    type       : 'POST',
+                    data       : formData,
+                    processData: false,
+                    contentType: false,
+                    success(response) {
+                        bootstrap.Modal.getInstance(document.getElementById('addRatingModal')).hide();
+                        Swal.fire({
+                            icon             : 'success',
+                            title            : 'Rating Saved!',
+                            text             : response.message,
+                            timer            : 2000,
+                            showConfirmButton: false,
+                        }).then(() => window.location.reload());
+                    },
+                    error(xhr) {
+                        Swal.fire('Error!', xhr.responseJSON?.message || 'Failed to save rating.', 'error');
+                    }
+                });
+            });
+
+            // ── APPROVE / REJECT staff (show page banner buttons) ────
+            function approveJobStaff(action) {
+                const isApprove = action === 'approve';
+                Swal.fire({
+                    title             : isApprove ? 'Approve Staff?' : 'Reject & Remove?',
+                    text              : isApprove
+                        ? 'Staff will be approved and the work order stays Completed.'
+                        : 'All pending staff will be removed. Work order stays Completed.',
+                    icon              : 'question',
+                    showCancelButton  : true,
+                    confirmButtonColor: isApprove ? '#10b981' : '#ef4444',
+                    confirmButtonText : isApprove ? 'Yes, Approve' : 'Yes, Reject',
+                }).then(r => {
+                    if (!r.isConfirmed) return;
+                    $.ajax({
+                        url    : `/jobs/{{ $job->id }}/staff/approve`,
+                        type   : 'POST',
+                        headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                        data   : { action },
+                        success(res) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: isApprove ? 'Approved!' : 'Rejected!',
+                                text: res.message, timer: 2000, showConfirmButton: false,
+                            }).then(() => window.location.reload());
+                        },
+                        error(xhr) {
+                            Swal.fire('Error!', xhr.responseJSON?.message || 'Action failed.', 'error');
+                        }
+                    });
+                });
+            }
+
 
         });
 

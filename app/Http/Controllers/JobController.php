@@ -310,7 +310,7 @@ class JobController extends Controller
         $fieldstaff  = User::where('role', 'field_staff')->where('is_active', true)
                             ->orderBy('name')->get(['id', 'name', 'branch_id']);
 
-        // ✅ NEW — for Add Staff modal
+        // for Add Staff modal
         $supervisors = User::where('role', 'supervisor')->where('is_active', true)
                             ->orderBy('name')->get(['id', 'name']);
 
@@ -319,7 +319,7 @@ class JobController extends Controller
 
         return view('jobs.show', compact(
             'job', 'telecallers', 'fieldstaff',
-            'supervisors', 'workers',           // ✅ NEW
+            'supervisors', 'workers',
             'branches', 'services', 'serviceTypes'
         ));
     }
@@ -619,7 +619,8 @@ class JobController extends Controller
 
             $userToAssign = User::findOrFail($validated['assigned_to']);
 
-            if ((int)$userToAssign->branch_id !== (int)$job->branch_id) {
+            // Only enforce branch check if the user has a branch set
+            if ($userToAssign->branch_id && (int)$userToAssign->branch_id !== (int)$job->branch_id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Selected staff does not belong to this branch.'
@@ -1642,7 +1643,8 @@ class JobController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', $search)
                 ->orWhere('job_code', 'like', $search)
-                ->orWhereHas('customer', fn($c) => $c->where('name', 'like', $search));
+                ->orWhereHas('customer', fn($c) => $c->where('name', 'like', $search))
+                ->orWhereHas('customer', fn($b) => $b->where('phone', 'like', $search));
             });
         }
 
@@ -1700,5 +1702,55 @@ class JobController extends Controller
         ));
     }
 
+    public function bulkStore(Request $request, Job $job)
+    {
+        if (!in_array($job->status, ['completed', 'staff_pending_approval'])) {
+            return response()->json(['success' => false, 'message' => 'Staff can only be added to completed work orders.'], 400);
+        }
+
+        if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager'])) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $request->validate([
+            'staff'              => 'required|array|min:1',
+            'staff.*.role'       => 'required|in:supervisor,worker',
+            'staff.*.staff_type' => 'required|in:registered,temporary',
+            'staff.*.user_id'    => 'required_if:staff.*.staff_type,registered|nullable|exists:users,id',
+            'staff.*.temp_name'  => 'required_if:staff.*.staff_type,temporary|nullable|string|max:255',
+            'staff.*.notes'      => 'nullable|string|max:500',
+        ]);
+
+        foreach ($request->staff as $entry) {
+            // Validate registered user actually has the correct role
+            if ($entry['staff_type'] === 'registered' && !empty($entry['user_id'])) {
+                $selectedUser = User::find($entry['user_id']);
+                if ($selectedUser && $selectedUser->role !== $entry['role']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "User {$selectedUser->name} is not a {$entry['role']}."
+                    ], 422);
+                }
+            }
+
+            $job->staff()->create([
+                'user_id'    => $entry['staff_type'] === 'registered' ? $entry['user_id'] : null,
+                'temp_name'  => $entry['staff_type'] === 'temporary'  ? $entry['temp_name'] : null,
+                'temp_phone' => $entry['staff_type'] === 'temporary'  ? $entry['temp_phone'] : null,
+                'role'       => $entry['role'],
+                'staff_type' => $entry['staff_type'],
+                'notes'      => $entry['notes'] ?? null,
+                'added_by'   => auth()->id(),
+            ]);
+        }
+
+        // Flip the whole job to pending approval — same as single addStaff()
+        $job->update(['status' => 'staff_pending_approval']);
+
+        return response()->json([
+            'success' => true,
+            'message' => count($request->staff) . ' staff member(s) added. Work order is now pending super admin approval.',
+        ]);
+    }
 
 }

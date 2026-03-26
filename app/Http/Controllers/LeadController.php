@@ -1711,13 +1711,12 @@ class LeadController extends Controller
     }
 
     /**
-     * Quick search for telecallers - search leads and customers by phone/email
+     * Quick search - search leads and customers by phone/email
      */
     public function quickSearch(Request $request)
     {
         $user = auth()->user();
 
-        // Only telecallers, super_admin and lead_manager can use this
         if (!in_array($user->role, ['telecallers', 'super_admin', 'lead_manager'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
@@ -1731,11 +1730,9 @@ class LeadController extends Controller
         // Search Leads
         $leadsQuery = Lead::query();
 
-        // Telecallers can only search their branch leads
         if ($user->role === 'telecallers') {
             $leadsQuery->where('branch_id', $user->branch_id);
         }
-        // Super admin and lead manager can search all leads
 
         $leads = $leadsQuery->where(function($q) use ($query) {
                 $q->where('phone', 'like', "%{$query}%")
@@ -1748,46 +1745,148 @@ class LeadController extends Controller
             ->get()
             ->map(function($lead) {
                 return [
-                    'id' => $lead->id,
-                    'lead_code' => $lead->lead_code,
-                    'name' => $lead->name,
-                    'phone' => $lead->phone,
-                    'email' => $lead->email,
-                    'status' => $lead->status,
-                    'service' => $lead->service->name ?? 'N/A',
-                    'branch' => $lead->branch->name ?? 'N/A',
-                    'branch_id' => $lead->branch_id,
+                    'id'         => $lead->id,
+                    'lead_code'  => $lead->lead_code,
+                    'name'       => $lead->name,
+                    'phone'      => $lead->phone,
+                    'email'      => $lead->email,
+                    'status'     => $lead->status,
+                    'service'    => $lead->service->name ?? 'N/A',
+                    'branch'     => $lead->branch->name ?? 'N/A',
+                    'branch_id'  => $lead->branch_id,
                 ];
             });
 
-        // Search Customers - All roles can search all customers
+        // Search Customers — include completed/approved job staff
         $customers = Customer::where(function($q) use ($query) {
                 $q->where('phone', 'like', "%{$query}%")
                 ->orWhere('email', 'like', "%{$query}%")
                 ->orWhere('name', 'like', "%{$query}%")
                 ->orWhere('customer_code', 'like', "%{$query}%");
             })
-            ->with(['branch'])
+            ->with([
+                'branch',
+                // Load only completed/approved jobs with their staff
+                'jobs' => function($q) {
+                    $q->whereIn('status', ['completed', 'approved'])
+                    ->with([
+                        'staff.user',       // all JobStaff with their User
+                        'assignedTo',       // the assigned_to user
+                    ])
+                    ->latest()
+                    ->limit(3);            // cap to avoid huge payloads
+                },
+            ])
             ->withCount('jobs')
             ->limit(5)
             ->get()
             ->map(function($customer) {
+                $completedJobs = $customer->jobs->map(function($job) {
+                    // Assigned user
+                    $assignedUser = $job->assignedTo ? [
+                        'id'   => $job->assignedTo->id,
+                        'name' => $job->assignedTo->name,
+                        'phone'=> $job->assignedTo->phone,
+                    ] : null;
+
+                    // Supervisors from job_staff
+                    $supervisors = $job->staff
+                        ->where('role', 'supervisor')
+                        ->map(fn($s) => [
+                            'id'    => $s->user_id,
+                            'name'  => $s->display_name,
+                            'phone' => $s->display_phone,
+                            'type'  => $s->staff_type,
+                        ])->values();
+
+                    // Workers from job_staff
+                    $workers = $job->staff
+                        ->where('role', 'worker')
+                        ->map(fn($s) => [
+                            'id'    => $s->user_id,
+                            'name'  => $s->display_name,
+                            'phone' => $s->display_phone,
+                            'type'  => $s->staff_type,
+                        ])->values();
+
+                    return [
+                        'job_id'        => $job->id,
+                        'job_code'      => $job->job_code,
+                        'status'        => $job->status,
+                        'assigned_user' => $assignedUser,
+                        'supervisors'   => $supervisors,
+                        'workers'       => $workers,
+                    ];
+                });
+
                 return [
-                    'id' => $customer->id,
+                    'id'            => $customer->id,
                     'customer_code' => $customer->customer_code,
-                    'name' => $customer->name,
-                    'phone' => $customer->phone,
-                    'email' => $customer->email,
-                    'priority' => $customer->priority,
-                    'total_jobs' => $customer->jobs_count,
-                    'branch' => $customer->branch->name ?? 'N/A',
-                    'branch_id' => $customer->branch_id
+                    'name'          => $customer->name,
+                    'phone'         => $customer->phone,
+                    'email'         => $customer->email,
+                    'priority'      => $customer->priority,
+                    'total_jobs'    => $customer->jobs_count,
+                    'branch'        => $customer->branch->name ?? 'N/A',
+                    'branch_id'     => $customer->branch_id,
+                    'completed_jobs'=> $completedJobs,  // ← new field
+                ];
+            });
+
+        // Search Jobs/Work Orders by job_code, customer name, phone
+        $jobs = Job::where(function($q) use ($query) {
+                $q->where('job_code', 'like', "%{$query}%")
+                ->orWhereHas('customer', fn($c) => $c->where('name', 'like', "%{$query}%")
+                                                    ->orWhere('phone', 'like', "%{$query}%"));
+            })
+            ->with([
+                'customer',
+                'branch',
+                'service',
+                'assignedTo',
+                'staff.user',
+            ])
+            ->when($user->role === 'telecallers', fn($q) => $q->where('branch_id', $user->branch_id))
+            ->limit(5)
+            ->get()
+            ->map(function($job) {
+                $supervisors = $job->staff
+                    ->where('role', 'supervisor')
+                    ->map(fn($s) => [
+                        'name'  => $s->display_name,
+                        'phone' => $s->display_phone,
+                    ])->values();
+
+                $workers = $job->staff
+                    ->where('role', 'worker')
+                    ->map(fn($s) => [
+                        'name'  => $s->display_name,
+                        'phone' => $s->display_phone,
+                    ])->values();
+
+                return [
+                    'id'            => $job->id,
+                    'job_code'      => $job->job_code,
+                    'title'         => $job->title,
+                    'status'        => $job->status,
+                    'customer_name' => $job->customer->name ?? 'N/A',
+                    'customer_phone'=> $job->customer->phone ?? 'N/A',
+                    'branch'        => $job->branch->name ?? 'N/A',
+                    'branch_id'     => $job->branch_id,
+                    'service'       => $job->service->name ?? 'N/A',
+                    'assigned_user' => $job->assignedTo ? [
+                        'name'  => $job->assignedTo->name,
+                        'phone' => $job->assignedTo->phone,
+                    ] : null,
+                    'supervisors'   => $supervisors,
+                    'workers'       => $workers,
                 ];
             });
 
         return response()->json([
-            'leads' => $leads,
-            'customers' => $customers
+            'leads'     => $leads,
+            'customers' => $customers,
+            'jobs'      => $jobs
         ]);
     }
 

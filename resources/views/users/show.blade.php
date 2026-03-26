@@ -384,6 +384,59 @@
 
         @endif
 
+        {{-- SUPERVISOR - JOB STAFF STATISTICS --}}
+        @if($user->role === 'supervisor')
+        <h5 class="section-title">
+            <i class="las la-hard-hat me-2"></i>Supervisor Work Overview
+            <small class="text-muted ms-2" style="font-size: 0.75rem; font-weight: 400;">(Jobs this supervisor was assigned to)</small>
+        </h5>
+
+        <div class="row stat-row">
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stat-card primary">
+                    <div class="card-body">
+                        <div class="metric-value text-primary">{{ $supervisorJobsCount }}</div>
+                        <div class="metric-label">Total Jobs Done</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stat-card success">
+                    <div class="card-body">
+                        <div class="metric-value text-success">₹{{ number_format($supervisorJobsValue, 0) }}</div>
+                        <div class="metric-label">Total Jobs Value</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stat-card warning">
+                    <div class="card-body">
+                        <div class="metric-value text-warning">₹{{ number_format($supervisorAddonValue, 0) }}</div>
+                        <div class="metric-label">Total Addon Value</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stat-card info">
+                    <div class="card-body">
+                        <div class="metric-value text-info">₹{{ number_format($supervisorJobsValue + $supervisorAddonValue, 0) }}</div>
+                        <div class="metric-label">Combined Total Value</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if($supervisorJobsCount === 0)
+        <div class="card">
+            <div class="card-body text-center py-4">
+                <i class="las la-hard-hat" style="font-size: 4rem; color: #cbd5e0;"></i>
+                <p class="text-muted mt-3 mb-0">No completed jobs assigned to this supervisor yet.</p>
+            </div>
+        </div>
+        @endif
+
+        @endif
+
         {{-- LEAD MANAGER & SUPER ADMIN - CREATED LEADS STATISTICS --}}
         @if(in_array($user->role, ['lead_manager', 'super_admin']))
         <h5 class="section-title">

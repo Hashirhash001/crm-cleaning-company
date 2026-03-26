@@ -47,10 +47,10 @@ class UserController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%")
-                ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -78,7 +78,10 @@ class UserController extends Controller
             'email' => 'required|email|unique:users',
             'password' => 'required|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => in_array(request()->input('role'), ['supervisor', 'super_admin', 'worker', 'field_staff'])
+                ? 'nullable|exists:branches,id'
+                : 'required|exists:branches,id',
+
             'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers,supervisor,worker',
         ]);
 
@@ -128,7 +131,10 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => in_array(request()->input('role'), ['supervisor', 'super_admin', 'worker', 'field_staff'])
+                ? 'nullable|exists:branches,id'
+                : 'required|exists:branches,id',
+
             'role' => 'required|in:super_admin,lead_manager,field_staff,telecallers,supervisor,worker',
         ]);
 
@@ -295,6 +301,23 @@ class UserController extends Controller
         $rejectedLeadsList = $createdLeads->where('status', 'rejected')->take(20);
         $convertedLeadsList = $createdLeadsConverted->take(20);
 
+        // ==================== SUPERVISOR STATISTICS ====================
+        $supervisorJobsCount  = 0;
+        $supervisorJobsValue  = 0;
+        $supervisorAddonValue = 0;
+
+        if ($user->role === 'supervisor') {
+            $supervisorJobIds = \App\Models\JobStaff::where('user_id', $user->id)
+                ->whereHas('job', function ($q) {
+                    $q->whereIn('status', ['completed', 'staff_pending_approval']);
+                })
+                ->pluck('job_id');
+
+            $supervisorJobsCount  = $supervisorJobIds->count();
+            $supervisorJobsValue  = \App\Models\Job::whereIn('id', $supervisorJobIds)->sum('amount');
+            $supervisorAddonValue = \App\Models\Job::whereIn('id', $supervisorJobIds)->sum('addon_price');
+        }
+
         return view('users.show', compact(
             'user',
             'totalAssignedJobs',
@@ -355,7 +378,10 @@ class UserController extends Controller
             'confirmedLeadsList',
             'approvedLeadsList',
             'rejectedLeadsList',
-            'convertedLeadsList'
+            'convertedLeadsList',
+            'supervisorJobsCount',
+            'supervisorJobsValue',
+            'supervisorAddonValue'
         ));
     }
 
@@ -634,7 +660,7 @@ class UserController extends Controller
 
         // ── FIX 1: lead_manager sees ALL branches ──────────────────────────────
         $usersQuery = User::where('is_active', true)
-            ->whereNotIn('role', ['super_admin', 'lead_manager']);
+            ->whereNotIn('role', ['super_admin', 'lead_manager', 'worker']);
 
         // super_admin sees everyone; lead_manager now also sees all branches
         // (removed the branch restriction for lead_manager)
@@ -708,7 +734,7 @@ class UserController extends Controller
                 $staffJobIds = \App\Models\JobStaff::where('user_id', $user->id)
                     ->whereHas('job', function ($q) use ($startDate, $endDate) {
                         $q->whereIn('status', ['completed', 'staff_pending_approval'])
-                        ->whereBetween('completed_at', [$startDate, $endDate]);
+                            ->whereBetween('completed_at', [$startDate, $endDate]);
                     })
                     ->pluck('job_id');
 
@@ -784,7 +810,7 @@ class UserController extends Controller
 
         return response()->json([
             'success'    => true,
-            'leaderboard'=> $ranked,
+            'leaderboard' => $ranked,
             'summary'    => $summary,
             'period'     => $period,
             'start_date' => $startDate->format('Y-m-d'),
@@ -813,11 +839,21 @@ class UserController extends Controller
 
             // Header row
             fputcsv($file, [
-                'Rank', 'Name', 'Email', 'Role', 'Branch',
-                'Leads Created', 'Leads Converted', 'Conversion Rate (%)',
-                'Jobs/Work Orders', 'Jobs Value (₹)', 'Addon Value (₹)',
-                'Leads Value (₹)', 'Total Value (₹)', 'Avg Rating',
-                'Period Start', 'Period End',
+                'Rank',
+                'Name',
+                'Email',
+                'Role',
+                'Branch',
+                'Leads Created',
+                'Leads Converted',
+                'Conversion Rate (%)',
+                'Jobs/Work Orders',
+                'Jobs Value (₹)',
+                'Addon Value (₹)',
+                'Leads Value (₹)',
+                'Total Value (₹)',
+                'Period Start',
+                'Period End',
             ]);
 
             foreach ($leaderboard as $u) {
@@ -835,7 +871,6 @@ class UserController extends Controller
                     number_format($u['addon_value'], 2, '.', ''),
                     number_format($u['leads_value'], 2, '.', ''),
                     number_format($u['total_value'], 2, '.', ''),
-                    $u['avg_rating'] ?? '-',
                     $startDate->format('Y-m-d'),
                     $endDate->format('Y-m-d'),
                 ]);
@@ -846,5 +881,4 @@ class UserController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
-
 }

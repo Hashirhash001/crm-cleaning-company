@@ -6,18 +6,15 @@
     <link href="{{ asset('assets/libs/simple-datatables/style.css') }}" rel="stylesheet" type="text/css" />
 
     <style>
-        /* Clickable user name styling */
         .user-name-link {
             color: #0d6efd;
             text-decoration: none;
             font-weight: 600;
         }
-
         .user-name-link:hover {
             color: #0a58ca;
             text-decoration: underline;
         }
-
         .user-name-link h6 {
             color: inherit;
             font-weight: 600;
@@ -45,9 +42,8 @@
 <div class="row mb-3">
     <div class="col-12">
         <div class="card">
-            <div class="card-body" style=" padding: 1.5rem; border-radius: 0.4rem;">
+            <div class="card-body" style="padding: 1.5rem; border-radius: 0.4rem;">
                 <div class="row align-items-end">
-                    {{-- Role Filter - Only show if not lead_manager --}}
                     @if(auth()->user()->role !== 'lead_manager')
                     <div class="col-md-3">
                         <label class="form-label fw-semibold mb-2">Role</label>
@@ -56,12 +52,11 @@
                             <option value="super_admin" {{ request('role') == 'super_admin' ? 'selected' : '' }}>Super Admin</option>
                             <option value="lead_manager" {{ request('role') == 'lead_manager' ? 'selected' : '' }}>Lead Manager</option>
                             <option value="telecallers" {{ request('role') == 'telecallers' ? 'selected' : '' }}>Telecaller</option>
-                            <option value="supervisor">{{ request('role') == 'supervisor' ? 'selected' : '' }}Supervisor</option>
-                            <option value="worker">{{ request('role') == 'worker' ? 'selected' : '' }}Worker</option>
+                            <option value="supervisor" {{ request('role') == 'supervisor' ? 'selected' : '' }}>Supervisor</option>
+                            <option value="worker" {{ request('role') == 'worker' ? 'selected' : '' }}>Worker</option>
                         </select>
                     </div>
                     @else
-                        {{-- For lead managers, show a disabled field indicating they can only see telecallers --}}
                         <div class="col-md-3">
                             <label class="form-label fw-semibold mb-2">Role</label>
                             <input type="text" class="form-control" value="Telecallers Only" disabled>
@@ -88,7 +83,6 @@
                             <button type="button" class="btn btn-secondary flex-grow-1" id="resetFilters">
                                 <i class="fas fa-redo me-2"></i> Reset
                             </button>
-                            {{-- ✅ Only super admins can add users --}}
                             @if(auth()->user()->role === 'super_admin')
                                 <button type="button" class="btn btn-primary flex-grow-1" id="addUserBtn">
                                     <i class="fas fa-plus me-2"></i> Add User
@@ -132,7 +126,6 @@
                     </table>
                 </div>
             </div>
-            <!-- Pagination -->
             <div class="card-footer">
                 <div id="paginationContainer">
                     {{ $users->links('pagination::bootstrap-5') }}
@@ -142,7 +135,6 @@
     </div>
 </div>
 
-{{-- ✅ Only show modal for super admins --}}
 @if(auth()->user()->role === 'super_admin')
 <!-- User Modal -->
 <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
@@ -205,9 +197,10 @@
                     </div>
 
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        {{-- ✅ Branch field - optional for super_admin and supervisor --}}
+                        <div class="col-md-6" id="branchField">
                             <label for="branch_id" class="form-label">Branch <span class="text-danger">*</span></label>
-                            <select class="form-select" id="branch_id" name="branch_id" required>
+                            <select class="form-select" id="branch_id" name="branch_id">
                                 <option value="">Select Branch</option>
                                 @foreach($branches as $branch)
                                     <option value="{{ $branch->id }}">{{ $branch->name }}</option>
@@ -215,6 +208,7 @@
                             </select>
                             <span class="text-danger error-text branch_id_error"></span>
                         </div>
+
                         <div class="col-md-6">
                             <label for="is_active" class="form-label">Status</label>
                             <div class="form-check form-switch form-switch-success mt-2">
@@ -241,11 +235,27 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         $(document).ready(function() {
-            // CSRF Token Setup
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
+            });
+
+            // Toggle branch required/optional based on selected role
+            function updateBranchField() {
+                const role = $('#role').val();
+                const isOptional = ['supervisor', 'super_admin', 'worker', 'field_staff'].includes(role);
+                if (isOptional) {
+                    $('#branchField').hide();
+                    $('#branchid').removeAttr('required').val('');
+                } else {
+                    $('#branchField').show();
+                    $('#branchid').attr('required', true);
+                }
+            }
+
+            $('#role').on('change', function() {
+                updateBranchField();
             });
 
             // AJAX Load Function
@@ -268,11 +278,7 @@
                     },
                     error: function(xhr) {
                         console.error('Error loading users:', xhr);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error!',
-                            text: 'Failed to load users'
-                        });
+                        Swal.fire({ icon: 'error', title: 'Error!', text: 'Failed to load users' });
                     }
                 });
             }
@@ -280,17 +286,14 @@
             // Pagination Click Handler
             $(document).on('click', '#paginationContainer .pagination a', function(e) {
                 e.preventDefault();
-                let url = $(this).attr('href');
-                loadUsers(url);
+                loadUsers($(this).attr('href'));
             });
 
             // Filters with Debounce
             let filterTimeout;
             $('#roleFilter, #statusFilter, #searchUser').on('change keyup', function() {
                 clearTimeout(filterTimeout);
-                filterTimeout = setTimeout(function() {
-                    loadUsers();
-                }, 300);
+                filterTimeout = setTimeout(function() { loadUsers(); }, 300);
             });
 
             // Reset Filters
@@ -300,6 +303,7 @@
             });
 
             @if(auth()->user()->role === 'super_admin')
+
             // Add User Button Click
             $('#addUserBtn').click(function() {
                 $('#userForm')[0].reset();
@@ -310,6 +314,7 @@
                 $('#password').attr('required', true);
                 $('#password_confirmation').attr('required', true);
                 $('.error-text').text('');
+                updateBranchField(); // ✅ reset branch state on fresh open
                 $('#userModal').modal('show');
             });
 
@@ -336,15 +341,11 @@
                         $('#password_confirmation').attr('required', false);
 
                         $('.error-text').text('');
+                        updateBranchField(); // ✅ update branch state based on loaded role
                         $('#userModal').modal('show');
                     },
                     error: function() {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error!',
-                            text: 'Failed to fetch user data',
-                            timer: 2000
-                        });
+                        Swal.fire({ icon: 'error', title: 'Error!', text: 'Failed to fetch user data', timer: 2000 });
                     }
                 });
             });
@@ -367,16 +368,13 @@
                     contentType: false,
                     success: function(response) {
                         $('#userModal').modal('hide');
-
                         Swal.fire({
                             icon: 'success',
                             title: 'Success!',
                             text: response.message,
                             timer: 2000,
                             showConfirmButton: false
-                        }).then(() => {
-                            loadUsers();
-                        });
+                        }).then(() => { loadUsers(); });
                     },
                     error: function(xhr) {
                         if (xhr.status === 422) {
@@ -385,12 +383,7 @@
                                 $('.' + key + '_error').text(value[0]);
                             });
                         } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error!',
-                                text: 'Something went wrong!',
-                                timer: 2000
-                            });
+                            Swal.fire({ icon: 'error', title: 'Error!', text: 'Something went wrong!', timer: 2000 });
                         }
                     }
                 });
@@ -421,24 +414,17 @@
                                     text: response.message,
                                     timer: 2000,
                                     showConfirmButton: false
-                                }).then(() => {
-                                    loadUsers();
-                                });
+                                }).then(() => { loadUsers(); });
                             },
                             error: function() {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error!',
-                                    text: 'Failed to delete user',
-                                    timer: 2000
-                                });
+                                Swal.fire({ icon: 'error', title: 'Error!', text: 'Failed to delete user', timer: 2000 });
                             }
                         });
                     }
                 });
             });
+
             @endif
         });
     </script>
-
 @endsection

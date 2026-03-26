@@ -174,17 +174,6 @@
         width: 100%;
     }
 
-    .leaderboard-table thead th {
-        background: rgba(102, 126, 234, 0.08);
-        color: #495057;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.75rem;
-        letter-spacing: 0.5px;
-        padding: 15px;
-        border: none;
-    }
-
     .leaderboard-table tbody tr {
         background: white;
         transition: all 0.3s ease;
@@ -306,7 +295,11 @@
 
     /* Table header text */
     .leaderboard-table thead th {
-        background: rgba(99, 102, 241, 0.08);
+        background: #f0f1ff !important;
+        box-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
+        position: sticky;
+        top: 0;
+        z-index: 2;
         color: #1e293b;
         font-weight: 700;
         text-transform: uppercase;
@@ -565,7 +558,6 @@
                                 <option value="telecallers">Telecallers</option>
                                 <option value="field_staff">Field Staff</option>
                                 <option value="supervisor">Supervisors</option>
-                                <option value="worker">Workers</option>
                             </select>
                         </div>
 
@@ -630,11 +622,11 @@
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table mb-0 leaderboard-table">
-                            <thead>
+                    <div class="table-responsive" style="overflow-x:auto; max-height:600px; overflow-y:auto;">
+                        <table class="table mb-0 leaderboard-table" style="min-width:900px;">
+                            <thead style="position:sticky;top:0;z-index:2;">
                                 <tr>
-                                    <th width="60">Rank</th>
+                                    <th style="width:60px">Rank</th>
                                     <th>User</th>
                                     <th>Role</th>
                                     <th>Branch</th>
@@ -646,12 +638,11 @@
                                     <th class="text-end">Addon Value</th>
                                     <th class="text-end">Leads Value</th>
                                     <th class="text-end">Total Value</th>
-                                    <th class="text-center">Rating</th>
                                 </tr>
                             </thead>
                             <tbody id="leaderboardTableBody">
                                 <tr>
-                                    <td colspan="11" class="text-center py-5">
+                                    <td colspan="12" class="text-center py-5">
                                         <div class="spinner-professional mx-auto"></div>
                                         <p class="text-muted mt-2">Loading rankings...</p>
                                     </td>
@@ -780,67 +771,67 @@ $(document).ready(function () {
     // ── Summary cards ───────────────────────────────────────────────────────
     function updateSummaryCards(summary) {
         const html = `
-        <div class="col-md-3 fade-in-up">
-            <div class="card stat-card border-0">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 fw-semibold">Total Leads</p>
-                            <h2 class="mb-0 fw-bold">${summary.total_leads_created}</h2>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 p-3 rounded-circle stat-icon">
-                            <i class="las la-user-plus text-primary" style="font-size:2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 fade-in-up" style="animation-delay:.1s">
-            <div class="card stat-card border-0">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 fw-semibold">Converted</p>
-                            <h2 class="mb-0 fw-bold">${summary.total_leads_converted}</h2>
-                            <small class="text-success fw-bold">${(summary.avg_conversion_rate || 0).toFixed(1)}% avg</small>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded-circle stat-icon">
-                            <i class="las la-check-circle text-success" style="font-size:2rem;"></i>
+            <div class="col-md-3 fade-in-up">
+                <div class="card stat-card border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Total Leads</p>
+                                <h2 class="mb-0 fw-bold">${summary.total_leads_created}</h2>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 p-3 rounded-circle stat-icon">
+                                <i class="las la-user-plus text-primary" style="font-size:2rem"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-3 fade-in-up" style="animation-delay:.2s">
-            <div class="card stat-card border-0">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 fw-semibold">Jobs Completed</p>
-                            <h2 class="mb-0 fw-bold">${summary.total_jobs_approved}</h2>
-                        </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded-circle stat-icon">
-                            <i class="las la-briefcase text-info" style="font-size:2rem;"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 fade-in-up" style="animation-delay:.3s">
-            <div class="card stat-card border-0">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 fw-semibold">Total Value</p>
-                            <h2 class="mb-0 fw-bold text-warning">₹${formatNumber(summary.total_value)}</h2>
-                        </div>
-                        <div class="bg-warning bg-opacity-10 p-3 rounded-circle stat-icon">
-                            <i class="las la-coins text-warning" style="font-size:2rem;"></i>
+            <div class="col-md-3 fade-in-up" style="animation-delay:.1s">
+                <div class="card stat-card border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Converted</p>
+                                <h2 class="mb-0 fw-bold">${summary.total_leads_converted}</h2>
+                                <small class="text-success fw-bold">${(summary.avg_conversion_rate || 0).toFixed(1)}% avg</small>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded-circle stat-icon">
+                                <i class="las la-check-circle text-success" style="font-size:2rem"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>`;
+            <div class="col-md-3 fade-in-up" style="animation-delay:.2s">
+                <div class="card stat-card border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Jobs Completed</p>
+                                <h2 class="mb-0 fw-bold">${summary.total_jobs_approved}</h2>
+                            </div>
+                            <div class="bg-info bg-opacity-10 p-3 rounded-circle stat-icon">
+                                <i class="las la-briefcase text-info" style="font-size:2rem"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 fade-in-up" style="animation-delay:.3s">
+                <div class="card stat-card border-0">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted mb-1 fw-semibold">Total Value</p>
+                                <h2 class="mb-0 fw-bold text-warning">${formatNumber(summary.total_value)}</h2>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 p-3 rounded-circle stat-icon">
+                                <i class="las la-coins text-warning" style="font-size:2rem"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
         $('#summaryCards').html(html);
     }
 
@@ -850,7 +841,7 @@ $(document).ready(function () {
             $('#topPerformersContainer').html(`
                 <div class="col-12 text-center py-5">
                     <div class="glass-card p-5 d-inline-block">
-                        <i class="las la-trophy" style="font-size:4rem;color:#ccc;"></i>
+                        <i class="las la-trophy" style="font-size:4rem;color:#ccc"></i>
                         <p class="text-muted mt-3 mb-0">No performance data yet</p>
                     </div>
                 </div>`);
@@ -858,72 +849,69 @@ $(document).ready(function () {
         }
 
         const medals = ['🥇', '🥈', '🥉'];
+
         let html = '';
-
         topUsers.forEach(user => {
-            // ── FIX 6: No 1st/2nd/3rd if fewer than 3 active users ───────
-            const rankClass  = user.rank <= 3 ? `rank-${user.rank}` : 'rank-other';
-            const medalEmoji = medals[user.rank - 1] || '';
+            const rankClass   = user.rank <= 3 ? `rank-${user.rank}` : 'rank-other';
+            const medalEmoji  = medals[user.rank - 1] ?? '';
+            const isStaff     = ['supervisor', 'worker'].includes(user.role);
 
-            // Show addon line only for supervisors/workers
-            const isStaff = ['supervisor','worker'].includes(user.role);
-            const addonLine = isStaff && user.addon_value > 0
-                ? `<div class="col-12 mt-1">
-                       <div class="p-2 rounded" style="background:rgba(245,158,11,0.1);">
-                           <small class="text-muted d-block" style="font-size:0.7rem;">Addon Value</small>
-                           <small class="fw-bold text-warning">₹${formatNumber(user.addon_value)}</small>
-                       </div>
-                   </div>`
-                : '';
-
-            const ratingLine = user.avg_rating
-                ? `<div class="mt-2">${renderStars(user.avg_rating)}</div>` : '';
+            const addonLine = isStaff && user.addon_value > 0 ? `
+                <div class="col-12 mt-1">
+                    <div class="p-2 rounded" style="background:rgba(245,158,11,0.1)">
+                        <small class="text-muted d-block" style="font-size:0.7rem">Addon Value</small>
+                        <small class="fw-bold text-warning">${formatNumber(user.addon_value)}</small>
+                    </div>
+                </div>` : '';
 
             html += `
-            <div class="col-lg-4 col-md-6 mb-3 winner-card">
-                <div class="card glass-card border-0 h-100">
-                    <div class="card-body text-center p-4">
-                        <div class="mb-2">
-                            <span class="medal-emoji">${medalEmoji}</span>
-                        </div>
-                        <div class="rank-badge ${rankClass} mx-auto mb-3">
-                            <span style="font-weight:900;">${user.rank}</span>
-                        </div>
-                        <h5 class="fw-bold mb-1">${user.name}</h5>
-                        <p class="text-muted small mb-3">
-                            <span class="badge bg-light text-dark">${formatRole(user.role)}</span>
-                            <span class="badge bg-light text-dark ms-1">${user.branch}</span>
-                        </p>
-                        <div class="row g-2 mb-3">
-                            ${!isStaff ? `
-                            <div class="col-4">
-                                <div class="p-2 rounded" style="background:rgba(13,110,253,0.1);">
-                                    <h6 class="mb-0 fw-bold text-primary">${user.leads_created}</h6>
-                                    <small class="text-muted" style="font-size:0.7rem;">Leads</small>
-                                </div>
+                <div class="col-lg-4 col-md-6 mb-3 winner-card">
+                    <div class="card glass-card border-0 h-100">
+                        <div class="card-body text-center p-4">
+                            <div class="mb-2"><span class="medal-emoji">${medalEmoji}</span></div>
+                            <div class="rank-badge ${rankClass} mx-auto mb-3">
+                                <span style="font-weight:900">${user.rank}</span>
                             </div>
-                            <div class="col-4">
-                                <div class="p-2 rounded" style="background:rgba(25,135,84,0.1);">
-                                    <h6 class="mb-0 fw-bold text-success">${user.leads_converted}</h6>
-                                    <small class="text-muted" style="font-size:0.7rem;">Converted</small>
+                            <h5 class="fw-bold mb-1">${user.name}</h5>
+                            <p class="text-muted small mb-3">
+                                <span class="badge bg-light text-dark">${formatRole(user.role)}</span>
+                                <span class="badge bg-light text-dark ms-1">${user.branch}</span>
+                            </p>
+                            <div class="row g-2 mb-3">
+                                ${!isStaff ? `
+                                <div class="col-4">
+                                    <div class="p-2 rounded" style="background:rgba(13,110,253,0.1)">
+                                        <h6 class="mb-0 fw-bold text-primary">${user.leads_created}</h6>
+                                        <small class="text-muted" style="font-size:0.7rem">Leads</small>
+                                    </div>
                                 </div>
-                            </div>` : ''}
-                            <div class="col-4">
-                                <div class="p-2 rounded" style="background:rgba(13,202,240,0.1);">
-                                    <h6 class="mb-0 fw-bold text-info">${user.jobs_approved}</h6>
-                                    <small class="text-muted" style="font-size:0.7rem;">Jobs Done</small>
+                                <div class="col-4">
+                                    <div class="p-2 rounded" style="background:rgba(25,135,84,0.1)">
+                                        <h6 class="mb-0 fw-bold text-success">${user.leads_converted}</h6>
+                                        <small class="text-muted" style="font-size:0.7rem">Converted</small>
+                                    </div>
                                 </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded" style="background:rgba(13,202,240,0.1)">
+                                        <h6 class="mb-0 fw-bold text-info">${user.jobs_approved}</h6>
+                                        <small class="text-muted" style="font-size:0.7rem">Jobs Done</small>
+                                    </div>
+                                </div>` : `
+                                <div class="col-12">
+                                    <div class="p-2 rounded" style="background:rgba(13,202,240,0.1)">
+                                        <h6 class="mb-0 fw-bold text-info">${user.jobs_approved}</h6>
+                                        <small class="text-muted" style="font-size:0.7rem">Jobs Done</small>
+                                    </div>
+                                </div>`}
+                                ${addonLine}
                             </div>
-                            ${addonLine}
-                        </div>
-                        ${ratingLine}
-                        <div class="value-highlight">
-                            <small class="text-muted d-block mb-1">Total Value</small>
-                            <h4 class="mb-0 fw-bold" style="color:#f59e0b;">₹${formatNumber(user.total_value)}</h4>
+                            <div class="value-highlight">
+                                <small class="text-muted d-block mb-1">Total Value</small>
+                                <h4 class="mb-0 fw-bold" style="color:#f59e0b">${formatNumber(user.total_value)}</h4>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>`;
+                </div>`;
         });
 
         $('#topPerformersContainer').html(html);
@@ -935,34 +923,54 @@ $(document).ready(function () {
 
         if (!leaderboard || leaderboard.length === 0) {
             $('#leaderboardTableBody').html(`
-                <tr><td colspan="13" class="text-center py-5">
-                    <i class="las la-inbox" style="font-size:3rem;color:#ccc;"></i>
-                    <p class="text-muted mt-2 mb-0">No activity data for this period</p>
-                </td></tr>`);
+                <tr>
+                    <td colspan="12" class="text-center py-5">
+                        <i class="las la-inbox" style="font-size:3rem;color:#ccc"></i>
+                        <p class="text-muted mt-2 mb-0">No activity data for this period</p>
+                    </td>
+                </tr>`);
             return;
+        }
+
+        const roleConfig = {
+            'superadmin'  : { bg: '#1e40af', light: '#eff6ff', icon: 'la-shield-alt', label: 'Super Admin'  },
+            'leadmanager' : { bg: '#065f46', light: '#ecfdf5', icon: 'la-user-tie',   label: 'Lead Manager' },
+            'telecallers' : { bg: '#92400e', light: '#fffbeb', icon: 'la-phone',      label: 'Telecaller'   },
+            'fieldstaff'  : { bg: '#1d4ed8', light: '#eff6ff', icon: 'la-hard-hat',   label: 'Field Staff'  },
+            'supervisor'  : { bg: '#6d28d9', light: '#f5f3ff', icon: 'la-user-cog',   label: 'Supervisor'   },
+            'worker'      : { bg: '#be185d', light: '#fdf2f8', icon: 'la-tools',      label: 'Worker'       },
+        };
+
+        function roleBadge(role) {
+            const rc = roleConfig[role] || { bg: '#475569', light: '#f1f5f9', icon: 'la-user', label: role };
+            return `<span style="
+                display:inline-flex;align-items:center;gap:0.3rem;
+                background:${rc.light};color:${rc.bg};
+                border:1px solid ${rc.bg}22;
+                padding:0.25rem 0.65rem;border-radius:999px;
+                font-size:0.75rem;font-weight:600;white-space:nowrap;">
+                <i class="las ${rc.icon}" style="font-size:0.85rem;"></i>${rc.label}
+            </span>`;
         }
 
         let html = '';
         leaderboard.forEach(user => {
-            const isStaff      = ['supervisor', 'worker'].includes(user.role);
-            const badgeClass   = user.conversion_rate >= 50 ? 'bg-success'
-                               : user.conversion_rate >= 25 ? 'bg-warning' : 'bg-danger';
+            const isStaff   = ['supervisor', 'worker'].includes(user.role);
+            const convBadge = user.conversion_rate >= 50 ? 'bg-success'
+                            : user.conversion_rate >= 25 ? 'bg-warning' : 'bg-danger';
 
-            // ── FIX 6: rank badge only shows medal for ranks 1-3 IF they exist
-            const rankHtml = `
-                <div class="rank-badge ${user.rank <= 3 ? 'rank-' + user.rank : 'rank-other'}"
-                     style="width:40px;height:40px;font-size:0.95rem;">
-                    ${user.rank}
-                </div>`;
+            const rankHtml = `<div class="rank-badge ${user.rank <= 3 ? 'rank-' + user.rank : 'rank-other'}"
+                style="width:40px;height:40px;font-size:0.95rem;">
+                <span style="font-weight:900">${user.rank}</span>
+            </div>`;
 
-            html += `
-            <tr>
+            html += `<tr>
                 <td>${rankHtml}</td>
                 <td>
                     <a href="/users/${user.id}" class="text-decoration-none fw-bold">${user.name}</a>
                     <br><small class="text-muted">${user.email}</small>
                 </td>
-                <td><span class="badge bg-secondary">${formatRole(user.role)}</span></td>
+                <td>${roleBadge(user.role)}</td>
                 <td>${user.branch}</td>
                 <td class="text-center">
                     ${!isStaff ? `<span class="badge bg-primary">${user.leads_created}</span>` : '<span class="text-muted">—</span>'}
@@ -971,20 +979,21 @@ $(document).ready(function () {
                     ${!isStaff ? `<span class="badge bg-success">${user.leads_converted}</span>` : '<span class="text-muted">—</span>'}
                 </td>
                 <td class="text-center">
-                    ${!isStaff ? `<span class="badge ${badgeClass}">${user.conversion_rate}%</span>` : '<span class="text-muted">—</span>'}
+                    ${!isStaff ? `<span class="badge ${convBadge}">${user.conversion_rate}%</span>` : '<span class="text-muted">—</span>'}
                 </td>
-                <td class="text-center"><span class="badge bg-info">${user.jobs_approved}</span></td>
-                <td class="text-end">₹${formatNumber(user.jobs_value)}</td>
+                <td class="text-center">
+                    <span class="badge bg-info">${user.jobs_approved}</span>
+                </td>
+                <td class="text-end">${formatNumber(user.jobs_value)}</td>
                 <td class="text-end">
-                    ${user.addon_value > 0
-                        ? `<span class="fw-semibold text-warning">₹${formatNumber(user.addon_value)}</span>`
-                        : '<span class="text-muted">—</span>'}
+                    ${user.addon_value > 0 ? `<span class="fw-semibold text-warning">${formatNumber(user.addon_value)}</span>` : '<span class="text-muted">—</span>'}
                 </td>
                 <td class="text-end">
-                    ${!isStaff ? `₹${formatNumber(user.leads_value)}` : '<span class="text-muted">—</span>'}
+                    ${!isStaff ? formatNumber(user.leads_value) : '<span class="text-muted">—</span>'}
                 </td>
-                <td class="text-end"><strong class="text-warning">₹${formatNumber(user.total_value)}</strong></td>
-                <td class="text-center">${renderStars(user.avg_rating)}</td>
+                <td class="text-end">
+                    <strong class="text-warning">${formatNumber(user.total_value)}</strong>
+                </td>
             </tr>`;
         });
 
