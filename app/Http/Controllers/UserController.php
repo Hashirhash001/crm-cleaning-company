@@ -215,6 +215,7 @@ class UserController extends Controller
         $completedJobsValue = $approvedAndCompletedJobs->where('status', 'completed')->sum('amount');
         $approvedJobsValue = $approvedAndCompletedJobs->where('status', 'approved')->sum('amount');
         $totalAmountCollected = $approvedAndCompletedJobs->sum('amount_paid');
+        $totalAddonValue      = $approvedAndCompletedJobs->sum('addon_price');
 
         $totalDueAmount = $approvedAndCompletedJobs->sum(function ($job) {
             return max(0, $job->amount - $job->amount_paid);
@@ -379,6 +380,7 @@ class UserController extends Controller
             'approvedLeadsList',
             'rejectedLeadsList',
             'convertedLeadsList',
+            'totalAddonValue',
             'supervisorJobsCount',
             'supervisorJobsValue',
             'supervisorAddonValue'
@@ -611,7 +613,6 @@ class UserController extends Controller
     {
         $user = auth()->user();
 
-        // Date range
         $period    = $request->get('period', 'month');
         $startDate = null;
         $endDate   = null;
@@ -658,34 +659,26 @@ class UserController extends Controller
                 $endDate   = Carbon::now();
         }
 
-        // ── FIX 1: lead_manager sees ALL branches ──────────────────────────────
         $usersQuery = User::where('is_active', true)
             ->whereNotIn('role', ['super_admin', 'lead_manager', 'worker']);
 
-        // super_admin sees everyone; lead_manager now also sees all branches
-        // (removed the branch restriction for lead_manager)
-
-        // Branch filter from request (both roles can use it)
         if ($request->filled('branch_id')) {
             $usersQuery->where('branch_id', $request->branch_id);
         }
 
-        // Role filter from request (new — lets the UI filter by role tab)
         if ($request->filled('role_filter')) {
             $usersQuery->where('role', $request->role_filter);
         }
 
         $users = $usersQuery->with('branch')->get();
 
-        // ── Build leaderboard ──────────────────────────────────────────────────
         $leaderboard = $users->map(function ($user) use ($startDate, $endDate) {
 
             $role = $user->role;
 
-            // ── Telecaller / Lead Manager metrics ─────────────────────────────
+            // ── Leads metrics (count only) ─────────────────────────────────────
             $leadsCreated   = 0;
             $leadsConverted = 0;
-            $leadsValue     = 0;
             $conversionRate = 0;
 
             if (in_array($role, ['telecallers', 'field_staff'])) {
@@ -694,43 +687,48 @@ class UserController extends Controller
                     ->count();
 
                 $leadsConverted = $user->createdLeads()
-                    ->where('status', 'approved')
-                    ->whereBetween('approved_at', [$startDate, $endDate])
+                    ->whereHas('jobs')
+                    ->whereBetween('created_at', [$startDate, $endDate])
                     ->count();
 
                 $conversionRate = $leadsCreated > 0
                     ? round($leadsConverted / $leadsCreated * 100, 2) : 0;
-
-                $leadsValue = $user->createdLeads()
-                    ->where('status', 'approved')
-                    ->whereBetween('approved_at', [$startDate, $endDate])
-                    ->sum('amount');
             }
 
-            // ── Jobs assigned to user (field_staff / telecaller) ───────────────
-            $jobsApproved = 0;
-            $jobsValue    = 0;
+            // ── Telecaller / Field Staff — assigned jobs ───────────────────────
+            $jobsApproved    = 0;
+            $jobsValue       = 0;
+            $telecallerAddon = 0;
 
             if (in_array($role, ['telecallers', 'field_staff'])) {
+                $jobDateFilter = function ($q) use ($startDate, $endDate) {
+                    $q->whereBetween('approved_at', [$startDate, $endDate])
+                    ->orWhereBetween('completed_at', [$startDate, $endDate]);
+                };
+
                 $jobsApproved = $user->assignedJobs()
                     ->whereIn('status', ['approved', 'completed'])
-                    ->whereBetween('approved_at', [$startDate, $endDate])
+                    ->where($jobDateFilter)
                     ->count();
 
                 $jobsValue = $user->assignedJobs()
                     ->whereIn('status', ['approved', 'completed'])
-                    ->whereBetween('approved_at', [$startDate, $endDate])
-                    ->sum('amount');
+                    ->where($jobDateFilter)
+                    ->sum('amount');  // base amount only
+
+                $telecallerAddon = $user->assignedJobs()
+                    ->whereIn('status', ['approved', 'completed'])
+                    ->where($jobDateFilter)
+                    ->sum('addon_price');  // addon separate
             }
 
-            // ── FIX 2: Supervisor / Worker — jobs from job_staff pivot ─────────
-            $staffJobsCount   = 0;
-            $staffJobsValue   = 0;
-            $staffAddonValue  = 0;   // ← NEW: addon_price contribution
-            $avgRating        = null;
+            // ── Supervisor — jobs from job_staff pivot ─────────────────────────
+            $staffJobsCount  = 0;
+            $staffJobsValue  = 0;
+            $staffAddonValue = 0;
+            $avgRating       = null;
 
             if (in_array($role, ['supervisor', 'worker'])) {
-                // Get completed/staff_pending job IDs this person was on
                 $staffJobIds = \App\Models\JobStaff::where('user_id', $user->id)
                     ->whereHas('job', function ($q) use ($startDate, $endDate) {
                         $q->whereIn('status', ['completed', 'staff_pending_approval'])
@@ -739,24 +737,20 @@ class UserController extends Controller
                     ->pluck('job_id');
 
                 $staffJobsCount  = $staffJobIds->count();
+                $staffJobsValue  = \App\Models\Job::whereIn('id', $staffJobIds)->sum('amount');       // base only
+                $staffAddonValue = \App\Models\Job::whereIn('id', $staffJobIds)->sum('addon_price');  // addon separate
+                $avgRating       = \App\Models\JobRating::whereIn('job_id', $staffJobIds)->avg('rating');
 
-                $staffJobsValue  = \App\Models\Job::whereIn('id', $staffJobIds)
-                    ->sum('amount');
-
-                // ── FIX 3: Add addon_price to supervisor/worker performance ────
-                $staffAddonValue = \App\Models\Job::whereIn('id', $staffJobIds)
-                    ->sum('addon_price');
-
-                // Average rating on jobs this staff member worked
-                $avgRating = \App\Models\JobRating::whereIn('job_id', $staffJobIds)
-                    ->avg('rating');
-
-                // Use for sorting / total value
                 $jobsApproved = $staffJobsCount;
-                $jobsValue    = $staffJobsValue + $staffAddonValue;
+                $jobsValue    = $staffJobsValue;  // base only
             }
 
-            $totalValue = $leadsValue + $jobsValue;
+            // ── Addon and Total ────────────────────────────────────────────────
+            $addonValue = in_array($role, ['telecallers', 'field_staff'])
+                ? $telecallerAddon
+                : $staffAddonValue;
+
+            $totalValue = $jobsValue + $addonValue;  // base + addon
 
             return [
                 'id'              => $user->id,
@@ -764,57 +758,57 @@ class UserController extends Controller
                 'email'           => $user->email,
                 'role'            => $user->role,
                 'branch'          => $user->branch->name ?? 'N/A',
-                'leads_created'   => $leadsCreated,
-                'leads_converted' => $leadsConverted,
-                'conversion_rate' => $conversionRate,
-                'jobs_approved'   => $jobsApproved,
-                'jobs_value'      => $jobsValue,
-                'addon_value'     => $staffAddonValue,   // ← NEW
-                'leads_value'     => $leadsValue,
-                'total_value'     => $totalValue,
-                'avg_rating'      => $avgRating ? round($avgRating, 1) : null,
-                'staff_jobs'      => $staffJobsCount,
+                'leads_created'   => (int)   $leadsCreated,
+                'leads_converted' => (int)   $leadsConverted,
+                'conversion_rate' => (float) $conversionRate,
+                'jobs_approved'   => (int)   $jobsApproved,
+                'jobs_value'      => (float) $jobsValue,   // base amount only
+                'addon_value'     => (float) $addonValue,  // addon only
+                'leads_value'     => 0,
+                'total_value'     => (float) $totalValue,  // base + addon
+                'avg_rating'      => $avgRating ? (float) round($avgRating, 1) : null,
+                'staff_jobs'      => (int)   $staffJobsCount,
             ];
         });
 
-        // ── FIX 4: Only rank users who have actual activity ────────────────────
-        // Filter out zero-activity users before ranking
         $activeLeaderboard = $leaderboard->filter(function ($u) {
             return $u['total_value'] > 0
                 || $u['leads_created'] > 0
                 || $u['jobs_approved'] > 0;
         });
 
-        // Sort by total value desc
         $sorted = $activeLeaderboard->sortByDesc('total_value')->values();
 
-        // Add rank only to active users
         $ranked = $sorted->map(function ($u, $index) {
             $u['rank'] = $index + 1;
             return $u;
         });
 
-        // Summary stats
+        // ── Accurate summary stats ─────────────────────────────────────────────
+        $totalLeadsCreated   = $ranked->sum('leads_created');
+        $totalLeadsConverted = $ranked->sum('leads_converted');
+
         $summary = [
-            'total_leads_created'   => $ranked->sum('leads_created'),
-            'total_leads_converted' => $ranked->sum('leads_converted'),
+            'total_leads_created'   => $totalLeadsCreated,
+            'total_leads_converted' => $totalLeadsConverted,
             'total_jobs_approved'   => $ranked->sum('jobs_approved'),
             'total_value'           => $ranked->sum('total_value'),
-            'avg_conversion_rate'   => $ranked->avg('conversion_rate') ?? 0,
+            'avg_conversion_rate'   => $totalLeadsCreated > 0
+                ? round($totalLeadsConverted / $totalLeadsCreated * 100, 2)
+                : 0,
         ];
 
-        // ── FIX 5: CSV Export ──────────────────────────────────────────────────
         if ($request->get('export') === 'csv') {
             return $this->exportPerformanceCsv($ranked, $startDate, $endDate, $period);
         }
 
         return response()->json([
-            'success'    => true,
+            'success'     => true,
             'leaderboard' => $ranked,
-            'summary'    => $summary,
-            'period'     => $period,
-            'start_date' => $startDate->format('Y-m-d'),
-            'end_date'   => $endDate->format('Y-m-d'),
+            'summary'     => $summary,
+            'period'      => $period,
+            'start_date'  => $startDate->format('Y-m-d'),
+            'end_date'    => $endDate->format('Y-m-d'),
         ]);
     }
 
@@ -834,10 +828,8 @@ class UserController extends Controller
         $callback = function () use ($leaderboard, $startDate, $endDate) {
             $file = fopen('php://output', 'w');
 
-            // UTF-8 BOM for Excel
             fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
-            // Header row
             fputcsv($file, [
                 'Rank',
                 'Name',
@@ -850,7 +842,6 @@ class UserController extends Controller
                 'Jobs/Work Orders',
                 'Jobs Value (₹)',
                 'Addon Value (₹)',
-                'Leads Value (₹)',
                 'Total Value (₹)',
                 'Period Start',
                 'Period End',
@@ -867,9 +858,8 @@ class UserController extends Controller
                     $u['leads_converted'],
                     $u['conversion_rate'],
                     $u['jobs_approved'],
-                    number_format($u['jobs_value'], 2, '.', ''),
+                    number_format($u['jobs_value'],  2, '.', ''),
                     number_format($u['addon_value'], 2, '.', ''),
-                    number_format($u['leads_value'], 2, '.', ''),
                     number_format($u['total_value'], 2, '.', ''),
                     $startDate->format('Y-m-d'),
                     $endDate->format('Y-m-d'),

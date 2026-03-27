@@ -481,6 +481,12 @@
             top: -30px;
         }
     }
+
+    .leaderboard-table tbody tr:first-child td {
+        border-top: none;
+        padding-top: 25px;
+    }
+
 </style>
 @endsection
 
@@ -636,13 +642,12 @@
                                     <th class="text-center">Jobs Done</th>
                                     <th class="text-end">Jobs Value</th>
                                     <th class="text-end">Addon Value</th>
-                                    <th class="text-end">Leads Value</th>
                                     <th class="text-end">Total Value</th>
                                 </tr>
                             </thead>
                             <tbody id="leaderboardTableBody">
                                 <tr>
-                                    <td colspan="12" class="text-center py-5">
+                                    <td colspan="11" class="text-center py-5">
                                         <div class="spinner-professional mx-auto"></div>
                                         <p class="text-muted mt-2">Loading rankings...</p>
                                     </td>
@@ -695,7 +700,7 @@ $(document).ready(function () {
 
     // ── Helpers ─────────────────────────────────────────────────────────────
     function formatNumber(n) {
-        return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        return (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
 
     function formatRole(role) {
@@ -733,7 +738,7 @@ $(document).ready(function () {
                 <p class="text-muted mt-3">Loading champions…</p>
             </div>`);
         $('#leaderboardTableBody').html(`
-            <tr><td colspan="13" class="text-center py-5">
+            <tr><td colspan="11" class="text-center py-5">
                 <div class="spinner-professional mx-auto"></div>
                 <p class="text-muted mt-2">Loading rankings…</p>
             </td></tr>`);
@@ -856,14 +861,6 @@ $(document).ready(function () {
             const medalEmoji  = medals[user.rank - 1] ?? '';
             const isStaff     = ['supervisor', 'worker'].includes(user.role);
 
-            const addonLine = isStaff && user.addon_value > 0 ? `
-                <div class="col-12 mt-1">
-                    <div class="p-2 rounded" style="background:rgba(245,158,11,0.1)">
-                        <small class="text-muted d-block" style="font-size:0.7rem">Addon Value</small>
-                        <small class="fw-bold text-warning">${formatNumber(user.addon_value)}</small>
-                    </div>
-                </div>` : '';
-
             html += `
                 <div class="col-lg-4 col-md-6 mb-3 winner-card">
                     <div class="card glass-card border-0 h-100">
@@ -877,7 +874,7 @@ $(document).ready(function () {
                                 <span class="badge bg-light text-dark">${formatRole(user.role)}</span>
                                 <span class="badge bg-light text-dark ms-1">${user.branch}</span>
                             </p>
-                            <div class="row g-2 mb-3">
+                            <div class="row g-2 mb-3 justify-content-center">
                                 ${!isStaff ? `
                                 <div class="col-4">
                                     <div class="p-2 rounded" style="background:rgba(13,110,253,0.1)">
@@ -897,13 +894,20 @@ $(document).ready(function () {
                                         <small class="text-muted" style="font-size:0.7rem">Jobs Done</small>
                                     </div>
                                 </div>` : `
-                                <div class="col-12">
+                                <div class="col-6">
                                     <div class="p-2 rounded" style="background:rgba(13,202,240,0.1)">
                                         <h6 class="mb-0 fw-bold text-info">${user.jobs_approved}</h6>
                                         <small class="text-muted" style="font-size:0.7rem">Jobs Done</small>
                                     </div>
                                 </div>`}
-                                ${addonLine}
+                                <div class="col-6">
+                                    <div class="p-2 rounded" style="background:rgba(245,158,11,0.1)">
+                                        <small class="text-muted d-block" style="font-size:0.7rem">Addon Value</small>
+                                        <small class="fw-bold ${user.addon_value > 0 ? 'text-warning' : 'text-muted'}">
+                                            ${formatNumber(user.addon_value)}
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
                             <div class="value-highlight">
                                 <small class="text-muted d-block mb-1">Total Value</small>
@@ -924,7 +928,7 @@ $(document).ready(function () {
         if (!leaderboard || leaderboard.length === 0) {
             $('#leaderboardTableBody').html(`
                 <tr>
-                    <td colspan="12" class="text-center py-5">
+                    <td colspan="11" class="text-center py-5">
                         <i class="las la-inbox" style="font-size:3rem;color:#ccc"></i>
                         <p class="text-muted mt-2 mb-0">No activity data for this period</p>
                     </td>
@@ -933,10 +937,10 @@ $(document).ready(function () {
         }
 
         const roleConfig = {
-            'superadmin'  : { bg: '#1e40af', light: '#eff6ff', icon: 'la-shield-alt', label: 'Super Admin'  },
-            'leadmanager' : { bg: '#065f46', light: '#ecfdf5', icon: 'la-user-tie',   label: 'Lead Manager' },
+            'super_admin'  : { bg: '#1e40af', light: '#eff6ff', icon: 'la-shield-alt', label: 'Super Admin'  },
+            'lead_manager' : { bg: '#065f46', light: '#ecfdf5', icon: 'la-user-tie',   label: 'Lead Manager' },
             'telecallers' : { bg: '#92400e', light: '#fffbeb', icon: 'la-phone',      label: 'Telecaller'   },
-            'fieldstaff'  : { bg: '#1d4ed8', light: '#eff6ff', icon: 'la-hard-hat',   label: 'Field Staff'  },
+            'field_staff'  : { bg: '#1d4ed8', light: '#eff6ff', icon: 'la-hard-hat',   label: 'Field Staff'  },
             'supervisor'  : { bg: '#6d28d9', light: '#f5f3ff', icon: 'la-user-cog',   label: 'Supervisor'   },
             'worker'      : { bg: '#be185d', light: '#fdf2f8', icon: 'la-tools',      label: 'Worker'       },
         };
@@ -986,10 +990,9 @@ $(document).ready(function () {
                 </td>
                 <td class="text-end">${formatNumber(user.jobs_value)}</td>
                 <td class="text-end">
-                    ${user.addon_value > 0 ? `<span class="fw-semibold text-warning">${formatNumber(user.addon_value)}</span>` : '<span class="text-muted">—</span>'}
-                </td>
-                <td class="text-end">
-                    ${!isStaff ? formatNumber(user.leads_value) : '<span class="text-muted">—</span>'}
+                    <span class="${user.addon_value > 0 ? 'fw-semibold text-warning' : 'text-muted'}">
+                        ${formatNumber(user.addon_value)}
+                    </span>
                 </td>
                 <td class="text-end">
                     <strong class="text-warning">${formatNumber(user.total_value)}</strong>

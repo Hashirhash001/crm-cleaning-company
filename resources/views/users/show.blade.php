@@ -288,6 +288,15 @@
                 </div>
             </div>
 
+            <div class="col-xl-3 col-md-6 mb-3">
+                <div class="card stat-card warning">
+                    <div class="card-body">
+                        <div class="metric-value text-warning">₹{{ number_format($totalAddonValue, 0) }}</div>
+                        <div class="metric-label">Total Addon Value</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Total Amount Collected -->
             <div class="col-xl-3 col-md-6 mb-3">
                 <div class="card stat-card success">
