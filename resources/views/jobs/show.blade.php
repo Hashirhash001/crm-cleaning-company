@@ -932,7 +932,7 @@
                                             </span>
                                         @endif
                                     </h5>
-                                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                                    @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
                                         <button class="btn btn-sm btn-primary action-button"
                                             data-bs-toggle="modal" data-bs-target="#addStaffModal">
                                             <i class="las la-plus me-1"></i>Add Staff

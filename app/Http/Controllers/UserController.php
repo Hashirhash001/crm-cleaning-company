@@ -659,8 +659,24 @@ class UserController extends Controller
                 $endDate   = Carbon::now();
         }
 
+        // ── Resolve job statuses from filter ──────────────────────────────────
+        $jobStatusFilter = $request->get('job_status', 'both');
+
+        $telecallerStatuses = match ($jobStatusFilter) {
+            'approved'  => ['approved'],
+            'completed' => ['completed'],
+            default     => ['approved', 'completed'],
+        };
+
+        $staffStatuses = match ($jobStatusFilter) {
+            'approved'  => [],  // supervisors/workers have no "approved" concept
+            'completed' => ['completed', 'staff_pending_approval'],
+            default     => ['completed', 'staff_pending_approval'],
+        };
+
+        // ── Users query ────────────────────────────────────────────────────────
         $usersQuery = User::where('is_active', true)
-            ->whereNotIn('role', ['super_admin', 'lead_manager', 'worker']);
+            ->whereNotIn('role', ['super_admin', 'lead_manager']); // workers included
 
         if ($request->filled('branch_id')) {
             $usersQuery->where('branch_id', $request->branch_id);
@@ -672,11 +688,11 @@ class UserController extends Controller
 
         $users = $usersQuery->with('branch')->get();
 
-        $leaderboard = $users->map(function ($user) use ($startDate, $endDate) {
+        $leaderboard = $users->map(function ($user) use ($startDate, $endDate, $telecallerStatuses, $staffStatuses) {
 
             $role = $user->role;
 
-            // ── Leads metrics (count only) ─────────────────────────────────────
+            // ── Leads metrics (telecallers & field_staff only) ─────────────────
             $leadsCreated   = 0;
             $leadsConverted = 0;
             $conversionRate = 0;
@@ -702,47 +718,79 @@ class UserController extends Controller
 
             if (in_array($role, ['telecallers', 'field_staff'])) {
                 $jobDateFilter = function ($q) use ($startDate, $endDate) {
-                    $q->whereBetween('approved_at', [$startDate, $endDate])
-                    ->orWhereBetween('completed_at', [$startDate, $endDate]);
+                    $q->where(function ($inner) use ($startDate, $endDate) {
+                        // Priority 1: use scheduled_date if it exists
+                        $inner->whereNotNull('scheduled_date')
+                            ->whereBetween('scheduled_date', [
+                                $startDate->toDateString(),
+                                $endDate->toDateString(),
+                            ]);
+                    })->orWhere(function ($inner) use ($startDate, $endDate) {
+                        // Fallback: no scheduled_date — use approved_at or completed_at
+                        $inner->whereNull('scheduled_date')
+                            ->where(function ($dates) use ($startDate, $endDate) {
+                                $dates->whereBetween('approved_at', [$startDate, $endDate])
+                                        ->orWhereBetween('completed_at', [$startDate, $endDate]);
+                            });
+                    });
                 };
 
                 $jobsApproved = $user->assignedJobs()
-                    ->whereIn('status', ['approved', 'completed'])
+                    ->whereIn('status', $telecallerStatuses)
                     ->where($jobDateFilter)
                     ->count();
 
                 $jobsValue = $user->assignedJobs()
-                    ->whereIn('status', ['approved', 'completed'])
+                    ->whereIn('status', $telecallerStatuses)
                     ->where($jobDateFilter)
-                    ->sum('amount');  // base amount only
+                    ->sum('amount');  // base only
 
                 $telecallerAddon = $user->assignedJobs()
-                    ->whereIn('status', ['approved', 'completed'])
+                    ->whereIn('status', $telecallerStatuses)
                     ->where($jobDateFilter)
                     ->sum('addon_price');  // addon separate
             }
 
-            // ── Supervisor — jobs from job_staff pivot ─────────────────────────
+            // ── Supervisor / Worker — jobs from job_staff pivot ────────────────
             $staffJobsCount  = 0;
             $staffJobsValue  = 0;
             $staffAddonValue = 0;
             $avgRating       = null;
 
             if (in_array($role, ['supervisor', 'worker'])) {
-                $staffJobIds = \App\Models\JobStaff::where('user_id', $user->id)
-                    ->whereHas('job', function ($q) use ($startDate, $endDate) {
-                        $q->whereIn('status', ['completed', 'staff_pending_approval'])
-                            ->whereBetween('completed_at', [$startDate, $endDate]);
-                    })
-                    ->pluck('job_id');
+                if (empty($staffStatuses)) {
+                    // "approved only" filter — supervisors/workers have no approved status
+                    $jobsApproved = 0;
+                    $jobsValue    = 0;
+                } else {
+                    $staffJobIds = \App\Models\JobStaff::where('user_id', $user->id)
+                        ->whereHas('job', function ($q) use ($startDate, $endDate, $staffStatuses) {
+                            $q->whereIn('status', $staffStatuses)
+                            ->where(function ($inner) use ($startDate, $endDate) {
+                                // Priority 1: use scheduled_date if it exists
+                                $inner->where(function ($s) use ($startDate, $endDate) {
+                                    $s->whereNotNull('scheduled_date')
+                                        ->whereBetween('scheduled_date', [
+                                            $startDate->toDateString(),
+                                            $endDate->toDateString(),
+                                        ]);
+                                // Fallback: no scheduled_date — use completed_at
+                                })->orWhere(function ($s) use ($startDate, $endDate) {
+                                    $s->whereNull('scheduled_date')
+                                        ->whereBetween('completed_at', [$startDate, $endDate]);
+                                });
+                            });
+                        })
+                        ->pluck('job_id');
 
-                $staffJobsCount  = $staffJobIds->count();
-                $staffJobsValue  = \App\Models\Job::whereIn('id', $staffJobIds)->sum('amount');       // base only
-                $staffAddonValue = \App\Models\Job::whereIn('id', $staffJobIds)->sum('addon_price');  // addon separate
-                $avgRating       = \App\Models\JobRating::whereIn('job_id', $staffJobIds)->avg('rating');
+                    $staffJobsCount  = $staffJobIds->count();
+                    $staffJobsValue  = \App\Models\Job::whereIn('id', $staffJobIds)->sum('amount');       // base only
+                    $staffAddonValue = \App\Models\Job::whereIn('id', $staffJobIds)->sum('addon_price');  // addon separate
+                    $avgRating       = \App\Models\JobRating::whereIn('job_id', $staffJobIds)->avg('rating');
 
-                $jobsApproved = $staffJobsCount;
-                $jobsValue    = $staffJobsValue;  // base only
+                    $jobsApproved = $staffJobsCount;
+                    $jobsValue    = $staffJobsValue;  // base only
+                }
             }
 
             // ── Addon and Total ────────────────────────────────────────────────

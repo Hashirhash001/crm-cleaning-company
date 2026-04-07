@@ -406,27 +406,6 @@
                         </li>
 
                         <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('followups.*') ? 'active' : '' }}"
-                               href="{{ route('followups.index') }}">
-                                <i class="iconoir-calendar menu-icon"></i>
-                                <span>Followups</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
-                            <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}"
-                               href="{{ route('jobs.index') }}">
-                                <i class="iconoir-task-list menu-icon"></i>
-                                <span>Work Orders
-                                    @php $myPendingJobs = \App\Models\Job::where('assigned_to',$user->id)->where('status','pending')->count(); @endphp
-                                    @if($myPendingJobs > 0)
-                                        <span class="badge bg-primary ms-1">{{ $myPendingJobs }}</span>
-                                    @endif
-                                </span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item">
                             <a class="nav-link {{ request()->routeIs('leads.whatsapp') ? 'active' : '' }}"
                                href="{{ route('leads.whatsapp') }}">
                                 <i class="lab la-whatsapp menu-icon"></i>
@@ -458,6 +437,35 @@
                             </a>
                         </li>
 
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('followups.*') ? 'active' : '' }}"
+                               href="{{ route('followups.index') }}">
+                                <i class="iconoir-calendar menu-icon"></i>
+                                <span>Followups</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('jobs.*') ? 'active' : '' }}"
+                               href="{{ route('jobs.index') }}">
+                                <i class="iconoir-task-list menu-icon"></i>
+                                <span>Work Orders
+                                    @php $myPendingJobs = \App\Models\Job::where('assigned_to',$user->id)->where('status','pending')->count(); @endphp
+                                    @if($myPendingJobs > 0)
+                                        <span class="badge bg-primary ms-1">{{ $myPendingJobs }}</span>
+                                    @endif
+                                </span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a class="nav-link {{ request()->routeIs('jobs.completed*') ? 'active' : '' }}"
+                               href="{{ route('jobs.completed') }}">
+                                <i class="iconoir-check-circle menu-icon"></i>
+                                <span>Completed Orders</span>
+                            </a>
+                        </li>
+
                         {{-- SECTION 3: Settings --}}
                         <li class="menu-label"><span>Settings</span></li>
 
@@ -468,7 +476,6 @@
                                 <span>Services</span>
                             </a>
                         </li>
-
 
                     {{-- ════════════════════════════════════════
                          FIELD STAFF
@@ -572,7 +579,6 @@
         </div>
     </div>
 </div>
-
 
 <!-- Scripts -->
 <script src="{{ asset('assets/libs/bootstrap/js/bootstrap.bundle.min.js') }}"></script>

@@ -1444,7 +1444,7 @@ class JobController extends Controller
                 ], 400);
             }
 
-            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager'])) {
+            if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
             }
 
@@ -1605,7 +1605,7 @@ class JobController extends Controller
     {
         $user = auth()->user();
 
-        if (!in_array($user->role, ['super_admin', 'lead_manager'])) {
+        if (!in_array($user->role, ['super_admin', 'lead_manager', 'telecallers'])) {
             abort(403, 'Unauthorized');
         }
 
@@ -1708,7 +1708,7 @@ class JobController extends Controller
             return response()->json(['success' => false, 'message' => 'Staff can only be added to completed work orders.'], 400);
         }
 
-        if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager'])) {
+        if (!in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers'])) {
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 

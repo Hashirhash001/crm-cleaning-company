@@ -564,6 +564,17 @@
                                 <option value="telecallers">Telecallers</option>
                                 <option value="field_staff">Field Staff</option>
                                 <option value="supervisor">Supervisors</option>
+                                <option value="worker">Workers</option>
+                            </select>
+                        </div>
+
+                        {{-- Job Status Filter --}}
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Job Status</label>
+                            <select class="form-select shadow-sm" id="jobStatusFilter" style="border-radius:10px;">
+                                <option value="both">Approved + Completed</option>
+                                <option value="approved">Approved Only</option>
+                                <option value="completed">Completed Only</option>
                             </select>
                         </div>
 
@@ -730,6 +741,7 @@ $(document).ready(function () {
             end_date  : $('#endDate').val(),
             branch_id : $('#branchFilter').val() || '',
             role_filter: $('#roleFilter').val() || '',
+            job_status  : $('#jobStatusFilter').val() || 'both',
         };
 
         $('#topPerformersContainer').html(`
@@ -768,6 +780,7 @@ $(document).ready(function () {
             end_date   : $('#endDate').val(),
             branch_id  : $('#branchFilter').val() || '',
             role_filter: $('#roleFilter').val() || '',
+            job_status  : $('#jobStatusFilter').val() || 'both',
             export     : 'csv',
         });
         window.location.href = "{{ route('users.performance.data') }}?" + params.toString();

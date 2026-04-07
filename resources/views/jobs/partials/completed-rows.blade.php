@@ -108,7 +108,7 @@
             </a>
 
             {{-- Add Staff --}}
-            @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+            @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager', 'telecallers']))
             <button type="button"
                 class="action-btn addStaffInlineBtn"
                 data-id="{{ $job->id }}"
