@@ -24,5 +24,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::post('/webhooks/google-ads', [GoogleAdsLeadController::class, 'handle']);
 
 // ── Website Contact Form ───────────────────────────────────────────────────
-Route::post('/webhooks/website-lead', [WebsiteLeadController::class, 'handle']);
+Route::post('/webhooks/website-lead', [WebsiteLeadController::class, 'handle']);                      // branch 2 (default)
+Route::post('/webhooks/website-lead/branch/{branchId}', [WebsiteLeadController::class, 'handle']);    // branch 1, 2, 3...
 
