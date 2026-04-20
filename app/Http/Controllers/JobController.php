@@ -48,6 +48,11 @@ class JobController extends Controller
             $query->where('status', $status);
         }
 
+        // Filter by assigned_to
+        if ($request->filled('assigned_to')) {
+            $query->where('assigned_to', $request->assigned_to);
+        }
+
         // Filter by branch
         if ($request->filled('branchid')) {
             $query->where('branch_id', $request->branchid);
@@ -119,7 +124,20 @@ class JobController extends Controller
         // Apply the sort scope
         $query->sort($sortColumn, $sortDirection);
 
-        // Paginate - This must be LAST
+        // ── Amount Summary ──────────────────────────────────────
+        $amountSummary = (clone $query)
+            ->toBase()
+            ->reorder()
+            ->selectRaw('
+                COUNT(DISTINCT jobs.id)                             AS total_jobs,
+                SUM(jobs.amount)                                    AS total_amount,
+                SUM(COALESCE(jobs.addon_price, 0))                  AS total_addon,
+                SUM(jobs.amount + COALESCE(jobs.addon_price, 0))    AS grand_total
+            ')
+            ->get()
+            ->first();
+
+        // Paginate - LAST
         $jobs = $query->paginate(15);
 
         // Calculate pending counts
@@ -168,11 +186,17 @@ class JobController extends Controller
                 'current_sort' => [
                     'column' => $sortColumn,
                     'direction' => $sortDirection
-                ]
+                ],
+                'amount_summary' => [
+                    'total_jobs'   => (int)   ($amountSummary->total_jobs   ?? 0),
+                    'total_amount' => (float) ($amountSummary->total_amount ?? 0),
+                    'total_addon'  => (float) ($amountSummary->total_addon  ?? 0),
+                    'grand_total'  => (float) ($amountSummary->grand_total  ?? 0),
+                ],
             ]);
         }
 
-        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'serviceTypes', 'field_staff', 'telecallers', 'supervisors', 'workers'));
+        return view('jobs.index', compact('jobs', 'pendingApproval', 'pendingJobs', 'branches', 'customers', 'services', 'serviceTypes', 'field_staff', 'telecallers', 'supervisors', 'workers', 'amountSummary'));
     }
 
     public function store(Request $request)
@@ -812,6 +836,14 @@ class JobController extends Controller
                     'success' => false,
                     'message' => 'Unauthorized to complete this job'
                 ], 403);
+            }
+
+            // ── Must have a scheduled date before completing ───────────────────
+            if (empty($job->scheduled_date)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot complete this work order. A scheduled date must be set before marking it as complete.',
+                ], 422);
             }
 
             // Only allow completion if status is "approved" (changed from "confirmed")

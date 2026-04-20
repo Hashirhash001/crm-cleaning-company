@@ -562,6 +562,34 @@
                                         @endforeach
                                     </select>
                                 </div>
+                                {{-- Assigned To Filter - only for super_admin, lead_manager --}}
+                                @if(in_array(auth()->user()->role, ['super_admin', 'lead_manager']))
+                                <div class="col-3">
+                                    <label class="form-label fw-semibold mb-2">Assigned To</label>
+                                    <select id="assignedToFilter" name="assigned_to" class="form-select" style="min-width: 160px;">
+                                        <option value="">All Staff</option>
+                                        @if($telecallers->count())
+                                            <optgroup label="Telecallers">
+                                                @foreach($telecallers as $tc)
+                                                    <option value="{{ $tc->id }}" {{ request('assigned_to') == $tc->id ? 'selected' : '' }}>
+                                                        {{ $tc->name }}
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endif
+                                        @if($field_staff->count())
+                                            <optgroup label="Field Staff">
+                                                @foreach($field_staff as $fs)
+                                                    <option value="{{ $fs->id }}" {{ request('assigned_to') == $fs->id ? 'selected' : '' }}>
+                                                        {{ $fs->name }}
+                                                    </option>
+                                                @endforeach
+                                            </optgroup>
+                                        @endif
+                                    </select>
+                                </div>
+                                @endif
+
                                 <!-- Search -->
                                 <div class="col">
                                     <label class="form-label fw-semibold mb-2">Search</label>
@@ -583,6 +611,48 @@
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Amount Summary Bar --}}
+        <div class="row mb-3" id="amountSummaryBar">
+            <div class="col-lg-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body py-3">
+                        <div class="row text-center g-3">
+                            <div class="col-6 col-md-3">
+                                <div class="border-end">
+                                    <div class="text-muted small fw-semibold">Total Jobs</div>
+                                    <div class="fs-5 fw-bold text-primary" id="summaryTotalJobs">
+                                        {{ number_format($amountSummary->total_jobs ?? 0) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border-end">
+                                    <div class="text-muted small fw-semibold">Base Amount</div>
+                                    <div class="fs-5 fw-bold text-success" id="summaryTotalAmount">
+                                        ₹{{ number_format($amountSummary->total_amount ?? 0, 2) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border-end">
+                                    <div class="text-muted small fw-semibold">Add-on Amount</div>
+                                    <div class="fs-5 fw-bold text-info" id="summaryTotalAddon">
+                                        ₹{{ number_format($amountSummary->total_addon ?? 0, 2) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="text-muted small fw-semibold">Grand Total</div>
+                                <div class="fs-5 fw-bold text-dark" id="summaryGrandTotal">
+                                    ₹{{ number_format($amountSummary->grand_total ?? 0, 2) }}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1625,6 +1695,7 @@
                 const serviceId = $('#serviceFilter').val();
                 const dateFrom = $('#dateFrom').val();
                 const dateTo = $('#dateTo').val();
+                const assignedTo = $('#assignedToFilter').val();
 
                 console.log('Loading jobs with:', {
                     search: searchTerm,
@@ -1644,6 +1715,7 @@
                         serviceid: serviceId,
                         datefrom: dateFrom,
                         dateto: dateTo,
+                        assigned_to: assignedTo,
                         sortcolumn: currentSort.column,
                         sortdirection: currentSort.direction,
                         page: page
@@ -1652,15 +1724,20 @@
                         $('#jobsTableBody').addClass('table-loading');
                     },
                     success: function(response) {
-                        console.log('Jobs loaded:', response.total, 'results');
                         $('#jobsTableBody').html(response.html);
                         $('#paginationContainer').html(response.pagination);
                         $('#jobCount').text(response.total);
-
-                        // Update sort indicators
                         updateSortIndicators(currentSort.column, currentSort.direction);
-
                         $('#jobsTableBody').removeClass('table-loading');
+
+                        // ── Update summary bar ─────────────────────────────────────────────
+                        if (response.amount_summary) {
+                            const s = response.amount_summary;
+                            $('#summaryTotalJobs').text(s.total_jobs.toLocaleString('en-IN'));
+                            $('#summaryTotalAmount').text('₹' + s.total_amount.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+                            $('#summaryTotalAddon').text('₹' + s.total_addon.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+                            $('#summaryGrandTotal').text('₹' + s.grand_total.toLocaleString('en-IN', {minimumFractionDigits: 2}));
+                        }
                     },
                     error: function(xhr) {
                         console.error('Error loading jobs:', xhr);
@@ -1711,7 +1788,7 @@
                 }, 500);
             });
 
-            $(document).on('change', '#statusFilter, #branchFilter, #serviceFilter, #dateFrom, #dateTo',
+            $(document).on('change', '#statusFilter, #branchFilter, #serviceFilter, #dateFrom, #dateTo, #assignedToFilter',
                 function() {
                     loadJobs();
             });

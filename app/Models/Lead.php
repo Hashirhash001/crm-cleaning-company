@@ -39,6 +39,7 @@ class Lead extends Model
         'approved_at',
         'approval_notes',
         'job_id',
+        'google_lead_id',
     ];
 
     protected $casts = [

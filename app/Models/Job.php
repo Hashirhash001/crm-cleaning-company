@@ -58,24 +58,26 @@ class Job extends Model
         return $date->format('Y-m-d');
     }
 
-    // NEW: Calculate balance amount
+    public function getTotalAmountAttribute()
+    {
+        return $this->amount + $this->addon_price;
+    }
+
     public function getBalanceAmountAttribute()
     {
-        return $this->amount - $this->amount_paid;
+        return $this->total_amount - $this->amount_paid;
     }
 
-    // NEW: Check if fully paid
     public function isFullyPaid()
     {
-        return $this->amount_paid >= $this->amount;
+        return $this->amount_paid >= $this->total_amount;
     }
 
-    // NEW: Get payment status
     public function getPaymentStatusAttribute()
     {
         if ($this->amount_paid <= 0) {
             return 'unpaid';
-        } elseif ($this->amount_paid >= $this->amount) {
+        } elseif ($this->amount_paid >= $this->total_amount) {
             return 'paid';
         } else {
             return 'partial';

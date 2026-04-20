@@ -31,4 +31,12 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'google_ads' => [
+        'webhook_key' => env('GOOGLE_ADS_WEBHOOK_KEY'),
+    ],
+
+    'website' => [
+        'webhook_key' => env('WEBSITE_WEBHOOK_KEY'),
+    ],
+
 ];
