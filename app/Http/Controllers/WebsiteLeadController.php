@@ -63,10 +63,12 @@ class WebsiteLeadController extends Controller
                 'email'          => $validated['email'] ?? null,
                 'address'        => $validated['address'] ?? null,
                 'lead_source_id' => $source->id,
-                'branch_id'      => $branchId,             // ← dynamic
+                'branch_id'      => $branchId,
                 'assigned_to'    => null,
                 'status'         => 'pending',
                 'description'    => $validated['message'] ?? null,
+                'created_by'     => null,
+                'service_type'   => 'other',
             ]);
 
             Log::info('Website lead created', [
