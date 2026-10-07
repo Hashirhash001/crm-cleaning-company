@@ -12,6 +12,10 @@ use App\Http\Controllers\FollowupController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LeadBulkImportController;
+use App\Http\Controllers\Recruitment\CandidateController;
+use App\Http\Controllers\Recruitment\DepartmentController as RecruitmentDepartmentController;
+use App\Http\Controllers\Recruitment\PositionController as RecruitmentPositionController;
+use App\Http\Controllers\Recruitment\ReportController as RecruitmentReportController;
 
 // Guest Routes
 Route::middleware('guest')->group(function () {
@@ -81,11 +85,16 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::post('/daily-budget', [SettingsController::class, 'updateDailyBudget'])->name('settings.updateDailyBudget');
+    Route::post('/settings/notification-popup', [SettingsController::class, 'updateNotificationSetting'])->name('settings.updateNotification');
 
     // Quick search for telecallers
     Route::get('/telecaller/quick-search', [LeadController::class, 'quickSearch'])
         ->name('telecaller.quick-search')
         ->middleware('auth');
+
+    // Notifications polling endpoint
+    Route::get('/api/notifications/check', [LeadController::class, 'checkNotifications'])
+        ->name('notifications.check');
 
     // Lead Management - SPECIFIC ROUTES MUST COME BEFORE RESOURCE ROUTE
 
@@ -169,6 +178,31 @@ Route::middleware(['auth', 'active'])->group(function () {
     ->name('jobs.export');
 
     Route::resource('jobs', JobController::class);
+
+    // ═══════════════════════════════════════
+    //  RECRUITMENT MODULE
+    // ═══════════════════════════════════════
+    Route::prefix('recruitment')->middleware('role:super_admin,lead_manager')->group(function () {
+        // Candidate bulk delete & export (must be before resource route)
+        Route::post('/candidates/bulk-delete', [CandidateController::class, 'bulkDelete'])->name('recruitment.candidates.bulk-delete');
+        Route::get('/candidates/export', [CandidateController::class, 'export'])->name('recruitment.candidates.export');
+
+        // Candidates CRUD
+        Route::resource('candidates', CandidateController::class)->names('recruitment.candidates');
+
+        // Departments CRUD
+        Route::resource('departments', RecruitmentDepartmentController::class)->names('recruitment.departments');
+
+        // Positions CRUD
+        Route::resource('positions', RecruitmentPositionController::class)->names('recruitment.positions');
+
+        // Positions by department (AJAX)
+        Route::get('/positions-by-department', [RecruitmentPositionController::class, 'getByDepartment'])->name('recruitment.positions.byDepartment');
+
+        // Reports
+        Route::get('/reports', [RecruitmentReportController::class, 'index'])->name('recruitment.reports');
+        Route::get('/reports/export', [RecruitmentReportController::class, 'export'])->name('recruitment.reports.export');
+    });
 });
 
 // Redirect root to login or dashboard

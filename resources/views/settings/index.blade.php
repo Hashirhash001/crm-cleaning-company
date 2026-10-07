@@ -241,6 +241,39 @@
                     </div>
                 </div>
 
+                <!-- Notification Popup Setting Card -->
+                <div class="settings-card mt-4">
+                    <div class="settings-header">
+                        <h5><i class="las la-bell me-2"></i>Popup Notification Settings</h5>
+                    </div>
+                    <div class="settings-body">
+                        <form id="notificationSettingForm">
+                            @csrf
+                            <div class="form-check form-switch form-switch-success d-flex align-items-center justify-content-between ps-0 mb-3">
+                                <div>
+                                    <label class="form-check-label fw-semibold text-dark mb-0" for="enable_popup_notifications">
+                                        Real-Time Popup Notifications
+                                    </label>
+                                    <p class="info-text mb-0">
+                                        Enable or disable real-time popup toasts on screen when new leads arrive.
+                                    </p>
+                                </div>
+                                <input class="form-check-input ms-3"
+                                       type="checkbox"
+                                       id="enable_popup_notifications"
+                                       name="enable_popup_notifications"
+                                       value="1"
+                                       style="width: 50px; height: 26px; cursor: pointer;"
+                                       {{ !empty($popupEnabled) ? 'checked' : '' }}>
+                            </div>
+
+                            <button type="submit" class="btn btn-update-budget w-100 mt-2">
+                                <i class="las la-save me-2"></i>Save Notification Settings
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Quick Stats Card -->
                 <div class="settings-card mt-4">
                     <div class="settings-body">
@@ -395,6 +428,42 @@ $(document).ready(function() {
                     icon: 'error',
                     title: 'Error!',
                     text: 'Failed to update budget limit',
+                    confirmButtonColor: '#dc3545'
+                });
+            }
+        });
+    });
+
+    $('#notificationSettingForm').on('submit', function(e) {
+        e.preventDefault();
+
+        const submitBtn = $(this).find('button[type="submit"]');
+        const originalText = submitBtn.html();
+
+        submitBtn.prop('disabled', true).html('<i class="las la-spinner la-spin me-2"></i>Saving...');
+
+        $.ajax({
+            url: '{{ route("settings.updateNotification") }}',
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: response.message,
+                    confirmButtonColor: '#667eea',
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            },
+            error: function(xhr) {
+                submitBtn.prop('disabled', false).html(originalText);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'Failed to update notification settings',
                     confirmButtonColor: '#dc3545'
                 });
             }

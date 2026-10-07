@@ -22,7 +22,33 @@ class SettingsController extends Controller
     public function index()
     {
         $dailyBudget = Setting::get('daily_budget_limit', 100000);
-        return view('settings.index', compact('dailyBudget'));
+        $popupEnabled = Setting::get('enable_popup_notifications', true);
+        return view('settings.index', compact('dailyBudget', 'popupEnabled'));
+    }
+
+    public function updateNotificationSetting(Request $request)
+    {
+        try {
+            $enabled = filter_var($request->input('enable_popup_notifications'), FILTER_VALIDATE_BOOLEAN);
+
+            Setting::set('enable_popup_notifications', $enabled ? '1' : '0', 'boolean');
+
+            Log::info('Notification popup setting updated', [
+                'enabled' => $enabled,
+                'updated_by' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Popup notification setting updated successfully!'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Update notification setting error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating notification setting'
+            ], 500);
+        }
     }
 
     public function updateDailyBudget(Request $request)

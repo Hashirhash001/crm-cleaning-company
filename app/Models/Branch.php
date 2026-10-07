@@ -12,7 +12,9 @@ class Branch extends Model
 
     protected $fillable = [
         'name',
-        'is_active'
+        'code',
+        'domain',
+        'is_active',
     ];
 
     protected $casts = [

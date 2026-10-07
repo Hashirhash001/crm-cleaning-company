@@ -2408,4 +2408,109 @@ class LeadController extends Controller
 
 
 
+    /**
+     * Check for new leads or new notes submitted recently (for real-time notification with sound & bell dropdown).
+     */
+    public function checkNotifications(Request $request)
+    {
+        $user = auth()->user();
+        $since = $request->input('since');
+        $fetchList = $request->input('fetch_list', false);
+
+        $events = collect();
+
+        // Only check for new incoming events if 'since' timestamp is explicitly passed from polling
+        if ($since) {
+            $sinceTime = \Carbon\Carbon::parse($since);
+
+            $query = Lead::with('branch')
+                ->where('created_at', '>', $sinceTime)
+                ->orderBy('created_at', 'desc');
+
+            if ($user && $user->role !== 'super_admin' && $user->branch_id) {
+                $query->where('branch_id', $user->branch_id);
+            }
+
+            $newLeads = $query->get()->map(function ($lead) {
+                return [
+                    'type'        => 'new_lead',
+                    'id'          => $lead->id,
+                    'lead_code'   => $lead->lead_code,
+                    'name'        => $lead->name,
+                    'phone'       => $lead->phone,
+                    'branch'      => $lead->branch->name ?? 'CTree',
+                    'created_at'  => $lead->created_at->toIso8601String(),
+                    'time_ago'    => $lead->created_at->diffForHumans(),
+                    'show_url'    => route('leads.show', $lead->id),
+                    'edit_url'    => route('leads.edit', $lead->id),
+                ];
+            });
+
+            // Also check for new notes on existing leads (e.g. returning customer submission)
+            $notesQuery = \App\Models\LeadNote::with(['lead', 'lead.branch'])
+                ->where('created_at', '>', $sinceTime)
+                ->where('note', 'LIKE', 'New Website Enquiry:%')
+                ->orderBy('created_at', 'desc');
+
+            if ($user && $user->role !== 'super_admin' && $user->branch_id) {
+                $notesQuery->whereHas('lead', function ($q) use ($user) {
+                    $q->where('branch_id', $user->branch_id);
+                });
+            }
+
+            $newNotes = $notesQuery->get()->map(function ($noteItem) {
+                $lead = $noteItem->lead;
+                return [
+                    'type'        => 'existing_lead_enquiry',
+                    'id'          => $lead->id ?? 0,
+                    'lead_code'   => $lead->lead_code ?? '',
+                    'name'        => $lead->name ?? 'Customer',
+                    'phone'       => $lead->phone ?? '',
+                    'note'        => $noteItem->note,
+                    'branch'      => $lead->branch->name ?? 'CTree',
+                    'created_at'  => $noteItem->created_at->toIso8601String(),
+                    'time_ago'    => $noteItem->created_at->diffForHumans(),
+                    'show_url'    => $lead ? route('leads.show', $lead->id) : '#',
+                    'edit_url'    => $lead ? route('leads.edit', $lead->id) : '#',
+                ];
+            });
+
+            $events = $newLeads->concat($newNotes);
+        }
+
+        // Fetch full recent notifications for the bell dropdown (last 15 items)
+        $recentNotifications = [];
+        if ($fetchList) {
+            $listLeadQuery = Lead::with('branch')->orderBy('created_at', 'desc')->limit(15);
+            if ($user && $user->role !== 'super_admin' && $user->branch_id) {
+                $listLeadQuery->where('branch_id', $user->branch_id);
+            }
+
+            $recentNotifications = $listLeadQuery->get()->map(function ($lead) {
+                return [
+                    'type'        => 'new_lead',
+                    'id'          => $lead->id,
+                    'lead_code'   => $lead->lead_code,
+                    'name'        => $lead->name,
+                    'phone'       => $lead->phone,
+                    'branch'      => $lead->branch->name ?? 'CTree',
+                    'created_at'  => $lead->created_at->toIso8601String(),
+                    'time_ago'    => $lead->created_at->diffForHumans(),
+                    'show_url'    => route('leads.show', $lead->id),
+                    'edit_url'    => route('leads.edit', $lead->id),
+                ];
+            });
+        }
+
+        $popupEnabled = \App\Models\Setting::get('enable_popup_notifications', true);
+
+        return response()->json([
+            'success'              => true,
+            'server_time'          => \Carbon\Carbon::now()->toIso8601String(),
+            'events'               => $events,
+            'recent_notifications' => $recentNotifications,
+            'popup_enabled'        => (bool)$popupEnabled,
+        ]);
+    }
+
 }
